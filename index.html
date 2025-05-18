@@ -33,16 +33,10 @@
   <script>
     let editor, pyodide;
     async function init() {
-      // CodeMirror 初期化
       editor = CodeMirror.fromTextArea(document.getElementById("code"), {
-        mode: "python",
-        lineNumbers: true,
-        indentUnit: 4,
-        tabSize: 4
+        mode: "python", lineNumbers: true, indentUnit: 4, tabSize: 4
       });
-      // Pyodide ロード
       pyodide = await loadPyodide({ indexURL: "https://cdn.jsdelivr.net/pyodide/v0.23.4/full/" });
-      // 実行ボタン有効化
       const runBtn = document.getElementById("run");
       runBtn.disabled = false;
       document.getElementById("output").textContent = "Ready!";
@@ -54,17 +48,23 @@
       outputEl.textContent = "実行中…";
       const userCode = editor.getValue();
 
-      // stdout を StringIO にキャプチャ
-      const wrapped = `import sys
+      // Python側で stdout, stderr をキャプチャし、エラーと出力をまとめて返す
+      const wrapped = `import sys, traceback
 from io import StringIO
-_buffer = StringIO()
-_sys_stdout = sys.stdout
-sys.stdout = _buffer
+_out_buf = StringIO()
+_err_buf = StringIO()
+_sys_stdout, _sys_stderr = sys.stdout, sys.stderr
+sys.stdout, sys.stderr = _out_buf, _err_buf
 try:
 ${userCode.split('\n').map(line => '    ' + line).join('\n')}
+except Exception:
+    traceback.print_exc(file=_err_buf)
 finally:
-    sys.stdout = _sys_stdout
-_buffer.getvalue()`;
+    sys.stdout, sys.stderr = _sys_stdout, _sys_stderr
+err = _err_buf.getvalue()
+out = _out_buf.getvalue()
+res = (err + out) if (err or out) else ''
+res`;
 
       try {
         const result = await pyodide.runPythonAsync(wrapped);
