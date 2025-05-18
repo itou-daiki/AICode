@@ -6,25 +6,38 @@
   <!-- CodeMirror CSS -->
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/codemirror@5.65.16/lib/codemirror.css" />
   <style>
-    body { margin: 0; display: flex; height: 100vh; font-family: sans-serif; }
+    body { margin: 0; display: flex; flex-direction: column; height: 100vh; font-family: sans-serif; }
+    header { background: #333; color: #fff; padding: 1em; text-align: center; }
+    main { display: flex; flex: 1; }
     #editor, #result { flex: 1; padding: 1em; box-sizing: border-box; overflow-y: auto; }
     #editor { background: #f9f9f9; border-right: 2px solid #ddd; }
     .CodeMirror { height: 80%; font-size: 14px; }
     button { margin-top: 1em; padding: 0.5em 1em; font-size: 1em; }
     #output { white-space: pre-wrap; background: #f0f0f0; padding: 1em; border-radius: 4px; margin-top: 1em; }
+    #problem-area { padding: 1em; background: #eef; border-bottom: 1px solid #ccd; }
   </style>
 </head>
 <body>
-  <div id="editor">
-    <h2>コードエディタ</h2>
-    <textarea id="code">print("Hello, Pyodide!")</textarea><br>
-    <button id="run" disabled>▶ 実行する</button>
+  <header>
+    <h1>シンプルPythonエディタ</h1>
+  </header>
+  <!-- 問題表示エリア -->
+  <div id="problem-area">
+    <h2>問題</h2>
+    <p>ここに問題文を表示します。</p>
   </div>
+  <main>
+    <div id="editor">
+      <h2>コードエディタ</h2>
+      <textarea id="code">print("Hello, Pyodide!")</textarea><br>
+      <button id="run" disabled>▶ 実行する</button>
+    </div>
 
-  <div id="result">
-    <h2>実行結果</h2>
-    <div id="output">ロード中…</div>
-  </div>
+    <div id="result">
+      <h2>実行結果</h2>
+      <div id="output">ロード中…</div>
+    </div>
+  </main>
 
   <!-- Pyodide and CodeMirror JS -->
   <script src="https://cdn.jsdelivr.net/npm/codemirror@5.65.16/lib/codemirror.js"></script>
