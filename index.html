@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
   <meta charset="UTF-8">
-  <title>easyCode</title>
+  <title>シンプルPythonエディタ</title>
   <!-- CodeMirror CSS -->
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/codemirror@5.65.16/lib/codemirror.css" />
   <style>
@@ -19,17 +19,19 @@
 </head>
 <body>
   <header>
-    <h1>easyCode</h1>
+    <h1>シンプルPythonエディタ</h1>
   </header>
+
   <!-- 問題表示エリア -->
   <div id="problem-area">
     <h2>問題</h2>
-    <p>ここに問題文を表示します。</p>
+    <p>ロード中…</p>
   </div>
+
   <main>
     <div id="editor">
       <h2>コードエディタ</h2>
-      <textarea id="code">print("Hello, Pyodide!")</textarea><br>
+      <textarea id="code"></textarea><br>
       <button id="run" disabled>▶ 実行する</button>
     </div>
 
@@ -44,16 +46,49 @@
   <script src="https://cdn.jsdelivr.net/npm/codemirror@5.65.16/mode/python/python.js"></script>
   <script src="https://cdn.jsdelivr.net/pyodide/v0.23.4/full/pyodide.js"></script>
   <script>
-    let editor, pyodide;
+    let editor, pyodide, currentProblem;
+    let problemFiles = [];
+
     async function init() {
+      // CodeMirror 初期化
       editor = CodeMirror.fromTextArea(document.getElementById("code"), {
         mode: "python", lineNumbers: true, indentUnit: 4, tabSize: 4
       });
+      // Pyodide ロード
       pyodide = await loadPyodide({ indexURL: "https://cdn.jsdelivr.net/pyodide/v0.23.4/full/" });
+
+      // 問題ファイル一覧を自動取得
+      try {
+        const resIndex = await fetch('problems/index.json');
+        const files = await resIndex.json();  // ['problem1.json','problem2.json',...]
+        problemFiles = files.map(f => `problems/${f}`);
+      } catch (e) {
+        console.error('問題ファイル一覧の読み込みに失敗:', e);
+      }
+
+      // 最初の問題を表示
+      if (problemFiles.length > 0) {
+        await loadProblem(0);
+      } else {
+        document.getElementById('problem-area').innerHTML = '<p>問題ファイルが見つかりません。</p>';
+      }
+
+      // 実行ボタン有効化
       const runBtn = document.getElementById("run");
       runBtn.disabled = false;
-      document.getElementById("output").textContent = "Ready!";
       runBtn.addEventListener("click", runCode);
+      document.getElementById("output").textContent = "Ready!";
+    }
+
+    async function loadProblem(index) {
+      const res = await fetch(problemFiles[index]);
+      const data = await res.json();
+      currentProblem = data;
+      // 問題表示
+      const area = document.getElementById("problem-area");
+      area.innerHTML = `<h2>問題: ${data.title}</h2><p>${data.description}</p>`;
+      // エディタ初期コード
+      editor.setValue(data.template || '');
     }
 
     async function runCode() {
@@ -61,7 +96,7 @@
       outputEl.textContent = "実行中…";
       const userCode = editor.getValue();
 
-      // Python側で stdout, stderr をキャプチャし、エラーと出力をまとめて返す
+      // 標準出力・エラーキャプチャラップ
       const wrapped = `import sys, traceback
 from io import StringIO
 _out_buf = StringIO()
@@ -74,9 +109,7 @@ except Exception:
     traceback.print_exc(file=_err_buf)
 finally:
     sys.stdout, sys.stderr = _sys_stdout, _sys_stderr
-err = _err_buf.getvalue()
-out = _out_buf.getvalue()
-res = (err + out) if (err or out) else ''
+res = _err_buf.getvalue() + _out_buf.getvalue()
 res`;
 
       try {
