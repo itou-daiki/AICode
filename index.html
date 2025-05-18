@@ -3,12 +3,8 @@
 <head>
   <meta charset="UTF-8">
   <title>シンプルPythonエディタ</title>
-  <!-- Pyodide -->
-  <script src="https://cdn.jsdelivr.net/pyodide/v0.23.4/full/pyodide.js"></script>
-  <!-- CodeMirror -->
+  <!-- CodeMirror CSS -->
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/codemirror@5.65.16/lib/codemirror.css" />
-  <script src="https://cdn.jsdelivr.net/npm/codemirror@5.65.16/lib/codemirror.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/codemirror@5.65.16/mode/python/python.js"></script>
   <style>
     body { margin: 0; display: flex; height: 100vh; font-family: sans-serif; }
     #editor, #result { flex: 1; padding: 1em; box-sizing: border-box; overflow-y: auto; }
@@ -22,19 +18,21 @@
   <div id="editor">
     <h2>コードエディタ</h2>
     <textarea id="code">print("Hello, Pyodide!")</textarea><br>
-    <button onclick="runCode()">▶ 実行する</button>
+    <button id="run" disabled>▶ 実行する</button>
   </div>
 
   <div id="result">
     <h2>実行結果</h2>
-    <div id="output">ここに結果が表示されます</div>
+    <div id="output">ロード中…</div>
   </div>
 
+  <!-- Pyodide and CodeMirror JS -->
+  <script src="https://cdn.jsdelivr.net/npm/codemirror@5.65.16/lib/codemirror.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/codemirror@5.65.16/mode/python/python.js"></script>
+  <script src="https://cdn.jsdelivr.net/pyodide/v0.23.4/full/pyodide.js"></script>
   <script>
-    let pyodideReady = loadPyodide();
-    let editor;
-
-    window.onload = () => {
+    let editor, pyodide;
+    async function init() {
       // CodeMirror 初期化
       editor = CodeMirror.fromTextArea(document.getElementById("code"), {
         mode: "python",
@@ -42,27 +40,33 @@
         indentUnit: 4,
         tabSize: 4
       });
-    };
+      // Pyodide ロード
+      pyodide = await loadPyodide({ indexURL: "https://cdn.jsdelivr.net/pyodide/v0.23.4/full/" });
+      // 実行ボタン有効化
+      const runBtn = document.getElementById("run");
+      runBtn.disabled = false;
+      document.getElementById("output").textContent = "Ready!";
+      runBtn.addEventListener("click", runCode);
+    }
 
     async function runCode() {
-      const outputElement = document.getElementById("output");
-      outputElement.textContent = "実行中…";
-
-      const pyodide = await pyodideReady;
-      let resultOutput = "";
-
-      // 標準出力・標準エラーのキャプチャ
-      pyodide.setStdout(text => { resultOutput += text + "\n"; });
-      pyodide.setStderr(text => { resultOutput += "エラー: " + text + "\n"; });
-
+      const output = document.getElementById("output");
+      output.textContent = "実行中…";
+      let result = "";
+      
+      // 標準出力・エラーをキャプチャ
+      pyodide.setStdout(text => { result += text; });
+      pyodide.setStderr(text => { result += "エラー: " + text; });
+      
       try {
-        // エディタのコードを実行
         await pyodide.runPythonAsync(editor.getValue());
-        outputElement.textContent = resultOutput.trim();
+        output.textContent = result || "(出力なし)";
       } catch (err) {
-        outputElement.textContent = "エラー: " + err;
+        output.textContent = "エラー: " + err;
       }
     }
+
+    init();
   </script>
 </body>
 </html>
