@@ -6,140 +6,82 @@
   <!-- CodeMirror CSS -->
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/codemirror@5.65.16/lib/codemirror.css" />
   <style>
-    body { margin: 1; display: flex; flex-direction: column; height: 100vh; font-family: sans-serif; }
-    header { background: #334; color: #fff; padding: 1em; text-align: center; }
-    main { display: flex; flex: 2; }
+    html, body { margin: 0; padding: 0; height: 100%; font-family: sans-serif; }
+    header { display: flex; justify-content: space-between; align-items: center;
+              background: #334; color: #fff; padding: 1em; }
+    #toggle-sidebar { background: #556; color: #fff; border: none; padding: 0.5em 1em; cursor: pointer; }
+    #container { display: flex; height: calc(100% - 64px); }
+    aside { width: 280px; background: #f4f4f4; padding: 1em; box-sizing: border-box;
+             overflow-y: auto; transform: translateX(-100%); transition: transform 0.3s ease; }
+    aside.open { transform: translateX(0); }
+    #content { flex: 1; display: flex; flex-direction: column; }
+    #problem-area { padding: 1em; background: #eef; border-bottom: 1px solid #ccd; }
+    #problem-nav select { margin-left: 0.5em; padding: 0.3em; }
+    main { display: flex; flex: 1; }
     #editor, #result { flex: 1; padding: 1em; box-sizing: border-box; overflow-y: auto; }
     #editor { background: #f9f9f9; border-right: 2px solid #ddd; }
     .CodeMirror { height: 80%; font-size: 14px; }
-    button { margin-top: 1em; padding: 0.5em 1em; font-size: 1em; }
-    #output { white-space: pre-wrap; background: #f0f0f0; padding: 1em; border-radius: 4px; margin-top: 1em; }
-    #problem-area { padding: 1em; background: #eef; border-bottom: 1px solid #ccd; }
-    #problem-nav { margin-bottom: 1em; }
-    #problem-nav select { padding: 0.5em; font-size: 1em; }
+    button { margin-top: 0.5em; padding: 0.5em 1em; font-size: 1em; }
+    #output { white-space: pre-wrap; background: #fff; padding: 1em; border: 1px solid #ccc; border-radius: 4px; height: calc(100% - 2em); overflow-y: auto; }
+    /* Sidebar sections */
+    #sidebar h2 { margin-top: 0; }
+    #sidebar input { width: 100%; box-sizing: border-box; margin-bottom: 0.5em; padding: 0.3em; }
+    #sidebar .section { margin-top: 1em; }
   </style>
 </head>
 <body>
   <header>
     <h1>シンプルPythonエディタ</h1>
+    <button id="toggle-sidebar">☰ コメント</button>
   </header>
 
-  <!-- 問題表示エリア -->
-  <div id="problem-area">
-    <div id="problem-nav">問題選択: <select id="problem-select"><option>読み込み中…</option></select></div>
-    <div id="problem-content"><p>ロード中…</p></div>
+  <div id="container">
+    <aside id="sidebar">
+      <h2>AI コメント</h2>
+      <div class="section">
+        <label>API Key:</label>
+        <input type="password" id="api-key" placeholder="sk-...">
+      </div>
+      <div class="section">
+        <button id="btn-explain">問題解説を生成</button>
+        <div id="explanation"></div>
+      </div>
+      <div class="section">
+        <button id="btn-review">コードレビューを実行</button>
+        <div id="review"></div>
+      </div>
+    </aside>
+
+    <div id="content">
+      <!-- 問題表示エリア -->
+      <div id="problem-area">
+        <label>問題選択:</label>
+        <select id="problem-select"><option>読み込み中…</option></select>
+        <div id="problem-content"><p>ロード中…</p></div>
+      </div>
+
+      <main>
+        <div id="editor">
+          <h2>コードエディタ</h2>
+          <textarea id="code"></textarea><br>
+          <button id="run" disabled>▶ 実行する</button>
+        </div>
+
+        <div id="result">
+          <h2>実行結果</h2>
+          <div id="output">ロード中…</div>
+        </div>
+      </main>
+    </div>
   </div>
 
-  <main>
-    <div id="editor">
-      <h2>コードエディタ</h2>
-      <textarea id="code"></textarea><br>
-      <button id="run" disabled>▶ 実行する</button>
-    </div>
-
-    <div id="result">
-      <h2>実行結果</h2>
-      <div id="output">ロード中…</div>
-    </div>
-  </main>
-
-  <!-- Pyodide and CodeMirror JS -->
+  <!-- JS Libraries -->
   <script src="https://cdn.jsdelivr.net/npm/codemirror@5.65.16/lib/codemirror.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/codemirror@5.65.16/mode/python/python.js"></script>
   <script src="https://cdn.jsdelivr.net/pyodide/v0.23.4/full/pyodide.js"></script>
-  <script>
-    let editor, pyodide, currentProblem;
-    let problemFiles = [];
-
-    async function init() {
-      // CodeMirror 初期化
-      editor = CodeMirror.fromTextArea(document.getElementById("code"), {
-        mode: "python", lineNumbers: true, indentUnit: 4, tabSize: 4
-      });
-      // Pyodide ロード
-      pyodide = await loadPyodide({ indexURL: "https://cdn.jsdelivr.net/pyodide/v0.23.4/full/" });
-
-      // フォルダ内の JSON ファイルを自動検出
-      try {
-        const res = await fetch('problems/');
-        const text = await res.text();
-        const parser = new DOMParser();
-        const doc = parser.parseFromString(text, 'text/html');
-        const links = Array.from(doc.querySelectorAll('a'));
-        problemFiles = links
-          .map(a => a.getAttribute('href'))
-          .filter(href => href && href.match(/\.json$/))
-          .map(json => `problems/${json}`);
-      } catch (e) {
-        console.error('問題ファイルの自動読み取りに失敗:', e);
-      }
-
-      const select = document.getElementById('problem-select');
-      select.innerHTML = '';
-      if (problemFiles.length === 0) {
-        document.getElementById('problem-content').innerHTML = '<p>問題ファイルが見つかりません。</p>';
-        return;
-      }
-      // 選択肢作成
-      problemFiles.forEach((path, idx) => {
-        const opt = document.createElement('option');
-        opt.value = idx;
-        opt.textContent = path.split('/').pop();
-        select.appendChild(opt);
-      });
-      select.addEventListener('change', () => loadProblem(select.value));
-
-      // 最初の問題読み込み
-      await loadProblem(0);
-
-      // 実行ボタン有効化
-      const runBtn = document.getElementById('run');
-      runBtn.disabled = false;
-      runBtn.addEventListener('click', runCode);
-      document.getElementById('output').textContent = 'Ready!';
-    }
-
-    async function loadProblem(index) {
-      const res = await fetch(problemFiles[index]);
-      const data = await res.json();
-      currentProblem = data;
-      // 問題表示
-      const content = document.getElementById('problem-content');
-      content.innerHTML = `<h2>問題: ${data.title}</h2><p>${data.description}</p>`;
-      // エディタ初期コード
-      editor.setValue(data.template || '');
-    }
-
-    async function runCode() {
-      const outputEl = document.getElementById('output');
-      outputEl.textContent = '実行中…';
-      const userCode = editor.getValue();
-
-      // stdout/stderr キャプチャ
-      const wrapped = `import sys, traceback
-from io import StringIO
-_out_buf = StringIO()
-_err_buf = StringIO()
-_sys_stdout, _sys_stderr = sys.stdout, sys.stderr
-sys.stdout, sys.stderr = _out_buf, _err_buf
-try:
-${userCode.split('\n').map(line => '    ' + line).join('\n')}
-except Exception:
-    traceback.print_exc(file=_err_buf)
-finally:
-    sys.stdout, sys.stderr = _sys_stdout, _sys_stderr
-res = _err_buf.getvalue() + _out_buf.getvalue()
-res`;
-
-      try {
-        const result = await pyodide.runPythonAsync(wrapped);
-        outputEl.textContent = result || '(出力なし)';
-      } catch (err) {
-        outputEl.textContent = 'エラー: ' + err;
-      }
-    }
-
-    init();
-  </script>
+  <!-- Module Scripts -->
+  <script src="module/editor.js" type="module"></script>
+  <script src="module/sidebar.js" type="module"></script>
+  <script src="module/ai.js" type="module"></script>
 </body>
 </html>
