@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <title>Python演習（競プロ風）</title>
+  <script src="https://cdn.jsdelivr.net/pyodide/v0.23.4/full/pyodide.js"></script>
+  <style>
+    textarea { width: 100%; height: 150px; font-family: monospace; }
+    #output { margin-top: 1em; white-space: pre-wrap; background: #eee; padding: 1em; }
+  </style>
+</head>
+<body>
+  <h2>問題1：1からNまでの合計</h2>
+  <p>入力：整数 N（例：5）<br>出力：1 から N までの合計（例：15）</p>
+
+  <textarea id="code">
+n = int(input())
+print(sum(range(1, n+1)))
+  </textarea><br>
+
+  <button onclick="runCode()">実行</button>
+  <div id="output">出力がここに表示されます</div>
+
+  <script>
+    let pyodideReady = loadPyodide();
+    const testInput = "5\n";
+    const expectedOutput = "15\n";
+
+    async function runCode() {
+      const outputElement = document.getElementById("output");
+      const code = document.getElementById("code").value;
+      outputElement.textContent = "実行中…";
+
+      const pyodide = await pyodideReady;
+
+      let userOutput = "";
+      pyodide.setStdout((text) => { userOutput += text + "\n"; });
+      pyodide.setStderr((text) => { userOutput += "エラー: " + text + "\n"; });
+
+      try {
+        await pyodide.runPythonAsync(`
+import sys
+from io import StringIO
+sys.stdin = StringIO("""${testInput}""")
+` + code);
+        userOutput = userOutput.trim() + "\n"; // 改行調整
+        outputElement.textContent = userOutput;
+        if (userOutput === expectedOutput) {
+          outputElement.textContent += "\n✅ 正解です！";
+        } else {
+          outputElement.textContent += "\n❌ 不正解です。期待される出力: \n" + expectedOutput;
+        }
+      } catch (err) {
+        outputElement.textContent = "実行エラー: " + err;
+      }
+    }
+  </script>
+</body>
+</html>
