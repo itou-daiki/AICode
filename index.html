@@ -50,19 +50,27 @@
     }
 
     async function runCode() {
-      const output = document.getElementById("output");
-      output.textContent = "実行中…";
-      let result = "";
-      
-      // 標準出力・エラーをキャプチャ
-      pyodide.setStdout(text => { result += text; });
-      pyodide.setStderr(text => { result += "エラー: " + text; });
-      
+      const outputEl = document.getElementById("output");
+      outputEl.textContent = "実行中…";
+      const userCode = editor.getValue();
+
+      // stdout を StringIO にキャプチャ
+      const wrapped = `import sys
+from io import StringIO
+_buffer = StringIO()
+_sys_stdout = sys.stdout
+sys.stdout = _buffer
+try:
+${userCode.split('\n').map(line => '    ' + line).join('\n')}
+finally:
+    sys.stdout = _sys_stdout
+_buffer.getvalue()`;
+
       try {
-        await pyodide.runPythonAsync(editor.getValue());
-        output.textContent = result || "(出力なし)";
+        const result = await pyodide.runPythonAsync(wrapped);
+        outputEl.textContent = result || "(出力なし)";
       } catch (err) {
-        output.textContent = "エラー: " + err;
+        outputEl.textContent = "エラー: " + err;
       }
     }
 
