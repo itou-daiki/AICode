@@ -1,16 +1,20 @@
 <!DOCTYPE html>
 <html lang="ja">
 <head>
-  <meta charset="UTF-8">
-  <title>Python実行環境 (Pyodide)</title>
+  <meta charset="UTF-8" />
+  <title>Python競プロ風実行環境</title>
+  <!-- Pyodide -->
   <script src="https://cdn.jsdelivr.net/pyodide/v0.23.4/full/pyodide.js"></script>
+  <!-- CodeMirror 6（行番号付き） -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/codemirror@5.65.16/lib/codemirror.css">
+  <script src="https://cdn.jsdelivr.net/npm/codemirror@5.65.16/lib/codemirror.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/codemirror@5.65.16/mode/python/python.js"></script>
   <style>
     body {
-      font-family: sans-serif;
       margin: 0;
-      padding: 0;
       display: flex;
       height: 100vh;
+      font-family: sans-serif;
     }
     #editor, #result {
       flex: 1;
@@ -25,10 +29,8 @@
     #result {
       background: #fff;
     }
-    textarea {
-      width: 100%;
+    .CodeMirror {
       height: 70%;
-      font-family: monospace;
       font-size: 14px;
     }
     button {
@@ -47,8 +49,8 @@
 <body>
   <div id="editor">
     <h2>問題: 1からNまでの合計</h2>
-    <p>入力例: <code>5</code><br>期待出力: <code>15</code></p>
-    <textarea id="code">
+    <p>入力例: <code>5</code> → 出力例: <code>15</code></p>
+    <textarea id="code" name="code">
 n = int(input())
 print(sum(range(1, n+1)))
     </textarea><br>
@@ -61,13 +63,21 @@ print(sum(range(1, n+1)))
   </div>
 
   <script>
+    // CodeMirror の初期化
+    const editor = CodeMirror.fromTextArea(document.getElementById("code"), {
+      mode: "python",
+      lineNumbers: true,
+      indentUnit: 4,
+      tabSize: 4,
+    });
+
     let pyodideReady = loadPyodide();
     const testInput = "5\n";
     const expectedOutput = "15\n";
 
     async function runCode() {
       const outputElement = document.getElementById("output");
-      const code = document.getElementById("code").value;
+      const code = editor.getValue();
       outputElement.textContent = "実行中…";
 
       const pyodide = await pyodideReady;
