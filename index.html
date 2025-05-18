@@ -1,79 +1,76 @@
 <!DOCTYPE html>
 <html lang="ja">
 <head>
-  <meta charset="UTF-8" />
-  <title>Python競プロ風実行環境</title>
-  <!-- Pyodide -->
+  <meta charset="UTF-8">
+  <title>Python学習環境</title>
   <script src="https://cdn.jsdelivr.net/pyodide/v0.23.4/full/pyodide.js"></script>
-  <!-- CodeMirror 6（行番号付き） -->
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/codemirror@5.65.16/lib/codemirror.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/codemirror@5.65.16/lib/codemirror.css" />
   <script src="https://cdn.jsdelivr.net/npm/codemirror@5.65.16/lib/codemirror.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/codemirror@5.65.16/mode/python/python.js"></script>
   <style>
-    body {
-      margin: 0;
-      display: flex;
-      height: 100vh;
-      font-family: sans-serif;
-    }
-    #editor, #result {
-      flex: 1;
-      padding: 1em;
-      box-sizing: border-box;
-      overflow-y: auto;
-    }
-    #editor {
-      background: #f9f9f9;
-      border-right: 2px solid #ddd;
-    }
-    #result {
-      background: #fff;
-    }
-    .CodeMirror {
-      height: 70%;
-      font-size: 14px;
-    }
-    button {
-      margin-top: 1em;
-      padding: 0.5em 1em;
-    }
-    #output {
-      margin-top: 1em;
-      white-space: pre-wrap;
-      background: #f0f0f0;
-      padding: 1em;
-      border-radius: 4px;
-    }
+    body { margin: 0; display: flex; height: 100vh; font-family: sans-serif; }
+    #editor, #result { flex: 1; padding: 1em; box-sizing: border-box; overflow-y: auto; }
+    #editor { background: #f9f9f9; border-right: 2px solid #ddd; }
+    .CodeMirror { height: 65%; font-size: 14px; }
+    select, button { margin-top: 1em; padding: 0.5em 1em; font-size: 1em; }
+    #output { white-space: pre-wrap; background: #f0f0f0; padding: 1em; border-radius: 4px; margin-top: 1em; }
   </style>
 </head>
 <body>
   <div id="editor">
-    <h2>問題: 1からNまでの合計</h2>
-    <p>入力例: <code>5</code> → 出力例: <code>15</code></p>
-    <textarea id="code" name="code">
-n = int(input())
-print(sum(range(1, n+1)))
-    </textarea><br>
+    <h2 id="problem-title">読み込み中…</h2>
+    <p id="problem-desc"></p>
+    <select id="problem-select"></select>
+    <textarea id="code"></textarea><br>
     <button onclick="runCode()">▶ 実行する</button>
   </div>
 
   <div id="result">
     <h2>実行結果</h2>
-    <div id="output">ここに結果が表示されます。</div>
+    <div id="output">ここに結果が表示されます</div>
   </div>
 
   <script>
-    // CodeMirror の初期化
-    const editor = CodeMirror.fromTextArea(document.getElementById("code"), {
-      mode: "python",
-      lineNumbers: true,
-      indentUnit: 4,
-      tabSize: 4,
-    });
-
+    const problemFiles = ["Base1", "Base2"]; // 問題ファイル名（拡張子なし）
     let pyodideReady = loadPyodide();
-    const testInput = "5\n";
-    const expectedOutput = "15\n";
+    let editor, problems = {}, currentProblem = null;
+
+    window.onload = async () => {
+      const select = document.getElementById("problem-select");
+
+      // ファイルごとに読み込み
+      for (const id of problemFiles) {
+        const res = await fetch(`problems/${id}.json`);
+        const data = await res.json();
+        problems[data.id] = data;
+
+        const option = document.createElement("option");
+        option.value = data.id;
+        option.textContent = data.title;
+        select.appendChild(option);
+      }
+
+      select.addEventListener("change", () => {
+        loadProblem(select.value);
+      });
+
+      // CodeMirror 初期化
+      editor = CodeMirror.fromTextArea(document.getElementById("code"), {
+        mode: "python",
+        lineNumbers: true,
+        indentUnit: 4,
+        tabSize: 4
+      });
+
+      loadProblem(problemFiles[0]); // 最初の問題を読み込む
+    };
+
+    function loadProblem(id) {
+      currentProblem = problems[id];
+      document.getElementById("problem-title").textContent = currentProblem.title;
+      document.getElementById("problem-desc").textContent = currentProblem.description;
+      editor.setValue(currentProblem.template);
+    }
 
     async function runCode() {
       const outputElement = document.getElementById("output");
@@ -90,15 +87,15 @@ print(sum(range(1, n+1)))
         await pyodide.runPythonAsync(`
 import sys
 from io import StringIO
-sys.stdin = StringIO("""${testInput}""")
+sys.stdin = StringIO("""${currentProblem.input}""")
 ` + code);
         resultOutput = resultOutput.trim() + "\n";
         outputElement.textContent = resultOutput;
 
-        if (resultOutput === expectedOutput) {
+        if (resultOutput === currentProblem.expected) {
           outputElement.textContent += "\n✅ 正解です！";
         } else {
-          outputElement.textContent += `\n❌ 不正解。\n期待出力: ${expectedOutput}`;
+          outputElement.textContent += `\n❌ 不正解。\n期待出力: ${currentProblem.expected}`;
         }
       } catch (err) {
         outputElement.textContent = "エラー: " + err;
