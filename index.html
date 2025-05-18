@@ -2,18 +2,18 @@
 <html lang="ja">
 <head>
   <meta charset="UTF-8">
-  <title>Python実行環境</title>
+  <title>Python学習環境</title>
   <script src="https://cdn.jsdelivr.net/pyodide/v0.23.4/full/pyodide.js"></script>
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/codemirror@5.65.16/lib/codemirror.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/codemirror@5.65.16/lib/codemirror.css" />
   <script src="https://cdn.jsdelivr.net/npm/codemirror@5.65.16/lib/codemirror.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/codemirror@5.65.16/mode/python/python.js"></script>
   <style>
     body { margin: 0; display: flex; height: 100vh; font-family: sans-serif; }
-    #editor, #result { flex: 1; padding: 1em; overflow-y: auto; box-sizing: border-box; }
-    #editor { background: #f8f8f8; border-right: 1px solid #ccc; }
-    .CodeMirror { height: 300px; font-size: 14px; }
-    select, button { margin-top: 1em; font-size: 1em; }
-    #output { margin-top: 1em; background: #f0f0f0; padding: 1em; white-space: pre-wrap; border-radius: 5px; }
+    #editor, #result { flex: 1; padding: 1em; box-sizing: border-box; overflow-y: auto; }
+    #editor { background: #f9f9f9; border-right: 2px solid #ddd; }
+    .CodeMirror { height: 65%; font-size: 14px; }
+    select, button { margin-top: 1em; padding: 0.5em 1em; font-size: 1em; }
+    #output { white-space: pre-wrap; background: #f0f0f0; padding: 1em; border-radius: 4px; margin-top: 1em; }
   </style>
 </head>
 <body>
@@ -24,58 +24,45 @@
     <textarea id="code"></textarea><br>
     <button onclick="runCode()">▶ 実行する</button>
   </div>
+
   <div id="result">
     <h2>実行結果</h2>
-    <div id="output">ここに結果が表示されます。</div>
+    <div id="output">ここに結果が表示されます</div>
   </div>
 
   <script>
-    let problems = {};
-    let currentProblem = null;
-    let editor;
+    const problemFiles = ["Base1", "Base2"]; // 問題ファイル名（拡張子なし）
     let pyodideReady = loadPyodide();
+    let editor, problems = {}, currentProblem = null;
 
     window.onload = async () => {
       const select = document.getElementById("problem-select");
 
-      // Base1 から順に取得
-      let i = 1;
-      while (true) {
-        try {
-          const res = await fetch(`problems/Base${i}.json`);
-          if (!res.ok) break;
-          const problem = await res.json();
-          problems[problem.id] = problem;
+      // ファイルごとに読み込み
+      for (const id of problemFiles) {
+        const res = await fetch(`problems/${id}.json`);
+        const data = await res.json();
+        problems[data.id] = data;
 
-          const option = document.createElement("option");
-          option.value = problem.id;
-          option.textContent = problem.title;
-          select.appendChild(option);
-          i++;
-        } catch (err) {
-          console.warn(`Base${i}.json の読み込みに失敗`, err);
-          break;
-        }
-      }
-
-      if (Object.keys(problems).length === 0) {
-        document.getElementById("problem-title").textContent = "問題が見つかりません。";
-        return;
+        const option = document.createElement("option");
+        option.value = data.id;
+        option.textContent = data.title;
+        select.appendChild(option);
       }
 
       select.addEventListener("change", () => {
         loadProblem(select.value);
       });
 
+      // CodeMirror 初期化
       editor = CodeMirror.fromTextArea(document.getElementById("code"), {
         mode: "python",
         lineNumbers: true,
-        tabSize: 4,
         indentUnit: 4,
+        tabSize: 4
       });
 
-      const firstId = Object.keys(problems)[0];
-      loadProblem(firstId);
+      loadProblem(problemFiles[0]); // 最初の問題を読み込む
     };
 
     function loadProblem(id) {
@@ -86,12 +73,13 @@
     }
 
     async function runCode() {
-      const outputDiv = document.getElementById("output");
+      const outputElement = document.getElementById("output");
       const code = editor.getValue();
-      outputDiv.textContent = "実行中…";
+      outputElement.textContent = "実行中…";
 
       const pyodide = await pyodideReady;
       let resultOutput = "";
+
       pyodide.setStdout((text) => { resultOutput += text + "\n"; });
       pyodide.setStderr((text) => { resultOutput += "エラー: " + text + "\n"; });
 
@@ -102,15 +90,15 @@ from io import StringIO
 sys.stdin = StringIO("""${currentProblem.input}""")
 ` + code);
         resultOutput = resultOutput.trim() + "\n";
-        outputDiv.textContent = resultOutput;
+        outputElement.textContent = resultOutput;
 
         if (resultOutput === currentProblem.expected) {
-          outputDiv.textContent += "\n✅ 正解です！";
+          outputElement.textContent += "\n✅ 正解です！";
         } else {
-          outputDiv.textContent += `\n❌ 不正解。\n期待出力:\n${currentProblem.expected}`;
+          outputElement.textContent += `\n❌ 不正解。\n期待出力: ${currentProblem.expected}`;
         }
       } catch (err) {
-        outputDiv.textContent = "⚠️ 実行エラー: " + err;
+        outputElement.textContent = "エラー: " + err;
       }
     }
   </script>
