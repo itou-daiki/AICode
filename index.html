@@ -15,6 +15,8 @@
     button { margin-top: 1em; padding: 0.5em 1em; font-size: 1em; }
     #output { white-space: pre-wrap; background: #f0f0f0; padding: 1em; border-radius: 4px; margin-top: 1em; }
     #problem-area { padding: 1em; background: #eef; border-bottom: 1px solid #ccd; }
+    #problem-nav { margin-bottom: 1em; }
+    #problem-nav select { padding: 0.5em; font-size: 1em; }
   </style>
 </head>
 <body>
@@ -24,8 +26,8 @@
 
   <!-- 問題表示エリア -->
   <div id="problem-area">
-    <h2>問題</h2>
-    <p>ロード中…</p>
+    <div id="problem-nav">問題選択: <select id="problem-select"><option>読み込み中…</option></select></div>
+    <div id="problem-content"><p>ロード中…</p></div>
   </div>
 
   <main>
@@ -57,27 +59,44 @@
       // Pyodide ロード
       pyodide = await loadPyodide({ indexURL: "https://cdn.jsdelivr.net/pyodide/v0.23.4/full/" });
 
-      // 問題ファイル一覧を自動取得
+      // フォルダ内の JSON ファイルを自動検出
       try {
-        const resIndex = await fetch('problems/index.json');
-        const files = await resIndex.json();  // ['problem1.json','problem2.json',...]
-        problemFiles = files.map(f => `problems/${f}`);
+        const res = await fetch('problems/');
+        const text = await res.text();
+        const parser = new DOMParser();
+        const doc = parser.parseFromString(text, 'text/html');
+        const links = Array.from(doc.querySelectorAll('a'));
+        problemFiles = links
+          .map(a => a.getAttribute('href'))
+          .filter(href => href && href.match(/\.json$/))
+          .map(json => `problems/${json}`);
       } catch (e) {
-        console.error('問題ファイル一覧の読み込みに失敗:', e);
+        console.error('問題ファイルの自動読み取りに失敗:', e);
       }
 
-      // 最初の問題を表示
-      if (problemFiles.length > 0) {
-        await loadProblem(0);
-      } else {
-        document.getElementById('problem-area').innerHTML = '<p>問題ファイルが見つかりません。</p>';
+      const select = document.getElementById('problem-select');
+      select.innerHTML = '';
+      if (problemFiles.length === 0) {
+        document.getElementById('problem-content').innerHTML = '<p>問題ファイルが見つかりません。</p>';
+        return;
       }
+      // 選択肢作成
+      problemFiles.forEach((path, idx) => {
+        const opt = document.createElement('option');
+        opt.value = idx;
+        opt.textContent = path.split('/').pop();
+        select.appendChild(opt);
+      });
+      select.addEventListener('change', () => loadProblem(select.value));
+
+      // 最初の問題読み込み
+      await loadProblem(0);
 
       // 実行ボタン有効化
-      const runBtn = document.getElementById("run");
+      const runBtn = document.getElementById('run');
       runBtn.disabled = false;
-      runBtn.addEventListener("click", runCode);
-      document.getElementById("output").textContent = "Ready!";
+      runBtn.addEventListener('click', runCode);
+      document.getElementById('output').textContent = 'Ready!';
     }
 
     async function loadProblem(index) {
@@ -85,18 +104,18 @@
       const data = await res.json();
       currentProblem = data;
       // 問題表示
-      const area = document.getElementById("problem-area");
-      area.innerHTML = `<h2>問題: ${data.title}</h2><p>${data.description}</p>`;
+      const content = document.getElementById('problem-content');
+      content.innerHTML = `<h2>問題: ${data.title}</h2><p>${data.description}</p>`;
       // エディタ初期コード
       editor.setValue(data.template || '');
     }
 
     async function runCode() {
-      const outputEl = document.getElementById("output");
-      outputEl.textContent = "実行中…";
+      const outputEl = document.getElementById('output');
+      outputEl.textContent = '実行中…';
       const userCode = editor.getValue();
 
-      // 標準出力・エラーキャプチャラップ
+      // stdout/stderr キャプチャ
       const wrapped = `import sys, traceback
 from io import StringIO
 _out_buf = StringIO()
@@ -114,9 +133,9 @@ res`;
 
       try {
         const result = await pyodide.runPythonAsync(wrapped);
-        outputEl.textContent = result || "(出力なし)";
+        outputEl.textContent = result || '(出力なし)';
       } catch (err) {
-        outputEl.textContent = "エラー: " + err;
+        outputEl.textContent = 'エラー: ' + err;
       }
     }
 
