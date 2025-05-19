@@ -5,6 +5,7 @@ export let currentProblem;
 export let editor;
 let pyodide;
 let problemFiles = [];
+let currentProblemIndex = 0;
 
 // 問題一覧を index.json から取得
 async function fetchProblemFiles() {
@@ -20,6 +21,7 @@ async function fetchProblemFiles() {
 
 // 問題を読み込み
 async function loadProblem(idx) {
+  currentProblemIndex = idx;
   const res = await fetch(problemFiles[idx]);
   const data = await res.json();
   currentProblem = data;
@@ -31,6 +33,25 @@ async function loadProblem(idx) {
   editor.setValue(data.template || '');
   document.getElementById('stdin').value = data.input || '';
   updateInputArea();
+  
+  // ナビゲーションボタンの状態を更新
+  document.getElementById('prev-problem').disabled = idx === 0;
+  document.getElementById('next-problem').disabled = idx === problemFiles.length - 1;
+  document.getElementById('current-problem-label').textContent = `問題${idx + 1}`;
+}
+
+// 前の問題に移動
+async function goToPrevProblem() {
+  if (currentProblemIndex > 0) {
+    await loadProblem(currentProblemIndex - 1);
+  }
+}
+
+// 次の問題に移動
+async function goToNextProblem() {
+  if (currentProblemIndex < problemFiles.length - 1) {
+    await loadProblem(currentProblemIndex + 1);
+  }
 }
 
 // コード実行
@@ -40,24 +61,32 @@ async function runCode() {
   const code = editor.getValue();
   const inputText = document.getElementById('stdin').value;
 
-  const wrapped = `import sys, traceback
+  try {
+    // シンプルな実行方法
+    const wrapped = `
+import sys, traceback
 from io import StringIO
+
 _out = StringIO()
 _err = StringIO()
-_orig_out, _orig_err, _orig_in = sys.stdout, sys.stderr, sys.stdin
-sys.stdout, sys.stderr, sys.stdin = _out, _err, StringIO(${JSON.stringify(inputText)})
+_orig_stdout, _orig_stderr = sys.stdout, sys.stderr
+sys.stdout, sys.stderr = _out, _err
+
+# 標準入力を設定
+if len("""${inputText}""".strip()) > 0:
+    import io
+    sys.stdin = io.StringIO("""${inputText}""")
+
 try:
-${code.split(`
-`).map(l => '    '+l).join(`
-`)}
+${code.split('\n').map(l => '    '+l).join('\n')}
 except Exception:
     traceback.print_exc(file=_err)
 finally:
-    sys.stdout, sys.stderr, sys.stdin = _orig_out, _orig_err, _orig_in
-res = _err.getvalue() + _out.getvalue()
-res`;
+    sys.stdout, sys.stderr = _orig_stdout, _orig_stderr
 
-  try {
+_out.getvalue() + _err.getvalue()
+`;
+
     const result = await pyodide.runPythonAsync(wrapped);
     outputEl.textContent = result || '(出力なし)';
   } catch (err) {
@@ -80,13 +109,10 @@ export async function initEditor() {
   editor.on('change', updateInputArea);
 
   problemFiles = await fetchProblemFiles();
-  const select = document.getElementById('problem-select');
-  select.innerHTML = '';
-  problemFiles.forEach((path, i) => {
-    const opt = document.createElement('option'); opt.value = i;
-    opt.textContent = path.split('/').pop(); select.appendChild(opt);
-  });
-  select.addEventListener('change', () => loadProblem(select.value));
+  
+  // 問題ナビゲーションボタンのイベントリスナーを設定
+  document.getElementById('prev-problem').addEventListener('click', goToPrevProblem);
+  document.getElementById('next-problem').addEventListener('click', goToNextProblem);
 
   if (problemFiles.length) await loadProblem(0);
 

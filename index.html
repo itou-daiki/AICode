@@ -30,10 +30,27 @@
       font-size: 1.5em;
       cursor: pointer;
     }
-    #problem-select {
-      padding: 0.3em;
+    .problem-nav {
+      display: flex;
+      align-items: center;
+      gap: 0.5em;
+    }
+    .problem-nav button {
+      background: #3498db;
+      color: #fff;
+      border: none;
       border-radius: 4px;
-      border: 1px solid #bdc3c7;
+      padding: 0.3em 0.6em;
+      cursor: pointer;
+      font-size: 0.8em;
+    }
+    .problem-nav button:disabled {
+      background: #95a5a6;
+      cursor: not-allowed;
+    }
+    #current-problem-label {
+      font-weight: bold;
+      padding: 0 0.5em;
     }
     header h1 {
       position: absolute;
@@ -64,15 +81,20 @@
       visibility: hidden;
     }
     aside {
-      flex: 0 0 0;
+      width: 0;
+      padding: 0;
       background: #ecf0f1;
-      padding: 1em;
       box-sizing: border-box;
       overflow-y: auto;
-      transition: flex-basis 0.3s ease;
+      overflow-x: hidden;
+      transition: all 0.3s ease;
+      border-right: 1px solid transparent;
+    }
+    aside.open { 
+      width: 280px;
+      padding: 1em;
       border-right: 1px solid #bdc3c7;
     }
-    aside.open { flex-basis: 280px; }
     #content {
       flex: 1;
       display: flex;
@@ -162,7 +184,11 @@
   <header>
     <div id="header-left">
       <button id="toggle-sidebar">☰</button>
-      <select id="problem-select"></select>
+      <div class="problem-nav">
+        <button id="prev-problem" disabled>&lt; 前の問題</button>
+        <span id="current-problem-label">問題1</span>
+        <button id="next-problem">次の問題 &gt;</button>
+      </div>
     </div>
     <h1>easyCode</h1>
   </header>
@@ -174,19 +200,18 @@
 
   <div id="container">
     <aside id="sidebar">
-      <h2>AI コメント</h2>
+      <h2>AIサポート</h2>
       <div class="section">
-        <label>API Key:</label>
-        <input type="password" id="api-key" placeholder="sk-...">
+        <p>AIを活用して学習を進めましょう！</p>
       </div>
       <div class="section">
-        <button id="btn-explain">問題解説を生成</button>
+        <button id="btn-explain">問題の解説を見る</button>
       </div>
       <div class="section">
         <div id="explanation"></div>
       </div>
       <div class="section">
-        <button id="btn-review">コードレビューを実行</button>
+        <button id="btn-review">コードレビューを受ける</button>
       </div>
       <div class="section">
         <div id="review"></div>

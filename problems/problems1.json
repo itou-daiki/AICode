@@ -1,8 +1,8 @@
 {
   "id": "problem1",
-  "title": "Hello, World!",
-  "description": "文字列 'Hello, World!' を出力してください。",
+  "title": "プログラミングの第一歩",
+  "description": "プログラミングの世界へようこそ！最初のステップとして、画面に「Hello, World!」というメッセージを表示するプログラムを作成しましょう。\n\nこの「Hello, World!」は、プログラミング言語を学ぶ際の伝統的な最初のプログラムです。print関数を使って、文字列を出力することができます。",
   "input": "",
   "expected": "Hello, World!\n",
-  "template": "print(\"Hello, World!\")"
+  "template": "# print関数を使って「Hello, World!」と表示してみましょう\n\n"
 }
