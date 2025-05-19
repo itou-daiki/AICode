@@ -2,7 +2,7 @@
 import { currentProblem, editor } from './editor.js';
 
 // Gemini APIの設定
-const GEMINI_API_URL = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent';
+const GEMINI_API_URL = 'https://generativelanguage.googleapis.com/v1/models/gemini-1.5-pro:generateContent';
 let apiKey = localStorage.getItem('gemini_api_key') || '';
 
 // APIキー保存処理の初期化
@@ -81,10 +81,15 @@ ${currentProblem.description}を解決するためのステップ:
       },
       body: JSON.stringify({
         contents: [{
+          role: 'user',
           parts: [{
             text: prompt
           }]
-        }]
+        }],
+        generationConfig: {
+          temperature: 0.7,
+          maxOutputTokens: 2048
+        }
       })
     });
 
@@ -95,7 +100,14 @@ ${currentProblem.description}を解決するためのステップ:
     }
     
     // レスポンスからテキストを抽出
-    return data.candidates[0].content.parts[0].text;
+    if (data.candidates && data.candidates.length > 0 && 
+        data.candidates[0].content && data.candidates[0].content.parts && 
+        data.candidates[0].content.parts.length > 0) {
+      return data.candidates[0].content.parts[0].text;
+    } else {
+      console.error('予期しないレスポンス形式:', data);
+      return 'APIからの応答を処理できませんでした。';
+    }
   } catch (e) {
     console.error('AI呼び出しエラー', e);
     return `エラー: ${e.message}`;
