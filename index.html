@@ -178,6 +178,43 @@
       padding: 0.5em;
       font-family: monospace;
     }
+    
+    /* APIキーフォームのスタイル */
+    #api-key-form {
+      margin-top: 1em;
+      padding: 1em;
+      background: #f7f9fa;
+      border: 1px solid #dfe6e9;
+      border-radius: 4px;
+    }
+    #api-key-form label {
+      display: block;
+      margin-bottom: 0.5em;
+      font-weight: bold;
+    }
+    #api-key-form input {
+      width: 100%;
+      padding: 0.5em;
+      margin-bottom: 0.5em;
+      border: 1px solid #dfe6e9;
+      border-radius: 4px;
+      box-sizing: border-box;
+    }
+    #api-key-form button {
+      background: #3498db;
+      color: #fff;
+      border: none;
+      border-radius: 4px;
+      padding: 0.5em 1em;
+      cursor: pointer;
+    }
+    #api-key-form button:hover {
+      background: #2980b9;
+    }
+    #api-key-status {
+      margin-top: 0.5em;
+      font-size: 0.9em;
+    }
   </style>
 </head>
 <body>
@@ -203,6 +240,12 @@
       <h2>AIサポート</h2>
       <div class="section">
         <p>AIを活用して学習を進めましょう！</p>
+        <div id="api-key-form">
+          <label for="api-key">Gemini APIキー:</label>
+          <input type="password" id="api-key" placeholder="APIキーを入力">
+          <button id="save-api-key">保存</button>
+          <div id="api-key-status"></div>
+        </div>
       </div>
       <div class="section">
         <button id="btn-explain">問題の解説を見る</button>

@@ -1,16 +1,47 @@
 // module/ai.js
 import { currentProblem, editor } from './editor.js';
 
-// Geminiを使用した無料のAI統合
-// 注: このデモでは、サーバーサイドプロキシを使用してAPIキーを隠すことを想定しています
-const GEMINI_PROXY_ENDPOINT = '/api/gemini';
+// Gemini APIの設定
+const GEMINI_API_URL = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent';
+let apiKey = localStorage.getItem('gemini_api_key') || '';
+
+// APIキー保存処理の初期化
+function initApiKeyForm() {
+  const apiKeyInput = document.getElementById('api-key');
+  const saveButton = document.getElementById('save-api-key');
+  const statusDiv = document.getElementById('api-key-status');
+  
+  // 保存済みのAPIキーがあれば表示
+  if (apiKey) {
+    apiKeyInput.value = apiKey;
+    statusDiv.textContent = 'APIキーが設定されています';
+    statusDiv.style.color = 'green';
+  }
+  
+  // 保存ボタンのイベントリスナー
+  saveButton.addEventListener('click', () => {
+    const newApiKey = apiKeyInput.value.trim();
+    if (newApiKey) {
+      apiKey = newApiKey;
+      localStorage.setItem('gemini_api_key', apiKey);
+      statusDiv.textContent = 'APIキーを保存しました';
+      statusDiv.style.color = 'green';
+    } else {
+      statusDiv.textContent = 'APIキーを入力してください';
+      statusDiv.style.color = 'red';
+    }
+  });
+}
+
+// ページ読み込み時にAPIキーフォームを初期化
+window.addEventListener('DOMContentLoaded', initApiKeyForm);
 
 async function callGemini(prompt) {
   try {
-    // 実際の実装では、サーバーサイドプロキシを使用してAPIキーを保護します
-    // このデモでは、ローカルでの動作を想定して簡易的な実装をしています
-    const demoResponses = {
-      'explain': `# ${currentProblem.title} の解説
+    // APIキーがない場合はデモレスポンスを返す
+    if (!apiKey) {
+      const demoResponses = {
+        'explain': `# ${currentProblem.title} の解説
 
 ${currentProblem.description}を解決するためのステップ:
 
@@ -20,8 +51,8 @@ ${currentProblem.description}を解決するためのステップ:
 4. テストする: 入力例で動作確認しましょう
 
 このプログラムは基本的なPythonの知識で解決できます。頑張ってください！`,
-      
-      'review': `# コードレビュー
+        
+        'review': `# コードレビュー
 
 良い点:
 - コードの構造が明確です
@@ -32,25 +63,39 @@ ${currentProblem.description}を解決するためのステップ:
 - エラー処理を追加するとより堅牢になります
 
 全体的に良いコードです。引き続き頑張ってください！`
-    };
+      };
 
-    // 実際のAPIコールの代わりにデモレスポンスを返す
-    if (prompt.includes('解説')) {
-      return demoResponses.explain;
-    } else {
-      return demoResponses.review;
+      // デモレスポンスを返す
+      if (prompt.includes('解説')) {
+        return demoResponses.explain;
+      } else {
+        return demoResponses.review;
+      }
     }
 
-    /* 実際のGemini API呼び出しは以下のようになります（サーバーサイドプロキシ経由）
-    const res = await fetch(GEMINI_PROXY_ENDPOINT, {
+    // APIキーがある場合は実際にGemini APIを呼び出す
+    const response = await fetch(`${GEMINI_API_URL}?key=${apiKey}`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ prompt })
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        contents: [{
+          parts: [{
+            text: prompt
+          }]
+        }]
+      })
     });
-    const data = await res.json();
-    if (!res.ok) throw new Error(data.error || res.statusText);
-    return data.response || '応答が得られませんでした。';
-    */
+
+    const data = await response.json();
+    
+    if (!response.ok) {
+      throw new Error(data.error?.message || response.statusText);
+    }
+    
+    // レスポンスからテキストを抽出
+    return data.candidates[0].content.parts[0].text;
   } catch (e) {
     console.error('AI呼び出しエラー', e);
     return `エラー: ${e.message}`;
