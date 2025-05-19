@@ -6,6 +6,7 @@
   <!-- CodeMirror CSS -->
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/codemirror@5.65.16/lib/codemirror.css" />
   <style>
+    :root { --header-height: 64px; }
     html, body { margin: 0; padding: 0; height: 100%; font-family: sans-serif; overflow: hidden; }
     header { display: flex; justify-content: space-between; align-items: center;
               background: #334; color: #fff; padding: 1em; }
@@ -20,8 +21,8 @@
     .spinner { border: 8px solid #f3f3f3; border-top: 8px solid #333; border-radius: 50%;
                width: 60px; height: 60px; animation: spin 1s linear infinite; }
     @keyframes spin { 100% { transform: rotate(360deg); } }
-    #container { display: flex; height: calc(100% - 64px); visibility: hidden; }
-    aside { width: 280px; background: #f4f4f4; padding: 1em; box-sizing: border-box;
+    #container { display: flex; height: calc(100% - var(--header-height)); visibility: hidden; } }
+    aside { width: 280px; background: #f4f4f4; padding: 1em; box-sizing: border-box; position: absolute; left: 0; top: var(--header-height); bottom: 0;
              overflow-y: auto; position: absolute; left: 0; top: 64px; bottom: 0;
              transform: translateX(-100%); transition: transform 0.3s ease; z-index: 500; }
     aside.open { transform: translateX(0); }
