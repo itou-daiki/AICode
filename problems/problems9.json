@@ -1,0 +1,8 @@
+{
+  "id": "problem9",
+  "title": "最大値を探そう",
+  "description": "3つの整数を受け取り、最大値を出力してください。",
+  "input": "4 9 2\n",
+  "expected": "9\n",
+  "template": "a, b, c = map(int, input().split())\nprint(max(a, b, c))"
+}

@@ -1,0 +1,8 @@
+{
+  "id": "problem3",
+  "title": "2つの数字の足し算",
+  "description": "2つの整数 A, B を1行で受け取り、その合計を出力してください。",
+  "input": "3 7\n",
+  "expected": "10\n",
+  "template": "a, b = map(int, input().split())\nprint(a + b)"
+}

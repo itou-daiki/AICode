@@ -1,0 +1,8 @@
+{
+  "id": "problem10",
+  "title": "逆順に出力しよう",
+  "description": "文字列 S を受け取り、それを逆順にして出力してください。",
+  "input": "hello\n",
+  "expected": "olleh\n",
+  "template": "s = input()\nprint(s[::-1])"
+}

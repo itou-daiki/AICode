@@ -1,0 +1,8 @@
+{
+  "id": "problem4",
+  "title": "数字を2倍にしよう",
+  "description": "整数 N を受け取り、それを2倍にして出力してください。",
+  "input": "6\n",
+  "expected": "12\n",
+  "template": "n = int(input())\nprint(n * 2)"
+}

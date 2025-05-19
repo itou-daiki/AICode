@@ -1,0 +1,8 @@
+{
+  "id": "problem8",
+  "title": "文字列の長さを数える",
+  "description": "文字列 S を受け取り、その長さを出力してください。",
+  "input": "Python\n",
+  "expected": "6\n",
+  "template": "s = input()\nprint(len(s))"
+}

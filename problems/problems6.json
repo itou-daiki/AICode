@@ -1,0 +1,8 @@
+{
+  "id": "problem6",
+  "title": "for文で繰り返そう",
+  "description": "整数 N を受け取り、'Hello' を N 回、1行ずつ出力してください。",
+  "input": "3\n",
+  "expected": "Hello\nHello\nHello\n",
+  "template": "n = int(input())\nfor _ in range(n):\n    print(\"Hello\")"
+}

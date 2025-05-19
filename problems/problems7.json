@@ -1,0 +1,8 @@
+{
+  "id": "problem7",
+  "title": "リストの合計",
+  "description": "N 個の整数を受け取り、合計を出力してください。",
+  "input": "5\n1 2 3 4 5\n",
+  "expected": "15\n",
+  "template": "n = int(input())\nnums = list(map(int, input().split()))\nprint(sum(nums))"
+}

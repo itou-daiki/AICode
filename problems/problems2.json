@@ -1,0 +1,8 @@
+{
+  "id": "problem2",
+  "title": "あなたの名前",
+  "description": "名前を入力し、'Hello, 名前!' と出力してください。",
+  "input": "Alice\n",
+  "expected": "Hello, Alice!\n",
+  "template": "name = input()\nprint(\"Hello, \" + name + \"!\")"
+}
