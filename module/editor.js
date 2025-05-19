@@ -6,34 +6,31 @@ export let editor;
 let pyodide;
 let problemFiles = [];
 
-// ディレクトリ内の JSON ファイルを取得
+// 問題一覧を index.json から取得
 async function fetchProblemFiles() {
   try {
-    const res = await fetch('problems/');
-    const text = await res.text();
-    const doc = new DOMParser().parseFromString(text, 'text/html');
-    return Array.from(doc.querySelectorAll('a'))
-      .map(a => a.getAttribute('href'))
-      .filter(f => f.endsWith('.json'))
-      .map(f => 'problems/' + f);
+    const res = await fetch('problems/index.json');
+    const list = await res.json();
+    return list.map(name => `problems/${name}`);
   } catch (e) {
-    console.error('問題ファイルの自動読み取りに失敗:', e);
+    console.error('問題一覧の読み込みに失敗:', e);
     return [];
   }
 }
 
-// 問題を読み込み UI に反映
-async function loadProblem(index) {
-  const res = await fetch(problemFiles[index]);
+// 問題を読み込み
+async function loadProblem(idx) {
+  const res = await fetch(problemFiles[idx]);
   const data = await res.json();
   currentProblem = data;
   document.getElementById('problem-content').innerHTML =
     `<h2>${data.title}</h2>
      <p>${data.description}</p>
      <h3>入力例</h3><pre>${data.input}</pre>
-     <h3>出力例</h3><pre>${data.expected}</pre>`;
+     <h3>期待出力</h3><pre>${data.expected}</pre>`;
   editor.setValue(data.template || '');
   document.getElementById('stdin').value = data.input || '';
+  updateInputArea();
 }
 
 // コード実行
@@ -43,13 +40,14 @@ async function runCode() {
   const code = editor.getValue();
   const inputText = document.getElementById('stdin').value;
 
+  // 標準入出力リダイレクト
   const wrapped =
     `import sys, traceback\n` +
     `from io import StringIO\n` +
     `_out = StringIO()\n` +
     `_err = StringIO()\n` +
     `_orig_out, _orig_err, _orig_in = sys.stdout, sys.stderr, sys.stdin\n` +
-    `sys.stdout, sys.stderr,sys.stdin = _out, _err, StringIO(${JSON.stringify(inputText)})\n` +
+    `sys.stdout, sys.stderr, sys.stdin = _out, _err, StringIO(${JSON.stringify(inputText)})\n` +
     `try:\n${code.split('\n').map(l=>'    '+l).join('\n')}\n` +
     `except Exception:\n    traceback.print_exc(file=_err)\n` +
     `finally:\n    sys.stdout, sys.stderr, sys.stdin = _orig_out, _orig_err, _orig_in\n` +
@@ -63,19 +61,26 @@ async function runCode() {
   }
 }
 
+// 標準入力欄の表示/非表示
+function updateInputArea() {
+  const needsInput = editor.getValue().includes('input(');
+  document.getElementById('input-area').style.display = needsInput ? 'block' : 'none';
+}
+
 // 初期化
 export async function initEditor() {
   pyodide = await loadPyodide({ indexURL: 'https://cdn.jsdelivr.net/pyodide/v0.23.4/full/' });
   editor = CodeMirror.fromTextArea(document.getElementById('code'), {
     mode: 'python', lineNumbers: true, indentUnit: 4, tabSize: 4
   });
-  problemFiles = await fetchProblemFiles();
+  editor.on('change', updateInputArea);
 
-  // 問題一覧取得 & セレクト反映
+  problemFiles = await fetchProblemFiles();
   const select = document.getElementById('problem-select');
   select.innerHTML = '';
   problemFiles.forEach((path, i) => {
-    const opt = document.createElement('option'); opt.value = i;
+    const opt = document.createElement('option');
+    opt.value = i;
     opt.textContent = path.split('/').pop();
     select.appendChild(opt);
   });
@@ -83,20 +88,15 @@ export async function initEditor() {
 
   if (problemFiles.length) await loadProblem(0);
 
-  document.getElementById('run').disabled = false;
-  document.getElementById('run').addEventListener('click', runCode);
+  const runBtn = document.getElementById('run');
+  runBtn.disabled = false;
+  runBtn.addEventListener('click', runCode);
 
-  // AI ボタン
-  document.getElementById('btn-explain').addEventListener('click', async () => {
-    await explainProblem();
-    document.getElementById('sidebar').classList.add('open');
-  });
-  document.getElementById('btn-review').addEventListener('click', async () => {
-    await reviewCode();
-    document.getElementById('sidebar').classList.add('open');
-  });
+  // AI コメントボタン
+  document.getElementById('btn-explain').addEventListener('click', explainProblem);
+  document.getElementById('btn-review').addEventListener('click', reviewCode);
 
-  // ローダーを隠して UI 表示
+  // ローダー非表示＆UI表示
   document.getElementById('loader').style.display = 'none';
   document.getElementById('container').style.visibility = 'visible';
 }

@@ -4,19 +4,25 @@ import { currentProblem, editor } from './editor.js';
 const OPENAI_ENDPOINT = 'https://api.openai.com/v1/chat/completions';
 
 async function callOpenAI(prompt, apiKey) {
-  const res = await fetch(OPENAI_ENDPOINT, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${apiKey}`
-    },
-    body: JSON.stringify({
-      model: 'gpt-4o-mini',
-      messages: [{ role: 'user', content: prompt }]
-    })
-  });
-  const data = await res.json();
-  return data.choices?.[0]?.message?.content || '応答が得られませんでした。';
+  try {
+    const res = await fetch(OPENAI_ENDPOINT, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${apiKey}`
+      },
+      body: JSON.stringify({
+        model: 'gpt-4o-mini',
+        messages: [ { role: 'user', content: prompt } ]
+      })
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error?.message || res.statusText);
+    return data.choices?.[0]?.message?.content || '応答が得られませんでした。';
+  } catch (e) {
+    console.error('OpenAI呼び出しエラー', e);
+    return `エラー: ${e.message}`;
+  }
 }
 
 export async function explainProblem() {

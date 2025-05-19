@@ -8,53 +8,81 @@
   <style>
     :root { --header-height: 64px; }
     html, body { margin: 0; padding: 0; height: 100%; font-family: sans-serif; overflow: hidden; }
-    header { display: flex; justify-content: space-between; align-items: center;
-              background: #334; color: #fff; padding: 1em; }
-    #header-left { display: flex; align-items: center; }
-    #header-left h1 { margin: 0; margin-right: 1em; }
-    #header-left button { margin-right: 0.5em; }
-    #toggle-sidebar { background: #556; color: #fff; border: none; padding: 0.5em 1em; cursor: pointer; }
-    #loader { position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-               background: rgba(255,255,255,0.8); display: flex;
-               align-items: center; justify-content: center; flex-direction: column;
-               z-index: 1000; }
-    .spinner { border: 8px solid #f3f3f3; border-top: 8px solid #333; border-radius: 50%;
-               width: 60px; height: 60px; animation: spin 1s linear infinite; }
+    header {
+      display: flex; align-items: center; background: #334; color: #fff;
+      padding: 1em; gap: 1em;
+    }
+    #toggle-sidebar {
+      background: #556; color: #fff; border: none;
+      padding: 0.5em 1em; cursor: pointer;
+    }
+    #loader {
+      position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+      background: rgba(255,255,255,0.8); display: flex;
+      align-items: center; justify-content: center; flex-direction: column;
+      z-index: 1000;
+    }
+    .spinner {
+      border: 8px solid #f3f3f3; border-top: 8px solid #333;
+      border-radius: 50%; width: 60px; height: 60px;
+      animation: spin 1s linear infinite;
+    }
     @keyframes spin { 100% { transform: rotate(360deg); } }
-    #container { display: flex; height: calc(100% - var(--header-height)); visibility: hidden; } }
-    aside { width: 280px; background: #f4f4f4; padding: 1em; box-sizing: border-box; position: absolute; left: 0; top: var(--header-height); bottom: 0;
-             overflow-y: auto; position: absolute; left: 0; top: 64px; bottom: 0;
-             transform: translateX(-100%); transition: transform 0.3s ease; z-index: 500; }
+    #container {
+      position: relative;
+      display: flex;
+      height: calc(100% - var(--header-height));
+      visibility: hidden;
+    }
+    aside {
+      position: absolute; top: var(--header-height); left: 0;
+      width: 280px; height: calc(100% - var(--header-height));
+      background: #f4f4f4; padding: 1em; box-sizing: border-box;
+      overflow-y: auto;
+      transform: translateX(-100%);
+      transition: transform 0.3s ease;
+      z-index: 500;
+    }
     aside.open { transform: translateX(0); }
-    #content { flex: 1; display: flex; flex-direction: column; margin-left: 0;
-               transition: margin-left 0.3s ease; }
-    aside.open + #content { margin-left: 280px; }
-    #problem-area { padding: 1em; background: #eef; border-bottom: 1px solid #ccd; }
+    #content {
+      flex: 1; display: flex; flex-direction: column;
+    }
+    #problem-area {
+      padding: 1em; background: #eef; border-bottom: 1px solid #ccd;
+    }
     #problem-area h3 { margin: 0.5em 0 0.2em; }
     #problem-area pre { background: #fff; padding: 0.5em; border: 1px solid #ccc; }
-    main { display: flex; flex: 1; overflow: hidden; }
-    #editor, #result { flex: 1; padding: 1em; box-sizing: border-box; overflow-y: auto; }
-    #editor { background: #f9f9f9; border-right: 2px solid #ddd; }
+    main {
+      display: flex; flex: 1; overflow: hidden;
+    }
+    #editor {
+      flex: 1; background: #f9f9f9; border-right: 2px solid #ddd;
+      padding: 1em; box-sizing: border-box;
+    }
+    #result {
+      flex: 1; padding: 1em; box-sizing: border-box;
+      overflow-y: auto;
+    }
     .CodeMirror { height: 80%; font-size: 14px; }
     button { margin-top: 0.5em; padding: 0.5em 1em; font-size: 1em; }
-    #output { white-space: pre-wrap; background: #fff; padding: 1em;
-               border: 1px solid #ccc; border-radius: 4px; height: calc(100% - 2em);
-               overflow-y: auto; }
-    #input-area { padding: 1em; background: #eef; border-top: 1px solid #ccd; }
-    #input-area textarea { width: 100%; box-sizing: border-box; height: 5em; }
-    #sidebar h2 { margin-top: 0; }
-    #sidebar input { width: 100%; box-sizing: border-box; margin-bottom: 0.5em; padding: 0.3em; }
-    #sidebar .section { margin-top: 1em; }
+    #output {
+      white-space: pre-wrap; background: #fff; padding: 1em;
+      border: 1px solid #ccc; border-radius: 4px;
+      height: calc(100% - 2em); overflow-y: auto;
+    }
+    #input-area {
+      display: none; padding: 1em; background: #eef;
+      border-top: 1px solid #ccd;
+    }
+    #input-area textarea {
+      width: 100%; box-sizing: border-box; height: 5em;
+    }
   </style>
 </head>
 <body>
   <header>
-    <div id="header-left">
-      <h1>easyCode</h1>
-      <button id="btn-explain">問題解説を生成</button>
-      <button id="btn-review">コードレビューを実行</button>
-    </div>
     <button id="toggle-sidebar">☰</button>
+    <h1>easyCode</h1>
   </header>
 
   <div id="loader">
@@ -70,11 +98,15 @@
         <input type="password" id="api-key" placeholder="sk-...">
       </div>
       <div class="section">
-        <strong>問題解説:</strong>
+        <button id="btn-explain">問題解説を生成</button>
+      </div>
+      <div class="section">
         <div id="explanation"></div>
       </div>
       <div class="section">
-        <strong>コードレビュー:</strong>
+        <button id="btn-review">コードレビューを実行</button>
+      </div>
+      <div class="section">
         <div id="review"></div>
       </div>
     </aside>
@@ -111,8 +143,8 @@
   <script src="https://cdn.jsdelivr.net/npm/codemirror@5.65.16/mode/python/python.js"></script>
   <script src="https://cdn.jsdelivr.net/pyodide/v0.23.4/full/pyodide.js"></script>
   <!-- Module Scripts -->
-  <script src="module/editor.js" type="module"></script>
-  <script src="module/sidebar.js" type="module"></script>
-  <script src="module/ai.js" type="module"></script>
+  <script type="module" src="module/editor.js"></script>
+  <script type="module" src="module/sidebar.js"></script>
+  <script type="module" src="module/ai.js"></script>
 </body>
 </html>
