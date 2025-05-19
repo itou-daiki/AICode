@@ -38,19 +38,3 @@ export async function reviewCode() {
   const text = await callOpenAI(prompt, apiKey);
   document.getElementById('review').textContent = text;
 }
-export async function explainProblem() {
-  const apiKey = document.getElementById('api-key').value.trim();
-  if (!apiKey) return alert('APIキーを入力してください');
-  const prompt = `次の問題をステップで解説してください。\nタイトル: ${currentProblem.title}\n説明: ${currentProblem.description}`;
-  const text = await callOpenAI(prompt, apiKey);
-  document.getElementById('explanation').textContent = text;
-}
-
-export async function reviewCode() {
-  const apiKey = document.getElementById('api-key').value.trim();
-  if (!apiKey) return alert('APIキーを入力してください');
-  const code = editor.getValue();
-  const prompt = `次のPythonコードをレビューしてください。\n${code}`;
-  const text = await callOpenAI(prompt, apiKey);
-  document.getElementById('review').textContent = text;
-}
