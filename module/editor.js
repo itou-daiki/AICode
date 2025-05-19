@@ -24,10 +24,10 @@ async function loadProblem(idx) {
   const data = await res.json();
   currentProblem = data;
   document.getElementById('problem-content').innerHTML =
-    `<h2>${data.title}</h2>
+    `<h3>${data.title}</h3>
      <p>${data.description}</p>
-     <h3>入力例</h3><pre>${data.input}</pre>
-     <h3>期待出力</h3><pre>${data.expected}</pre>`;
+     <h4>入力例</h4><pre>${data.input}</pre>
+     <h4>期待出力</h4><pre>${data.expected}</pre>`;
   editor.setValue(data.template || '');
   document.getElementById('stdin').value = data.input || '';
   updateInputArea();
@@ -40,18 +40,22 @@ async function runCode() {
   const code = editor.getValue();
   const inputText = document.getElementById('stdin').value;
 
-  // 標準入出力リダイレクト
-  const wrapped =
-    `import sys, traceback\n` +
-    `from io import StringIO\n` +
-    `_out = StringIO()\n` +
-    `_err = StringIO()\n` +
-    `_orig_out, _orig_err, _orig_in = sys.stdout, sys.stderr, sys.stdin\n` +
-    `sys.stdout, sys.stderr, sys.stdin = _out, _err, StringIO(${JSON.stringify(inputText)})\n` +
-    `try:\n${code.split('\n').map(l=>'    '+l).join('\n')}\n` +
-    `except Exception:\n    traceback.print_exc(file=_err)\n` +
-    `finally:\n    sys.stdout, sys.stderr, sys.stdin = _orig_out, _orig_err, _orig_in\n` +
-    `res = _err.getvalue() + _out.getvalue()\nres`;
+  const wrapped = `import sys, traceback
+from io import StringIO
+_out = StringIO()
+_err = StringIO()
+_orig_out, _orig_err, _orig_in = sys.stdout, sys.stderr, sys.stdin
+sys.stdout, sys.stderr, sys.stdin = _out, _err, StringIO(${JSON.stringify(inputText)})
+try:
+${code.split(`
+`).map(l => '    '+l).join(`
+`)}
+except Exception:
+    traceback.print_exc(file=_err)
+finally:
+    sys.stdout, sys.stderr, sys.stdin = _orig_out, _orig_err, _orig_in
+res = _err.getvalue() + _out.getvalue()
+res`;
 
   try {
     const result = await pyodide.runPythonAsync(wrapped);
@@ -79,24 +83,19 @@ export async function initEditor() {
   const select = document.getElementById('problem-select');
   select.innerHTML = '';
   problemFiles.forEach((path, i) => {
-    const opt = document.createElement('option');
-    opt.value = i;
-    opt.textContent = path.split('/').pop();
-    select.appendChild(opt);
+    const opt = document.createElement('option'); opt.value = i;
+    opt.textContent = path.split('/').pop(); select.appendChild(opt);
   });
   select.addEventListener('change', () => loadProblem(select.value));
 
   if (problemFiles.length) await loadProblem(0);
 
-  const runBtn = document.getElementById('run');
-  runBtn.disabled = false;
+  const runBtn = document.getElementById('run'); runBtn.disabled = false;
   runBtn.addEventListener('click', runCode);
 
-  // AI コメントボタン
   document.getElementById('btn-explain').addEventListener('click', explainProblem);
   document.getElementById('btn-review').addEventListener('click', reviewCode);
 
-  // ローダー非表示＆UI表示
   document.getElementById('loader').style.display = 'none';
   document.getElementById('container').style.visibility = 'visible';
 }

@@ -7,81 +7,163 @@
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/codemirror@5.65.16/lib/codemirror.css" />
   <style>
     :root { --header-height: 64px; }
-    html, body { margin: 0; padding: 0; height: 100%; font-family: sans-serif; overflow: hidden; }
+    html, body { margin: 0; padding: 0; height: 100%; font-family: 'Segoe UI', Tahoma, sans-serif; overflow: hidden; }
     header {
-      display: flex; align-items: center; background: #334; color: #fff;
-      padding: 1em; gap: 1em;
+      position: relative;
+      display: flex;
+      align-items: center;
+      height: var(--header-height);
+      background: #2c3e50;
+      color: #ecf0f1;
+      padding: 0 1em;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+    #header-left {
+      display: flex;
+      align-items: center;
+      gap: 0.5em;
     }
     #toggle-sidebar {
-      background: #556; color: #fff; border: none;
-      padding: 0.5em 1em; cursor: pointer;
+      background: transparent;
+      border: none;
+      color: #ecf0f1;
+      font-size: 1.5em;
+      cursor: pointer;
+    }
+    #problem-select {
+      padding: 0.3em;
+      border-radius: 4px;
+      border: 1px solid #bdc3c7;
+    }
+    header h1 {
+      position: absolute;
+      left: 50%;
+      transform: translateX(-50%);
+      margin: 0;
+      font-size: 1.2em;
     }
     #loader {
-      position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-      background: rgba(255,255,255,0.8); display: flex;
+      position: fixed;
+      top: 0; left: 0;
+      width: 100%; height: 100%;
+      background: rgba(255,255,255,0.8);
+      display: flex;
       align-items: center; justify-content: center; flex-direction: column;
       z-index: 1000;
     }
     .spinner {
-      border: 8px solid #f3f3f3; border-top: 8px solid #333;
+      border: 8px solid #f3f3f3;
+      border-top: 8px solid #2c3e50;
       border-radius: 50%; width: 60px; height: 60px;
       animation: spin 1s linear infinite;
     }
-    @keyframes spin { 100% { transform: rotate(360deg); } }
+    @keyframes spin { to { transform: rotate(360deg); } }
     #container {
-      position: relative;
       display: flex;
       height: calc(100% - var(--header-height));
       visibility: hidden;
     }
     aside {
-      position: absolute; top: var(--header-height); left: 0;
-      width: 280px; height: calc(100% - var(--header-height));
-      background: #f4f4f4; padding: 1em; box-sizing: border-box;
+      flex: 0 0 0;
+      background: #ecf0f1;
+      padding: 1em;
+      box-sizing: border-box;
       overflow-y: auto;
-      transform: translateX(-100%);
-      transition: transform 0.3s ease;
-      z-index: 500;
+      transition: flex-basis 0.3s ease;
+      border-right: 1px solid #bdc3c7;
     }
-    aside.open { transform: translateX(0); }
+    aside.open { flex-basis: 280px; }
     #content {
-      flex: 1; display: flex; flex-direction: column;
+      flex: 1;
+      display: flex;
+      flex-direction: column;
     }
     #problem-area {
-      padding: 1em; background: #eef; border-bottom: 1px solid #ccd;
+      padding: 1em;
+      background: #f7f9fa;
+      border-bottom: 1px solid #dfe6e9;
     }
-    #problem-area h3 { margin: 0.5em 0 0.2em; }
-    #problem-area pre { background: #fff; padding: 0.5em; border: 1px solid #ccc; }
+    #problem-area h2 {
+      margin: 0 0 0.5em;
+    }
+    #problem-area h3 {
+      margin: 1em 0 0.2em;
+      font-size: 0.9em;
+      color: #34495e;
+    }
+    #problem-area pre {
+      background: #fff;
+      padding: 0.5em;
+      border: 1px solid #dfe6e9;
+      border-radius: 4px;
+      overflow-x: auto;
+    }
     main {
-      display: flex; flex: 1; overflow: hidden;
+      display: flex;
+      flex: 1;
+      overflow: hidden;
+    }
+    #editor, #result {
+      flex: 1;
+      padding: 1em; box-sizing: border-box;
+      display: flex; flex-direction: column;
     }
     #editor {
-      flex: 1; background: #f9f9f9; border-right: 2px solid #ddd;
-      padding: 1em; box-sizing: border-box;
+      background: #fff;
+      border-right: 1px solid #dfe6e9;
+      box-shadow: inset 0 0 5px rgba(0,0,0,0.03);
     }
-    #result {
-      flex: 1; padding: 1em; box-sizing: border-box;
-      overflow-y: auto;
+    #editor h2, #result h2 {
+      margin: 0 0 0.5em;
+      font-size: 1em;
+      color: #2c3e50;
     }
-    .CodeMirror { height: 80%; font-size: 14px; }
-    button { margin-top: 0.5em; padding: 0.5em 1em; font-size: 1em; }
+    .CodeMirror { flex: 1; border: 1px solid #dfe6e9; border-radius: 4px; }
+    #editor button, #result button {
+      align-self: flex-start;
+      background: #3498db;
+      color: #fff;
+      border: none;
+      border-radius: 4px;
+      padding: 0.5em 1em;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+    #editor button:hover, #result button:hover {
+      background: #2980b9;
+    }
     #output {
-      white-space: pre-wrap; background: #fff; padding: 1em;
-      border: 1px solid #ccc; border-radius: 4px;
-      height: calc(100% - 2em); overflow-y: auto;
+      flex: 1;
+      background: #fff;
+      border: 1px solid #dfe6e9;
+      border-radius: 4px;
+      padding: 1em;
+      white-space: pre-wrap;
+      overflow-y: auto;
+      box-shadow: inset 0 0 5px rgba(0,0,0,0.03);
     }
     #input-area {
-      display: none; padding: 1em; background: #eef;
-      border-top: 1px solid #ccd;
+      display: none;
+      padding: 1em;
+      background: #f7f9fa;
+      border-top: 1px solid #dfe6e9;
     }
     #input-area textarea {
-      width: 100%; box-sizing: border-box; height: 5em;
+      width: 100%; box-sizing: border-box;
+      height: 5em;
+      border: 1px solid #dfe6e9;
+      border-radius: 4px;
+      padding: 0.5em;
+      font-family: monospace;
     }
   </style>
 </head>
 <body>
   <header>
-    <button id="toggle-sidebar">☰</button>
+    <div id="header-left">
+      <button id="toggle-sidebar">☰</button>
+      <select id="problem-select"></select>
+    </div>
     <h1>easyCode</h1>
   </header>
 
@@ -113,15 +195,14 @@
 
     <div id="content">
       <div id="problem-area">
-        <label>問題選択:</label>
-        <select id="problem-select"></select>
+        <h2>問題</h2>
         <div id="problem-content"></div>
       </div>
 
       <main>
         <div id="editor">
           <h2>コードエディタ</h2>
-          <textarea id="code"></textarea><br>
+          <textarea id="code"></textarea>
           <button id="run" disabled>▶ 実行する</button>
         </div>
 
