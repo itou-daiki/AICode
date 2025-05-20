@@ -96,26 +96,21 @@
       padding: 1em;
       border-right: 1px solid #bdc3c7;
     }
-    aside.narrow { width: 200px; }
-    aside.normal { width: 280px; }
-    aside.wide { width: 360px; }
-    #sidebar-resize {
-      display: flex;
-      justify-content: space-between;
-      margin-bottom: 1em;
+    /* サイドバーリサイズハンドル */
+    #sidebar-resize-handle {
+      position: absolute;
+      top: 0;
+      right: -5px;
+      width: 10px;
+      height: 100%;
+      cursor: ew-resize;
+      z-index: 10;
     }
-    #sidebar-resize button {
-      background: #ecf0f1;
-      border: 1px solid #bdc3c7;
-      border-radius: 4px;
-      padding: 0.3em 0.6em;
-      cursor: pointer;
-      font-size: 0.8em;
+    #sidebar-resize-handle:hover {
+      background: rgba(52, 152, 219, 0.2);
     }
-    #sidebar-resize button.active {
-      background: #3498db;
-      color: white;
-      border-color: #2980b9;
+    #sidebar {
+      position: relative;
     }
     #content {
       flex: 1;
@@ -252,6 +247,17 @@
       margin-right: 1em;
       border-radius: 10px 10px 10px 0;
     }
+    .loading-message {
+      background: #f5f5f5;
+      color: #757575;
+      font-style: italic;
+      animation: pulse 1.5s infinite;
+    }
+    @keyframes pulse {
+      0% { opacity: 0.6; }
+      50% { opacity: 1; }
+      100% { opacity: 0.6; }
+    }
     #chat-input-container {
       display: flex;
       padding: 0.5em;
@@ -308,6 +314,7 @@
       border: 1px solid #dfe6e9;
       border-radius: 4px;
       font-size: 0.9em;
+      max-width: 150px; /* APIキー入力フォームの幅を制限 */
     }
     #api-key-form button {
       background: #3498db;
@@ -349,11 +356,6 @@
 
   <div id="container">
     <aside id="sidebar">
-      <div id="sidebar-resize">
-        <button id="narrow-sidebar" class="sidebar-width-btn">狭い</button>
-        <button id="normal-sidebar" class="sidebar-width-btn active">普通</button>
-        <button id="wide-sidebar" class="sidebar-width-btn">広い</button>
-      </div>
       <h2>AIサポート</h2>
       <div class="section">
         <p>AIを活用して学習を進めましょう！</p>

@@ -33,44 +33,58 @@ function initSidebar() {
   initChat();
 }
 
-// サイドバーの幅変更機能
+// サイドバーのリサイズ機能
 function initSidebarResize() {
   const sidebar = document.getElementById('sidebar');
-  const narrowBtn = document.getElementById('narrow-sidebar');
-  const normalBtn = document.getElementById('normal-sidebar');
-  const wideBtn = document.getElementById('wide-sidebar');
+  const content = document.getElementById('content');
   
-  // 幅変更ボタンのイベントリスナー
-  narrowBtn.addEventListener('click', () => {
-    sidebar.classList.remove('normal', 'wide');
-    sidebar.classList.add('narrow', 'open');
-    sidebar.style.width = '';
-    sidebar.style.padding = '';
-    updateActiveButton(narrowBtn);
+  // リサイズハンドルを作成
+  const resizeHandle = document.createElement('div');
+  resizeHandle.id = 'sidebar-resize-handle';
+  sidebar.appendChild(resizeHandle);
+  
+  let isResizing = false;
+  let startX, startWidth;
+  
+  // マウスダウンでリサイズ開始
+  resizeHandle.addEventListener('mousedown', (e) => {
+    isResizing = true;
+    startX = e.clientX;
+    startWidth = parseInt(document.defaultView.getComputedStyle(sidebar).width, 10);
+    
+    // マウスカーソルをリサイズ中に変更
+    document.body.style.cursor = 'ew-resize';
+    
+    // テキスト選択を防止
+    document.body.style.userSelect = 'none';
   });
   
-  normalBtn.addEventListener('click', () => {
-    sidebar.classList.remove('narrow', 'wide');
-    sidebar.classList.add('normal', 'open');
-    sidebar.style.width = '';
-    sidebar.style.padding = '';
-    updateActiveButton(normalBtn);
+  // マウス移動でリサイズ
+  document.addEventListener('mousemove', (e) => {
+    if (!isResizing) return;
+    
+    const width = startWidth + (e.clientX - startX);
+    
+    // 最小幅と最大幅を設定
+    if (width >= 150 && width <= 500) {
+      sidebar.style.width = `${width}px`;
+      
+      // サイドバーが開いていることを確認
+      if (!sidebar.classList.contains('open')) {
+        sidebar.classList.add('open');
+        sidebar.style.padding = '';
+      }
+    }
   });
   
-  wideBtn.addEventListener('click', () => {
-    sidebar.classList.remove('narrow', 'normal');
-    sidebar.classList.add('wide', 'open');
-    sidebar.style.width = '';
-    sidebar.style.padding = '';
-    updateActiveButton(wideBtn);
+  // マウスアップでリサイズ終了
+  document.addEventListener('mouseup', () => {
+    if (isResizing) {
+      isResizing = false;
+      document.body.style.cursor = '';
+      document.body.style.userSelect = '';
+    }
   });
-}
-
-// アクティブなボタンを更新
-function updateActiveButton(activeBtn) {
-  const buttons = document.querySelectorAll('#sidebar-resize button');
-  buttons.forEach(btn => btn.classList.remove('active'));
-  activeBtn.classList.add('active');
 }
 
 // チャット機能の初期化
@@ -99,9 +113,37 @@ function initChat() {
     addMessage(message, 'user');
     chatInput.value = '';
     
+    // 生成中メッセージを表示
+    const loadingMessageId = addLoadingMessage();
+    
     // AIの応答を取得して表示
     const response = await chatWithAI(message);
+    
+    // 生成中メッセージを削除
+    removeLoadingMessage(loadingMessageId);
+    
+    // AIの応答を表示
     addMessage(response, 'ai');
+  }
+  
+  // 生成中メッセージを追加
+  function addLoadingMessage() {
+    const loadingDiv = document.createElement('div');
+    loadingDiv.classList.add('chat-message', 'ai-message', 'loading-message');
+    loadingDiv.textContent = '生成中...';
+    
+    chatMessages.appendChild(loadingDiv);
+    chatMessages.scrollTop = chatMessages.scrollHeight;
+    
+    return loadingDiv.id = 'loading-' + Date.now();
+  }
+  
+  // 生成中メッセージを削除
+  function removeLoadingMessage(id) {
+    const loadingMessage = document.getElementById(id);
+    if (loadingMessage) {
+      loadingMessage.remove();
+    }
   }
   
   // メッセージをチャット画面に追加
