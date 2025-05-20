@@ -290,38 +290,42 @@
     /* APIキーフォームのスタイル */
     #api-key-form {
       margin-top: 1em;
-      padding: 1em;
+      padding: 0.5em;
       background: #f7f9fa;
       border: 1px solid #dfe6e9;
       border-radius: 4px;
+      display: flex;
+      align-items: center;
+      gap: 0.5em;
     }
     #api-key-form label {
-      display: block;
-      margin-bottom: 0.5em;
-      font-weight: bold;
+      font-size: 0.8em;
+      white-space: nowrap;
     }
     #api-key-form input {
-      width: 100%;
-      padding: 0.5em;
-      margin-bottom: 0.5em;
+      flex: 1;
+      padding: 0.3em;
       border: 1px solid #dfe6e9;
       border-radius: 4px;
-      box-sizing: border-box;
+      font-size: 0.9em;
     }
     #api-key-form button {
       background: #3498db;
       color: #fff;
       border: none;
       border-radius: 4px;
-      padding: 0.5em 1em;
+      padding: 0.3em 0.6em;
       cursor: pointer;
+      font-size: 0.8em;
+      white-space: nowrap;
     }
     #api-key-form button:hover {
       background: #2980b9;
     }
     #api-key-status {
-      margin-top: 0.5em;
-      font-size: 0.9em;
+      font-size: 0.8em;
+      margin-top: 0.2em;
+      text-align: right;
     }
   </style>
 </head>
@@ -346,19 +350,19 @@
   <div id="container">
     <aside id="sidebar">
       <div id="sidebar-resize">
-        <button id="narrow-sidebar">狭い</button>
-        <button id="normal-sidebar" class="active">普通</button>
-        <button id="wide-sidebar">広い</button>
+        <button id="narrow-sidebar" class="sidebar-width-btn">狭い</button>
+        <button id="normal-sidebar" class="sidebar-width-btn active">普通</button>
+        <button id="wide-sidebar" class="sidebar-width-btn">広い</button>
       </div>
       <h2>AIサポート</h2>
       <div class="section">
         <p>AIを活用して学習を進めましょう！</p>
         <div id="api-key-form">
-          <label for="api-key">Gemini APIキー:</label>
-          <input type="password" id="api-key" placeholder="APIキーを入力">
+          <label for="api-key">APIキー:</label>
+          <input type="password" id="api-key" placeholder="Gemini APIキー">
           <button id="save-api-key">保存</button>
-          <div id="api-key-status"></div>
         </div>
+        <div id="api-key-status"></div>
       </div>
       <div class="section">
         <button id="btn-explain">問題の解説を生成する</button>

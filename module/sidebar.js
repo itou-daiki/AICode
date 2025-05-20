@@ -10,7 +10,21 @@ function initSidebar() {
   setHeaderHeight();
   const toggle = document.getElementById('toggle-sidebar');
   const aside = document.getElementById('sidebar');
-  toggle.addEventListener('click', () => aside.classList.toggle('open'));
+  
+  // サイドバーを初期状態で開く
+  aside.classList.add('open', 'normal');
+  
+  toggle.addEventListener('click', () => {
+    aside.classList.toggle('open');
+    // サイドバーが閉じられたら、幅のクラスを保持しつつ、openクラスだけ削除
+    if (!aside.classList.contains('open')) {
+      aside.style.width = '0';
+      aside.style.padding = '0';
+    } else {
+      aside.style.width = '';
+      aside.style.padding = '';
+    }
+  });
   
   // サイドバーの幅変更機能
   initSidebarResize();
@@ -30,18 +44,24 @@ function initSidebarResize() {
   narrowBtn.addEventListener('click', () => {
     sidebar.classList.remove('normal', 'wide');
     sidebar.classList.add('narrow', 'open');
+    sidebar.style.width = '';
+    sidebar.style.padding = '';
     updateActiveButton(narrowBtn);
   });
   
   normalBtn.addEventListener('click', () => {
     sidebar.classList.remove('narrow', 'wide');
     sidebar.classList.add('normal', 'open');
+    sidebar.style.width = '';
+    sidebar.style.padding = '';
     updateActiveButton(normalBtn);
   });
   
   wideBtn.addEventListener('click', () => {
     sidebar.classList.remove('narrow', 'normal');
     sidebar.classList.add('wide', 'open');
+    sidebar.style.width = '';
+    sidebar.style.padding = '';
     updateActiveButton(wideBtn);
   });
 }
