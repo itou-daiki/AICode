@@ -154,6 +154,37 @@
     #editor button:hover, #result button:hover {
       background: #2980b9;
     }
+    
+    /* モダンなAIボタンスタイル */
+    #btn-explain, #btn-review {
+      width: 100%;
+      background: linear-gradient(135deg, #6e8efb, #a777e3);
+      color: white;
+      border: none;
+      border-radius: 8px;
+      padding: 10px 15px;
+      margin: 8px 0;
+      font-weight: 500;
+      cursor: pointer;
+      box-shadow: 0 4px 6px rgba(50, 50, 93, 0.11), 0 1px 3px rgba(0, 0, 0, 0.08);
+      transition: all 0.3s ease;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+    }
+    #btn-explain:hover, #btn-review:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 7px 14px rgba(50, 50, 93, 0.1), 0 3px 6px rgba(0, 0, 0, 0.08);
+      filter: brightness(1.05);
+    }
+    #btn-explain:active, #btn-review:active {
+      transform: translateY(1px);
+    }
+    #btn-explain::before, #btn-review::before {
+      content: "✨";
+      font-size: 1.1em;
+    }
     #output {
       flex: 1;
       background: #fff;
@@ -248,13 +279,13 @@
         </div>
       </div>
       <div class="section">
-        <button id="btn-explain">問題の解説を見る</button>
+        <button id="btn-explain">問題の解説を生成する</button>
       </div>
       <div class="section">
         <div id="explanation"></div>
       </div>
       <div class="section">
-        <button id="btn-review">コードレビューを受ける</button>
+        <button id="btn-review">コードレビューを生成する</button>
       </div>
       <div class="section">
         <div id="review"></div>

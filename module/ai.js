@@ -50,7 +50,9 @@ ${currentProblem.description}を解決するためのステップ:
 3. コードを書く: Pythonの基本構文を使って実装します
 4. テストする: 入力例で動作確認しましょう
 
-このプログラムは基本的なPythonの知識で解決できます。頑張ってください！`,
+このプログラムは基本的なPythonの知識で解決できます。頑張ってください！
+
+※この解説はAIによって生成されました。より詳しい解説が必要な場合は、再度生成ボタンをクリックしてください。`,
         
         'review': `# コードレビュー
 
@@ -62,7 +64,9 @@ ${currentProblem.description}を解決するためのステップ:
 - コメントを追加するとさらに読みやすくなります
 - エラー処理を追加するとより堅牢になります
 
-全体的に良いコードです。引き続き頑張ってください！`
+全体的に良いコードです。引き続き頑張ってください！
+
+※このレビューはAIによって生成されました。より詳しいレビューが必要な場合は、再度生成ボタンをクリックしてください。`
       };
 
       // デモレスポンスを返す
@@ -116,7 +120,7 @@ ${currentProblem.description}を解決するためのステップ:
 
 export async function explainProblem() {
   document.getElementById('explanation').textContent = '生成中...';
-  const prompt = `次の問題をステップで解説してください。\nタイトル: ${currentProblem.title}\n説明: ${currentProblem.description}`;
+  const prompt = `次の問題をステップで解説してください。詳細かつ教育的な解説を生成してください。\nタイトル: ${currentProblem.title}\n説明: ${currentProblem.description}`;
   const text = await callGemini(prompt);
   document.getElementById('explanation').innerHTML = markdownToHtml(text);
 }
@@ -124,7 +128,7 @@ export async function explainProblem() {
 export async function reviewCode() {
   document.getElementById('review').textContent = '生成中...';
   const code = editor.getValue();
-  const prompt = `次のPythonコードをレビューしてください。\n${code}`;
+  const prompt = `次のPythonコードを詳細にレビューしてください。良い点と改善点を具体的に指摘し、教育的なフィードバックを提供してください。\n${code}`;
   const text = await callGemini(prompt);
   document.getElementById('review').innerHTML = markdownToHtml(text);
 }
