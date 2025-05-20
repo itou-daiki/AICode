@@ -2,7 +2,7 @@
 import { currentProblem, editor } from './editor.js';
 
 // Gemini APIの設定
-const GEMINI_API_URL = 'https://generativelanguage.googleapis.com/v1/models/gemini-1.5-pro:generateContent';
+const GEMINI_API_URL = 'https://generativelanguage.googleapis.com/v1/models/gemini-2.0-flash:generateContent';
 let apiKey = localStorage.getItem('gemini_api_key') || '';
 
 // APIキー保存処理の初期化
