@@ -5,6 +5,9 @@ import { currentProblem, editor } from './editor.js';
 const GEMINI_API_URL = 'https://generativelanguage.googleapis.com/v1/models/gemini-2.0-flash:generateContent';
 let apiKey = localStorage.getItem('gemini_api_key') || '';
 
+// チャット履歴
+let chatHistory = [];
+
 // APIキー保存処理の初期化
 function initApiKeyForm() {
   const apiKeyInput = document.getElementById('api-key');
@@ -143,4 +146,63 @@ function markdownToHtml(markdown) {
     .replace(/```([\s\S]*?)```/g, '<pre><code>$1</code></pre>')
     .replace(/`(.*?)`/g, '<code>$1</code>')
     .replace(/\n/g, '<br>');
+}
+
+// チャット機能
+export async function chatWithAI(message) {
+  try {
+    // APIキーがない場合はデモレスポンスを返す
+    if (!apiKey) {
+      return "APIキーが設定されていないため、チャット機能は利用できません。APIキーを設定してください。";
+    }
+
+    // チャット履歴に追加
+    chatHistory.push({ role: 'user', parts: [{ text: message }] });
+    
+    // チャット履歴が長すぎる場合は古いものを削除
+    if (chatHistory.length > 10) {
+      chatHistory = chatHistory.slice(chatHistory.length - 10);
+    }
+
+    // APIリクエスト
+    const response = await fetch(`${GEMINI_API_URL}?key=${apiKey}`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        contents: [
+          ...chatHistory
+        ],
+        generationConfig: {
+          temperature: 0.7,
+          maxOutputTokens: 2048
+        }
+      })
+    });
+
+    const data = await response.json();
+    
+    if (!response.ok) {
+      throw new Error(data.error?.message || response.statusText);
+    }
+    
+    // レスポンスからテキストを抽出
+    if (data.candidates && data.candidates.length > 0 && 
+        data.candidates[0].content && data.candidates[0].content.parts && 
+        data.candidates[0].content.parts.length > 0) {
+      const aiResponse = data.candidates[0].content.parts[0].text;
+      
+      // AIの応答をチャット履歴に追加
+      chatHistory.push({ role: 'model', parts: [{ text: aiResponse }] });
+      
+      return aiResponse;
+    } else {
+      console.error('予期しないレスポンス形式:', data);
+      return 'APIからの応答を処理できませんでした。';
+    }
+  } catch (e) {
+    console.error('チャットエラー', e);
+    return `エラー: ${e.message}`;
+  }
 }

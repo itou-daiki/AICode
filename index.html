@@ -89,21 +89,46 @@
       overflow-x: hidden;
       transition: all 0.3s ease;
       border-right: 1px solid transparent;
+      max-height: calc(100vh - var(--header-height));
     }
     aside.open { 
       width: 280px;
       padding: 1em;
       border-right: 1px solid #bdc3c7;
     }
+    aside.narrow { width: 200px; }
+    aside.normal { width: 280px; }
+    aside.wide { width: 360px; }
+    #sidebar-resize {
+      display: flex;
+      justify-content: space-between;
+      margin-bottom: 1em;
+    }
+    #sidebar-resize button {
+      background: #ecf0f1;
+      border: 1px solid #bdc3c7;
+      border-radius: 4px;
+      padding: 0.3em 0.6em;
+      cursor: pointer;
+      font-size: 0.8em;
+    }
+    #sidebar-resize button.active {
+      background: #3498db;
+      color: white;
+      border-color: #2980b9;
+    }
     #content {
       flex: 1;
       display: flex;
       flex-direction: column;
+      overflow: hidden;
     }
     #problem-area {
       padding: 1em;
       background: #f7f9fa;
       border-bottom: 1px solid #dfe6e9;
+      overflow-y: auto;
+      max-height: 30vh;
     }
     #problem-area h2 {
       margin: 0 0 0.5em;
@@ -129,6 +154,7 @@
       flex: 1;
       padding: 1em; box-sizing: border-box;
       display: flex; flex-direction: column;
+      overflow: hidden;
     }
     #editor {
       background: #fff;
@@ -194,6 +220,57 @@
       white-space: pre-wrap;
       overflow-y: auto;
       box-shadow: inset 0 0 5px rgba(0,0,0,0.03);
+    }
+    
+    /* チャット機能のスタイル */
+    #chat-container {
+      margin-top: 1em;
+      border: 1px solid #dfe6e9;
+      border-radius: 4px;
+      background: #fff;
+      display: flex;
+      flex-direction: column;
+      height: 300px;
+    }
+    #chat-messages {
+      flex: 1;
+      overflow-y: auto;
+      padding: 0.5em;
+    }
+    .chat-message {
+      margin-bottom: 0.5em;
+      padding: 0.5em;
+      border-radius: 4px;
+    }
+    .user-message {
+      background: #e3f2fd;
+      margin-left: 1em;
+      border-radius: 10px 10px 0 10px;
+    }
+    .ai-message {
+      background: #f1f8e9;
+      margin-right: 1em;
+      border-radius: 10px 10px 10px 0;
+    }
+    #chat-input-container {
+      display: flex;
+      padding: 0.5em;
+      border-top: 1px solid #dfe6e9;
+    }
+    #chat-input {
+      flex: 1;
+      border: 1px solid #dfe6e9;
+      border-radius: 4px;
+      padding: 0.5em;
+      margin-right: 0.5em;
+    }
+    #chat-send {
+      background: #3498db;
+      color: #fff;
+      border: none;
+      border-radius: 4px;
+      padding: 0.5em 1em;
+      cursor: pointer;
     }
     #input-area {
       display: none;
@@ -268,6 +345,11 @@
 
   <div id="container">
     <aside id="sidebar">
+      <div id="sidebar-resize">
+        <button id="narrow-sidebar">狭い</button>
+        <button id="normal-sidebar" class="active">普通</button>
+        <button id="wide-sidebar">広い</button>
+      </div>
       <h2>AIサポート</h2>
       <div class="section">
         <p>AIを活用して学習を進めましょう！</p>
@@ -289,6 +371,17 @@
       </div>
       <div class="section">
         <div id="review"></div>
+      </div>
+      
+      <h2>AIチャット</h2>
+      <div class="section">
+        <div id="chat-container">
+          <div id="chat-messages"></div>
+          <div id="chat-input-container">
+            <input type="text" id="chat-input" placeholder="質問を入力...">
+            <button id="chat-send">送信</button>
+          </div>
+        </div>
       </div>
     </aside>
 
