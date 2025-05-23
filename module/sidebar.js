@@ -151,7 +151,15 @@ function initChat() {
     const messageDiv = document.createElement('div');
     messageDiv.classList.add('chat-message');
     messageDiv.classList.add(sender + '-message');
-    messageDiv.textContent = text;
+    
+    // 改行を適切に処理
+    const formattedText = text
+      .split('\n')
+      .map(line => line.trim())
+      .filter(line => line.length > 0)
+      .join('\n');
+    
+    messageDiv.textContent = formattedText;
     
     chatMessages.appendChild(messageDiv);
     chatMessages.scrollTop = chatMessages.scrollHeight;

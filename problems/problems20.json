@@ -1,0 +1,7 @@
+{
+  "title": "平均値の計算",
+  "description": "5つの数値を入力してもらい、その平均値を出力してください。",
+  "input": "80\n75\n90\n85\n70",
+  "expected": "80.0",
+  "template": "# 5つの数値を入力してリストに格納\nnumbers = []\nfor i in range(5):\n    num = int(input())\n    numbers.append(num)\n\n# 平均値を計算して出力\n# ヒント：合計を個数で割ります\n"
+}

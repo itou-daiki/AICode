@@ -33,8 +33,6 @@ async function loadProblem(idx) {
      <h4>入力例</h4><pre>${data.input}</pre>
      <h4>期待出力</h4><pre>${data.expected}</pre>`;
   editor.setValue(data.template || '');
-  document.getElementById('stdin').value = data.input || '';
-  updateInputArea();
   
   // ナビゲーションボタンの状態を更新
   document.getElementById('prev-problem').disabled = idx === 0;
@@ -108,7 +106,6 @@ async function runCode() {
   const outputEl = document.getElementById('output');
   outputEl.textContent = '実行中…\n';
   const code = editor.getValue();
-  const inputText = document.getElementById('stdin').value;
   
   // 実行時入力フォームを非表示
   document.getElementById('runtime-input-container').style.display = 'none';
@@ -119,33 +116,7 @@ async function runCode() {
     // input()を使用しているかチェック
     const usesInput = code.includes('input(');
     
-    if (usesInput && inputText.trim()) {
-      // 標準入力がある場合は従来の方法で実行
-      const wrapped = `
-import sys, traceback
-from io import StringIO
-
-_out = StringIO()
-_err = StringIO()
-_orig_stdout, _orig_stderr = sys.stdout, sys.stderr
-sys.stdout, sys.stderr = _out, _err
-
-# 標準入力を設定
-import io
-sys.stdin = io.StringIO("""${inputText}""")
-
-try:
-${code.split('\n').map(l => '    '+l).join('\n')}
-except Exception:
-    traceback.print_exc(file=_err)
-finally:
-    sys.stdout, sys.stderr = _orig_stdout, _orig_stderr
-
-_out.getvalue() + _err.getvalue()
-`;
-      const result = await pyodide.runPythonAsync(wrapped);
-      outputEl.textContent = result || '(出力なし)';
-    } else if (usesInput) {
+    if (usesInput) {
       // インタラクティブな入力が必要な場合
       outputEl.textContent = '';
       
@@ -215,13 +186,6 @@ _out.getvalue() + _err.getvalue()
   }
 }
 
-// 標準入力欄の表示/非表示
-function updateInputArea() {
-  const needsInput = editor.getValue().includes('input(');
-  const hasPresetInput = document.getElementById('stdin').value.trim() !== '';
-  // input()を使用していて、事前入力がある場合のみ標準入力欄を表示
-  document.getElementById('input-area').style.display = (needsInput && hasPresetInput) ? 'block' : 'none';
-}
 
 // 初期化
 export async function initEditor() {
@@ -233,7 +197,6 @@ export async function initEditor() {
   editor = CodeMirror.fromTextArea(document.getElementById('code'), {
     mode: 'python', lineNumbers: true, indentUnit: 4, tabSize: 4
   });
-  editor.on('change', updateInputArea);
 
   problemFiles = await fetchProblemFiles();
   

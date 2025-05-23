@@ -1,0 +1,7 @@
+{
+  "title": "最大値の判定",
+  "description": "3つの数値を入力してもらい、その中で最大の値を出力してください。",
+  "input": "15\n8\n23",
+  "expected": "23",
+  "template": "# 3つの数値を入力\nnum1 = int(input())\nnum2 = int(input())\nnum3 = int(input())\n\n# 最大値を見つけて出力\n# ヒント：max関数を使うか、if文で比較\n"
+}

@@ -1,8 +1,7 @@
 {
-  "id": "problem10",
-  "title": "クラスとオブジェクト指向プログラミング",
-  "description": "クラスは、データ（属性）と機能（メソッド）をまとめたものです。オブジェクト指向プログラミングでは、クラスを定義し、そのクラスのインスタンス（オブジェクト）を作成して利用します。\n\n```python\nclass Person:\n    def __init__(self, name, age):\n        self.name = name\n        self.age = age\n    \n    def greet(self):\n        return f\"こんにちは、{self.name}です。{self.age}歳です。\"\n\n# インスタンスの作成\nperson = Person(\"太郎\", 25)\n\n# メソッドの呼び出し\nprint(person.greet())  # こんにちは、太郎です。25歳です。\n```\n\nこの問題では、銀行口座を表すクラスを作成してください。以下の機能を実装してください：\n\n1. 口座開設時に、口座名義と初期残高を設定できる\n2. 預金メソッド：指定した金額を残高に追加する\n3. 引出メソッド：指定した金額を残高から引き出す（ただし、残高が不足している場合は引き出せない）\n4. 残高照会メソッド：現在の残高を返す\n\n入力は以下の形式で与えられます：\n1行目: 口座名義と初期残高（スペース区切り）\n2行目以降: 操作（deposit/withdraw/balance）と金額（balanceの場合は金額なし）\n\n各操作の結果を出力してください。",
-  "input": "山田太郎 1000\ndeposit 500\nwithdraw 200\nwithdraw 2000\nbalance\n",
-  "expected": "預金しました。残高: 1500円\n引き出しました。残高: 1300円\n残高不足です。残高: 1300円\n残高: 1300円\n",
-  "template": "# 1. BankAccountクラスを定義する\n# 2. __init__メソッドで口座名義と初期残高を設定する\n# 3. deposit, withdraw, balanceメソッドを実装する\n# 4. 入力を受け取り、操作を実行する\n\nclass BankAccount:\n    # クラスを実装する\n    pass\n\n# メイン処理\n\n"
+  "title": "for文の基本",
+  "description": "1から5までの数字を順番に出力してください。",
+  "input": "",
+  "expected": "1\n2\n3\n4\n5",
+  "template": "# for文を使って1から5まで出力\n"
 }

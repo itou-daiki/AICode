@@ -1,0 +1,7 @@
+{
+  "title": "while文の基本",
+  "description": "while文を使って、1から5までの数字を出力してください。",
+  "input": "",
+  "expected": "1\n2\n3\n4\n5",
+  "template": "# カウンター変数を初期化\ncount = 1\n\n# while文を使って出力\n"
+}

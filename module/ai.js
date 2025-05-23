@@ -145,16 +145,52 @@ export async function reviewCode() {
   document.getElementById('review').innerHTML = markdownToHtml(text);
 }
 
-// MarkdownをシンプルなHTMLに変換する関数
+// MarkdownをシンプルなHTMLに変換する関数（改良版）
 function markdownToHtml(markdown) {
-  return markdown
+  // まず、コードブロックを一時的に置換
+  const codeBlocks = [];
+  let processedMarkdown = markdown.replace(/```([\s\S]*?)```/g, (match, code) => {
+    codeBlocks.push(`<pre><code>${code.trim()}</code></pre>`);
+    return `__CODE_BLOCK_${codeBlocks.length - 1}__`;
+  });
+  
+  // 通常の変換処理
+  processedMarkdown = processedMarkdown
     .replace(/^# (.*$)/gm, '<h3>$1</h3>')
     .replace(/^## (.*$)/gm, '<h4>$1</h4>')
+    .replace(/^### (.*$)/gm, '<h5>$1</h5>')
     .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
     .replace(/\*(.*?)\*/g, '<em>$1</em>')
-    .replace(/```([\s\S]*?)```/g, '<pre><code>$1</code></pre>')
     .replace(/`(.*?)`/g, '<code>$1</code>')
+    // リスト項目の処理
+    .replace(/^- (.*$)/gm, '<li>$1</li>')
+    .replace(/^\* (.*$)/gm, '<li>$1</li>')
+    .replace(/^\d+\. (.*$)/gm, '<li>$1</li>')
+    // 段落の処理（2つ以上の改行で段落を分ける）
+    .replace(/\n\n+/g, '</p><p>')
+    // 単一の改行は<br>に変換
     .replace(/\n/g, '<br>');
+  
+  // 段落タグで囲む
+  processedMarkdown = '<p>' + processedMarkdown + '</p>';
+  
+  // リスト項目を<ul>で囲む
+  processedMarkdown = processedMarkdown.replace(/(<li>.*?<\/li>)(<br>)?/g, (match) => {
+    return match.replace(/<br>$/, '');
+  });
+  processedMarkdown = processedMarkdown.replace(/(<li>.*?<\/li>)+/g, (match) => {
+    return '<ul>' + match + '</ul>';
+  });
+  
+  // コードブロックを元に戻す
+  codeBlocks.forEach((block, index) => {
+    processedMarkdown = processedMarkdown.replace(`__CODE_BLOCK_${index}__`, block);
+  });
+  
+  // 空の段落を削除
+  processedMarkdown = processedMarkdown.replace(/<p><\/p>/g, '');
+  
+  return processedMarkdown;
 }
 
 // チャット機能
@@ -165,8 +201,33 @@ export async function chatWithAI(message) {
       return "APIキーが設定されていません。上部のリンクからAPIキーを取得してください。";
     }
 
-    // チャット用のプロンプト（短い回答を促す）
-    const chatPrompt = `あなたはプログラミング学習をサポートするアシスタントです。質問に対して簡潔に1-2文で答えてください。マークダウンは使わず、プレーンテキストで回答してください。\n\n質問: ${message}`;
+    // 現在の問題とコードの内容を取得
+    const currentCode = editor.getValue();
+    const problemContext = `
+現在の問題:
+タイトル: ${currentProblem.title}
+説明: ${currentProblem.description}
+入力例: ${currentProblem.input}
+期待出力: ${currentProblem.expected}
+
+現在のコード:
+${currentCode}
+`;
+
+    // チャット用のプロンプト（コンテキストを含む）
+    const chatPrompt = `あなたはプログラミング学習をサポートするアシスタントです。学習者の成長のため、直接的な答えは教えず、考え方のヒントや方向性を示してください。
+
+以下の問題とコードのコンテキストを理解した上で、適切なヒントを提供してください：
+
+${problemContext}
+
+質問: ${message}
+
+重要な指示：
+- 直接的な答えやコードは書かないでください
+- 考え方のヒントや、注目すべきポイントを示してください
+- エラーがある場合は、エラーの意味を説明し、どこを見直すべきかヒントを与えてください
+- 学習者が自分で解決できるよう導いてください`;
 
     // APIリクエスト
     const response = await fetch(`${GEMINI_API_URL}?key=${apiKey}`, {
@@ -241,9 +302,8 @@ export async function generateNewProblem() {
          <h4>入力例</h4><pre>${problemData.input.replace(/\\n/g, '\n')}</pre>
          <h4>期待出力</h4><pre>${problemData.expected}</pre>`;
       
-      // エディタとstdinを更新
+      // エディタを更新
       editor.setValue(problemData.template || '');
-      document.getElementById('stdin').value = problemData.input.replace(/\\n/g, '\n') || '';
       
       // 現在の問題を更新
       currentProblem.title = problemData.title;

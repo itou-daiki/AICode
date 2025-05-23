@@ -343,12 +343,13 @@
       display: none;
       position: absolute;
       bottom: 1em;
-      left: 1em;
+      left: auto;
       right: 1em;
+      width: calc(50% - 2em);
       background: #f7f9fa;
       border: 1px solid #dfe6e9;
       border-radius: 4px;
-      padding: 0.5em;
+      padding: 0.5em 1em;
       box-shadow: 0 2px 4px rgba(0,0,0,0.1);
     }
     #runtime-input-container label {
@@ -463,10 +464,6 @@
         </div>
       </main>
 
-      <div id="input-area">
-        <h2>値を入力</h2>
-        <textarea id="stdin"></textarea>
-      </div>
     </div>
   </div>
 
