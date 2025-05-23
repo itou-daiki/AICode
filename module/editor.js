@@ -3,6 +3,7 @@ import { explainProblem, reviewCode } from './ai.js';
 
 export let currentProblem;
 export let editor;
+export let isFreeCodingMode = false;  // フリーコーディングモードの状態を追加
 let pyodide;
 let problemFiles = [];
 let currentProblemIndex = 0;
@@ -189,6 +190,8 @@ _out.getvalue() + _err.getvalue()
 
 // フリーコーディングモード
 function enterFreeCodingMode() {
+  isFreeCodingMode = true;  // フラグを設定
+  
   // 問題エリアを非表示
   document.getElementById('problem-area').style.display = 'none';
   
@@ -224,6 +227,8 @@ function enterFreeCodingMode() {
 
 // 通常モードに戻る
 async function exitFreeCodingMode() {
+  isFreeCodingMode = false;  // フラグをリセット
+  
   // 問題エリアを表示
   document.getElementById('problem-area').style.display = 'block';
   

@@ -1,5 +1,5 @@
 // module/ai.js
-import { currentProblem, editor } from './editor.js';
+import { currentProblem, editor, isFreeCodingMode } from './editor.js';
 
 // Gemini APIの設定
 const GEMINI_API_URL = 'https://generativelanguage.googleapis.com/v1/models/gemini-2.0-flash:generateContent';
@@ -140,7 +140,14 @@ export async function explainProblem() {
 export async function reviewCode() {
   document.getElementById('review').textContent = '生成中...';
   const code = editor.getValue();
-  const prompt = `次のPythonコードを簡潔にレビューしてください。良い点1つと改善点1つを短く指摘してください。\n${code}`;
+  
+  let prompt;
+  if (isFreeCodingMode) {
+    prompt = `次のPythonコードをレビューしてください。フリーコーディングモードなので、コードの品質、構造、ベストプラクティスについてアドバイスしてください。\n\nコード:\n${code}`;
+  } else {
+    prompt = `次のPythonコードを簡潔にレビューしてください。良い点1つと改善点1つを短く指摘してください。\n${code}`;
+  }
+  
   const text = await callGemini(prompt, 300);
   document.getElementById('review').innerHTML = markdownToHtml(text);
 }
@@ -201,9 +208,30 @@ export async function chatWithAI(message) {
       return "APIキーが設定されていません。上部のリンクからAPIキーを取得してください。";
     }
 
-    // 現在の問題とコードの内容を取得
+    // 現在のコードの内容を取得
     const currentCode = editor.getValue();
-    const problemContext = `
+    
+    let chatPrompt;
+    if (isFreeCodingMode) {
+      // フリーコーディングモードの場合
+      chatPrompt = `あなたはプログラミング学習をサポートするアシスタントです。現在はフリーコーディングモードです。
+
+現在のコード:
+${currentCode}
+
+質問: ${message}
+
+フリーコーディングモードでは、以下の点に注意してサポートしてください：
+- コードの改善提案
+- Pythonのベストプラクティス
+- より効率的な実装方法
+- エラーの解決方法
+- 新しい機能の実装アイデア
+
+学習者が自由に探求できるよう、建設的なアドバイスを提供してください。`;
+    } else {
+      // 通常モードの場合
+      const problemContext = `
 現在の問題:
 タイトル: ${currentProblem.title}
 説明: ${currentProblem.description}
@@ -214,8 +242,7 @@ export async function chatWithAI(message) {
 ${currentCode}
 `;
 
-    // チャット用のプロンプト（コンテキストを含む）
-    const chatPrompt = `あなたはプログラミング学習をサポートするアシスタントです。学習者の成長のため、直接的な答えは教えず、考え方のヒントや方向性を示してください。
+      chatPrompt = `あなたはプログラミング学習をサポートするアシスタントです。学習者の成長のため、直接的な答えは教えず、考え方のヒントや方向性を示してください。
 
 以下の問題とコードのコンテキストを理解した上で、適切なヒントを提供してください：
 
@@ -228,6 +255,7 @@ ${problemContext}
 - 考え方のヒントや、注目すべきポイントを示してください
 - エラーがある場合は、エラーの意味を説明し、どこを見直すべきかヒントを与えてください
 - 学習者が自分で解決できるよう導いてください`;
+    }
 
     // APIリクエスト
     const response = await fetch(`${GEMINI_API_URL}?key=${apiKey}`, {
