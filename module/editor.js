@@ -187,6 +187,62 @@ _out.getvalue() + _err.getvalue()
 }
 
 
+// フリーコーディングモード
+function enterFreeCodingMode() {
+  // 問題エリアを非表示
+  document.getElementById('problem-area').style.display = 'none';
+  
+  // ナビゲーションボタンを無効化
+  document.getElementById('prev-problem').disabled = true;
+  document.getElementById('next-problem').disabled = true;
+  document.getElementById('current-problem-label').textContent = 'フリーコーディング';
+  
+  // エディタをクリア
+  editor.setValue('# フリーコーディングモード\n# 自由にPythonコードを書いてみましょう！\n\n');
+  
+  // 現在の問題をフリーコーディング用に設定
+  currentProblem = {
+    title: 'フリーコーディング',
+    description: '自由にコードを書いて実行できます',
+    input: '',
+    expected: '',
+    template: ''
+  };
+  
+  // 正誤判定ボタンを非表示
+  const checkButton = document.getElementById('btn-check-answer');
+  if (checkButton) {
+    checkButton.style.display = 'none';
+  }
+  
+  // 問題の解説ボタンを非表示
+  const explainButton = document.getElementById('btn-explain');
+  if (explainButton) {
+    explainButton.style.display = 'none';
+  }
+}
+
+// 通常モードに戻る
+async function exitFreeCodingMode() {
+  // 問題エリアを表示
+  document.getElementById('problem-area').style.display = 'block';
+  
+  // 正誤判定ボタンを表示
+  const checkButton = document.getElementById('btn-check-answer');
+  if (checkButton) {
+    checkButton.style.display = 'block';
+  }
+  
+  // 問題の解説ボタンを表示
+  const explainButton = document.getElementById('btn-explain');
+  if (explainButton) {
+    explainButton.style.display = 'block';
+  }
+  
+  // 最初の問題に戻る
+  await loadProblem(0);
+}
+
 // 初期化
 export async function initEditor() {
   pyodide = await loadPyodide({ indexURL: 'https://cdn.jsdelivr.net/pyodide/v0.23.4/full/' });
@@ -203,6 +259,22 @@ export async function initEditor() {
   // 問題ナビゲーションボタンのイベントリスナーを設定
   document.getElementById('prev-problem').addEventListener('click', goToPrevProblem);
   document.getElementById('next-problem').addEventListener('click', goToNextProblem);
+  
+  // フリーコーディングボタンのイベントリスナー
+  const freeCodingBtn = document.getElementById('free-coding');
+  if (freeCodingBtn) {
+    freeCodingBtn.addEventListener('click', () => {
+      if (freeCodingBtn.textContent === 'フリーコーディング') {
+        enterFreeCodingMode();
+        freeCodingBtn.textContent = '問題に戻る';
+        freeCodingBtn.style.background = '#27ae60';
+      } else {
+        exitFreeCodingMode();
+        freeCodingBtn.textContent = 'フリーコーディング';
+        freeCodingBtn.style.background = '#e74c3c';
+      }
+    });
+  }
 
   if (problemFiles.length) await loadProblem(0);
 

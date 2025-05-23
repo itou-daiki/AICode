@@ -326,10 +326,48 @@ export async function generateNewProblem() {
   }
 }
 
+// 正誤判定機能
+export async function checkAnswer() {
+  const resultDiv = document.getElementById('check-result');
+  resultDiv.textContent = '判定中...';
+  
+  // 実行結果を取得
+  const actualOutput = document.getElementById('output').textContent.trim();
+  const expectedOutput = currentProblem.expected.trim();
+  const code = editor.getValue();
+  
+  const prompt = `次のPythonコードが問題の要求を満たしているか判定してください。
+
+問題: ${currentProblem.title}
+説明: ${currentProblem.description}
+期待される出力: ${expectedOutput}
+
+提出されたコード:
+${code}
+
+実際の出力:
+${actualOutput}
+
+以下の観点で評価してください：
+1. 出力が期待される結果と一致しているか
+2. コードが問題の要求を満たしているか
+3. 良い点と改善点
+
+簡潔に判定結果を出力してください。正解の場合は「✅ 正解です！」から始め、不正解の場合は「❌ 不正解です」から始めてください。`;
+
+  const text = await callGemini(prompt, 400);
+  resultDiv.innerHTML = markdownToHtml(text);
+}
+
 // 問題生成ボタンのイベントリスナーを追加
 window.addEventListener('DOMContentLoaded', () => {
   const generateButton = document.getElementById('btn-generate-problem');
   if (generateButton) {
     generateButton.addEventListener('click', generateNewProblem);
+  }
+  
+  const checkButton = document.getElementById('btn-check-answer');
+  if (checkButton) {
+    checkButton.addEventListener('click', checkAnswer);
   }
 });

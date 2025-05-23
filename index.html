@@ -343,9 +343,8 @@
       display: none;
       position: absolute;
       bottom: 1em;
-      left: auto;
-      right: 1em;
-      width: calc(50% - 2em);
+      left: 1em;
+      width: calc(40% - 2em);
       background: #f7f9fa;
       border: 1px solid #dfe6e9;
       border-radius: 4px;
@@ -385,6 +384,7 @@
         <button id="prev-problem" disabled>&lt; 前の問題</button>
         <span id="current-problem-label">問題1</span>
         <button id="next-problem">次の問題 &gt;</button>
+        <button id="free-coding" style="background: #e74c3c; margin-left: 1em;">フリーコーディング</button>
       </div>
     </div>
     <h1>easyCode</h1>
@@ -426,6 +426,12 @@
       </div>
       <div class="section">
         <button id="btn-generate-problem">AIで新しい問題を生成する</button>
+      </div>
+      <div class="section">
+        <button id="btn-check-answer" style="background: linear-gradient(135deg, #4CAF50, #45a049);">✓ 正誤判定する</button>
+      </div>
+      <div class="section">
+        <div id="check-result"></div>
       </div>
       
       <h2>AIチャット</h2>
