@@ -177,7 +177,7 @@
     }
     
     /* モダンなAIボタンスタイル */
-    #btn-explain, #btn-review {
+    #btn-explain, #btn-review, #btn-generate-problem {
       width: 100%;
       background: linear-gradient(135deg, #6e8efb, #a777e3);
       color: white;
@@ -194,15 +194,15 @@
       justify-content: center;
       gap: 8px;
     }
-    #btn-explain:hover, #btn-review:hover {
+    #btn-explain:hover, #btn-review:hover, #btn-generate-problem:hover {
       transform: translateY(-2px);
       box-shadow: 0 7px 14px rgba(50, 50, 93, 0.1), 0 3px 6px rgba(0, 0, 0, 0.08);
       filter: brightness(1.05);
     }
-    #btn-explain:active, #btn-review:active {
+    #btn-explain:active, #btn-review:active, #btn-generate-problem:active {
       transform: translateY(1px);
     }
-    #btn-explain::before, #btn-review::before {
+    #btn-explain::before, #btn-review::before, #btn-generate-problem::before {
       content: "✨";
       font-size: 1.1em;
     }
@@ -215,6 +215,7 @@
       white-space: pre-wrap;
       overflow-y: auto;
       box-shadow: inset 0 0 5px rgba(0,0,0,0.03);
+      position: relative;
     }
     
     /* チャット機能のスタイル */
@@ -236,6 +237,8 @@
       margin-bottom: 0.5em;
       padding: 0.5em;
       border-radius: 4px;
+      white-space: pre-wrap;
+      word-wrap: break-word;
     }
     .user-message {
       background: #e3f2fd;
@@ -334,6 +337,43 @@
       margin-top: 0.2em;
       text-align: right;
     }
+    
+    /* 実行時入力フォーム */
+    #runtime-input-container {
+      display: none;
+      position: absolute;
+      bottom: 1em;
+      left: 1em;
+      right: 1em;
+      background: #f7f9fa;
+      border: 1px solid #dfe6e9;
+      border-radius: 4px;
+      padding: 0.5em;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+    #runtime-input-container label {
+      display: block;
+      margin-bottom: 0.3em;
+      font-size: 0.9em;
+      color: #2c3e50;
+    }
+    #runtime-input {
+      width: 100%;
+      box-sizing: border-box;
+      padding: 0.3em;
+      border: 1px solid #dfe6e9;
+      border-radius: 4px;
+      margin-bottom: 0.3em;
+    }
+    #runtime-input-submit {
+      background: #3498db;
+      color: #fff;
+      border: none;
+      border-radius: 4px;
+      padding: 0.3em 0.8em;
+      cursor: pointer;
+      font-size: 0.9em;
+    }
   </style>
 </head>
 <body>
@@ -359,6 +399,11 @@
       <h2>AIサポート</h2>
       <div class="section">
         <p>AIを活用して学習を進めましょう！</p>
+        <div style="margin-bottom: 0.5em;">
+          <a href="https://aistudio.google.com/app/apikey" target="_blank" style="color: #3498db; text-decoration: none; font-size: 0.9em;">
+            🔑 Gemini APIキーを取得する →
+          </a>
+        </div>
         <div id="api-key-form">
           <label for="api-key">APIキー:</label>
           <input type="password" id="api-key" placeholder="Gemini APIキー">
@@ -377,6 +422,9 @@
       </div>
       <div class="section">
         <div id="review"></div>
+      </div>
+      <div class="section">
+        <button id="btn-generate-problem">AIで新しい問題を生成する</button>
       </div>
       
       <h2>AIチャット</h2>
@@ -407,11 +455,16 @@
         <div id="result">
           <h2>実行結果</h2>
           <div id="output"></div>
+          <div id="runtime-input-container">
+            <label for="runtime-input">値を入力:</label>
+            <input type="text" id="runtime-input" placeholder="入力してください">
+            <button id="runtime-input-submit">送信</button>
+          </div>
         </div>
       </main>
 
       <div id="input-area">
-        <h2>標準入力</h2>
+        <h2>値を入力</h2>
         <textarea id="stdin"></textarea>
       </div>
     </div>

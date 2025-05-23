@@ -39,44 +39,53 @@ function initApiKeyForm() {
 // ページ読み込み時にAPIキーフォームを初期化
 window.addEventListener('DOMContentLoaded', initApiKeyForm);
 
-async function callGemini(prompt) {
+async function callGemini(prompt, maxTokens = 500) {
   try {
     // APIキーがない場合はデモレスポンスを返す
     if (!apiKey) {
       const demoResponses = {
         'explain': `# ${currentProblem.title} の解説
 
-${currentProblem.description}を解決するためのステップ:
+この問題は${currentProblem.description}を解決します。
 
-1. 問題を理解する: ${currentProblem.description}
-2. アルゴリズムを考える: 必要な処理を順番に考えましょう
-3. コードを書く: Pythonの基本構文を使って実装します
-4. テストする: 入力例で動作確認しましょう
+**ポイント:**
+- 入力を正しく受け取る
+- 適切な処理を行う
+- 結果を出力する
 
-このプログラムは基本的なPythonの知識で解決できます。頑張ってください！
-
-※この解説はAIによって生成されました。より詳しい解説が必要な場合は、再度生成ボタンをクリックしてください。`,
+シンプルに考えて実装しましょう！`,
         
         'review': `# コードレビュー
 
-良い点:
-- コードの構造が明確です
-- 適切な変数名を使用しています
+**良い点:**
+- 基本的な構造ができています
 
-改善点:
-- コメントを追加するとさらに読みやすくなります
-- エラー処理を追加するとより堅牢になります
+**改善点:**
+- エラー処理を追加しましょう
+- コメントを追加すると良いでしょう
 
-全体的に良いコードです。引き続き頑張ってください！
+頑張ってください！`,
 
-※このレビューはAIによって生成されました。より詳しいレビューが必要な場合は、再度生成ボタンをクリックしてください。`
+        'chat': 'わかりました。具体的にどの部分について質問がありますか？',
+
+        'problem': `{
+  "title": "数値の合計",
+  "description": "2つの整数を入力し、その合計を出力してください。",
+  "input": "3\\n5",
+  "expected": "8",
+  "template": "# 2つの数値を入力\\na = int(input())\\nb = int(input())\\n\\n# 合計を計算して出力\\n"
+}`
       };
 
       // デモレスポンスを返す
       if (prompt.includes('解説')) {
         return demoResponses.explain;
-      } else {
+      } else if (prompt.includes('レビュー')) {
         return demoResponses.review;
+      } else if (prompt.includes('新しい問題')) {
+        return demoResponses.problem;
+      } else {
+        return demoResponses.chat;
       }
     }
 
@@ -95,7 +104,7 @@ ${currentProblem.description}を解決するためのステップ:
         }],
         generationConfig: {
           temperature: 0.7,
-          maxOutputTokens: 2048
+          maxOutputTokens: maxTokens
         }
       })
     });
@@ -123,16 +132,16 @@ ${currentProblem.description}を解決するためのステップ:
 
 export async function explainProblem() {
   document.getElementById('explanation').textContent = '生成中...';
-  const prompt = `次の問題をステップで解説してください。詳細かつ教育的な解説を生成してください。\nタイトル: ${currentProblem.title}\n説明: ${currentProblem.description}`;
-  const text = await callGemini(prompt);
+  const prompt = `次の問題を簡潔に解説してください。3-4文程度で要点をまとめてください。\nタイトル: ${currentProblem.title}\n説明: ${currentProblem.description}`;
+  const text = await callGemini(prompt, 300);
   document.getElementById('explanation').innerHTML = markdownToHtml(text);
 }
 
 export async function reviewCode() {
   document.getElementById('review').textContent = '生成中...';
   const code = editor.getValue();
-  const prompt = `次のPythonコードを詳細にレビューしてください。良い点と改善点を具体的に指摘し、教育的なフィードバックを提供してください。\n${code}`;
-  const text = await callGemini(prompt);
+  const prompt = `次のPythonコードを簡潔にレビューしてください。良い点1つと改善点1つを短く指摘してください。\n${code}`;
+  const text = await callGemini(prompt, 300);
   document.getElementById('review').innerHTML = markdownToHtml(text);
 }
 
@@ -153,16 +162,11 @@ export async function chatWithAI(message) {
   try {
     // APIキーがない場合はデモレスポンスを返す
     if (!apiKey) {
-      return "APIキーが設定されていないため、チャット機能は利用できません。APIキーを設定してください。";
+      return "APIキーが設定されていません。上部のリンクからAPIキーを取得してください。";
     }
 
-    // チャット履歴に追加
-    chatHistory.push({ role: 'user', parts: [{ text: message }] });
-    
-    // チャット履歴が長すぎる場合は古いものを削除
-    if (chatHistory.length > 10) {
-      chatHistory = chatHistory.slice(chatHistory.length - 10);
-    }
+    // チャット用のプロンプト（短い回答を促す）
+    const chatPrompt = `あなたはプログラミング学習をサポートするアシスタントです。質問に対して簡潔に1-2文で答えてください。マークダウンは使わず、プレーンテキストで回答してください。\n\n質問: ${message}`;
 
     // APIリクエスト
     const response = await fetch(`${GEMINI_API_URL}?key=${apiKey}`, {
@@ -171,12 +175,15 @@ export async function chatWithAI(message) {
         'Content-Type': 'application/json'
       },
       body: JSON.stringify({
-        contents: [
-          ...chatHistory
-        ],
+        contents: [{
+          role: 'user',
+          parts: [{
+            text: chatPrompt
+          }]
+        }],
         generationConfig: {
           temperature: 0.7,
-          maxOutputTokens: 2048
+          maxOutputTokens: 150
         }
       })
     });
@@ -191,12 +198,7 @@ export async function chatWithAI(message) {
     if (data.candidates && data.candidates.length > 0 && 
         data.candidates[0].content && data.candidates[0].content.parts && 
         data.candidates[0].content.parts.length > 0) {
-      const aiResponse = data.candidates[0].content.parts[0].text;
-      
-      // AIの応答をチャット履歴に追加
-      chatHistory.push({ role: 'model', parts: [{ text: aiResponse }] });
-      
-      return aiResponse;
+      return data.candidates[0].content.parts[0].text;
     } else {
       console.error('予期しないレスポンス形式:', data);
       return 'APIからの応答を処理できませんでした。';
@@ -206,3 +208,68 @@ export async function chatWithAI(message) {
     return `エラー: ${e.message}`;
   }
 }
+
+// 新しい問題を生成する関数
+export async function generateNewProblem() {
+  const button = document.getElementById('btn-generate-problem');
+  button.textContent = '生成中...';
+  button.disabled = true;
+  
+  try {
+    const prompt = `プログラミング初学者向けのPython問題を1つ生成してください。以下のJSON形式で出力してください：
+{
+  "title": "問題のタイトル",
+  "description": "問題の説明文",
+  "input": "入力例（改行は\\nで表現）",
+  "expected": "期待される出力",
+  "template": "初期コードテンプレート（コメント付き）"
+}
+
+基本的な入出力、条件分岐、ループなどの基礎的な内容にしてください。`;
+
+    const text = await callGemini(prompt, 800);
+    
+    // JSON部分を抽出
+    const jsonMatch = text.match(/\{[\s\S]*\}/);
+    if (jsonMatch) {
+      const problemData = JSON.parse(jsonMatch[0]);
+      
+      // 生成された問題を表示
+      document.getElementById('problem-content').innerHTML =
+        `<h3>${problemData.title}</h3>
+         <p>${problemData.description}</p>
+         <h4>入力例</h4><pre>${problemData.input.replace(/\\n/g, '\n')}</pre>
+         <h4>期待出力</h4><pre>${problemData.expected}</pre>`;
+      
+      // エディタとstdinを更新
+      editor.setValue(problemData.template || '');
+      document.getElementById('stdin').value = problemData.input.replace(/\\n/g, '\n') || '';
+      
+      // 現在の問題を更新
+      currentProblem.title = problemData.title;
+      currentProblem.description = problemData.description;
+      currentProblem.input = problemData.input.replace(/\\n/g, '\n');
+      currentProblem.expected = problemData.expected;
+      currentProblem.template = problemData.template;
+      
+      // ラベルを更新
+      document.getElementById('current-problem-label').textContent = 'AI生成問題';
+    } else {
+      throw new Error('問題の生成に失敗しました');
+    }
+  } catch (e) {
+    console.error('問題生成エラー', e);
+    alert('問題の生成に失敗しました: ' + e.message);
+  } finally {
+    button.textContent = 'AIで新しい問題を生成する';
+    button.disabled = false;
+  }
+}
+
+// 問題生成ボタンのイベントリスナーを追加
+window.addEventListener('DOMContentLoaded', () => {
+  const generateButton = document.getElementById('btn-generate-problem');
+  if (generateButton) {
+    generateButton.addEventListener('click', generateNewProblem);
+  }
+});
