@@ -177,7 +177,7 @@
     }
     
     /* モダンなAIボタンスタイル */
-    #btn-explain, #btn-review, #btn-generate-problem {
+    #btn-explain, #btn-review, #btn-generate-problem, #btn-check-answer {
       width: 100%;
       background: linear-gradient(135deg, #6e8efb, #a777e3);
       color: white;
@@ -194,16 +194,24 @@
       justify-content: center;
       gap: 8px;
     }
-    #btn-explain:hover, #btn-review:hover, #btn-generate-problem:hover {
+    #btn-check-answer {
+      background: linear-gradient(135deg, #4CAF50, #45a049);
+      margin-top: 1em;
+    }
+    #btn-explain:hover, #btn-review:hover, #btn-generate-problem:hover, #btn-check-answer:hover {
       transform: translateY(-2px);
       box-shadow: 0 7px 14px rgba(50, 50, 93, 0.1), 0 3px 6px rgba(0, 0, 0, 0.08);
       filter: brightness(1.05);
     }
-    #btn-explain:active, #btn-review:active, #btn-generate-problem:active {
+    #btn-explain:active, #btn-review:active, #btn-generate-problem:active, #btn-check-answer:active {
       transform: translateY(1px);
     }
     #btn-explain::before, #btn-review::before, #btn-generate-problem::before {
       content: "✨";
+      font-size: 1.1em;
+    }
+    #btn-check-answer::before {
+      content: "✓";
       font-size: 1.1em;
     }
     #output {
@@ -427,12 +435,6 @@
       <div class="section">
         <button id="btn-generate-problem">AIで新しい問題を生成する</button>
       </div>
-      <div class="section">
-        <button id="btn-check-answer" style="background: linear-gradient(135deg, #4CAF50, #45a049);">✓ 正誤判定する</button>
-      </div>
-      <div class="section">
-        <div id="check-result"></div>
-      </div>
       
       <h2>AIチャット</h2>
       <div class="section">
@@ -467,6 +469,8 @@
             <input type="text" id="runtime-input" placeholder="入力してください">
             <button id="runtime-input-submit">送信</button>
           </div>
+          <button id="btn-check-answer">正誤判定する</button>
+          <div id="check-result" style="margin-top: 1em; padding: 1em; background: #f7f9fa; border-radius: 4px; display: none; max-height: 200px; overflow-y: auto;"></div>
         </div>
       </main>
 

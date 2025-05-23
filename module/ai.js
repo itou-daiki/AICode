@@ -357,6 +357,7 @@ export async function generateNewProblem() {
 // 正誤判定機能
 export async function checkAnswer() {
   const resultDiv = document.getElementById('check-result');
+  resultDiv.style.display = 'block';
   resultDiv.textContent = '判定中...';
   
   // 実行結果を取得
