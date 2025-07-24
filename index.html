@@ -581,16 +581,18 @@
       </div>
       
       <div class="section">
-        <div style="display: flex; align-items: center; gap: 0.5em; margin-bottom: 0.5em;">
-          <label for="code-completion-toggle" style="font-size: 0.9em;">コード補完:</label>
-          <label class="toggle-switch">
-            <input type="checkbox" id="code-completion-toggle" checked>
-            <span class="toggle-slider"></span>
-          </label>
+        <div style="margin-bottom: 0.5em;">
+          <label style="font-size: 0.9em; display: block; margin-bottom: 0.3em;">コード補完モード:</label>
+          <select id="completion-mode-select" style="width: 100%; padding: 0.3em; border: 1px solid #dfe6e9; border-radius: 4px; font-size: 0.9em;">
+            <option value="inline-only">インライン補完のみ</option>
+            <option value="popup-only">複数候補のみ</option>
+            <option value="both" selected>インライン + 複数候補</option>
+            <option value="none">補完なし</option>
+          </select>
         </div>
         <div style="font-size: 0.8em; color: #7f8c8d;">
-          <span id="completion-status">有効</span><br>
-          自動表示: 単一候補は薄い色、複数候補は<strong>Ctrl+I</strong><br>
+          <span id="completion-status">インライン + 複数候補</span><br>
+          <span id="completion-description">単一候補: 薄い色表示、複数候補: Ctrl+I</span><br>
           <strong>Tab</strong>で決定、↑↓で選択、<strong>Esc</strong>でキャンセル
         </div>
       </div>

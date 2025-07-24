@@ -5,8 +5,7 @@ export class CodeCompletionEngine {
   constructor(editor) {
     console.log('CodeCompletionEngine コンストラクタ呼び出し', editor);
     this.editor = editor;
-    this.isEnabled = true;
-    this.autoCompletionEnabled = true;
+    this.completionMode = 'both'; // 'inline-only', 'popup-only', 'both', 'none'
     this.debounceTimer = null;
     this.cache = new Map();
     this.popup = null;
@@ -31,19 +30,39 @@ export class CodeCompletionEngine {
   bindEvents() {
     console.log('bindEvents 開始');
     
-    // コード補完トグルスイッチのイベント
-    const toggle = document.getElementById('code-completion-toggle');
+    // コード補完モード選択のイベント
+    const modeSelect = document.getElementById('completion-mode-select');
     const status = document.getElementById('completion-status');
+    const description = document.getElementById('completion-description');
     
-    console.log('トグルスイッチ要素:', toggle);
+    console.log('モード選択要素:', modeSelect);
     
-    if (toggle) {
-      toggle.addEventListener('change', (e) => {
-        console.log('トグルスイッチ変更:', e.target.checked);
-        this.isEnabled = e.target.checked;
-        this.autoCompletionEnabled = e.target.checked; // 一つのボタンで両方制御
-        status.textContent = this.isEnabled ? '有効' : '無効';
-        if (!this.isEnabled) {
+    if (modeSelect) {
+      modeSelect.addEventListener('change', (e) => {
+        const mode = e.target.value;
+        console.log('補完モード変更:', mode);
+        this.completionMode = mode;
+        
+        // ステータス表示を更新
+        const modeTexts = {
+          'inline-only': 'インライン補完のみ',
+          'popup-only': '複数候補のみ',
+          'both': 'インライン + 複数候補',
+          'none': '補完なし'
+        };
+        
+        const descriptions = {
+          'inline-only': '単一候補を薄い色で表示',
+          'popup-only': 'Ctrl+I で複数候補表示',
+          'both': '単一候補: 薄い色表示、複数候補: Ctrl+I',
+          'none': '補完機能は無効'
+        };
+        
+        status.textContent = modeTexts[mode];
+        description.textContent = descriptions[mode];
+        
+        // 現在の補完を隠す
+        if (mode === 'none') {
           this.hidePopup();
           this.hideInlineSuggestion();
         }
@@ -51,17 +70,18 @@ export class CodeCompletionEngine {
         // AIコード修正ボタンの状態も更新
         const aiFixBtn = document.getElementById('ai-fix-code');
         if (aiFixBtn) {
-          aiFixBtn.disabled = !this.isEnabled;
-          aiFixBtn.style.opacity = this.isEnabled ? '1' : '0.5';
-          aiFixBtn.title = this.isEnabled ? 'AIがコードを最適化します' : 'コード補完をONにしてください';
+          const isEnabled = mode !== 'none';
+          aiFixBtn.disabled = !isEnabled;
+          aiFixBtn.style.opacity = isEnabled ? '1' : '0.5';
+          aiFixBtn.title = isEnabled ? 'AIがコードを最適化します' : 'コード補完をONにしてください';
         }
       });
     }
 
     // エディタイベント
     this.editor.on('inputRead', (cm, event) => {
-      console.log('inputRead イベント発生:', event, 'enabled:', this.isEnabled, 'autoEnabled:', this.autoCompletionEnabled);
-      if (!this.isEnabled || !this.autoCompletionEnabled) return;
+      console.log('inputRead イベント発生:', event, 'mode:', this.completionMode);
+      if (this.completionMode === 'none') return;
       
       // より積極的な自動補完トリガー
       const triggerChars = ['.', '(', '[', ' '];
@@ -78,12 +98,12 @@ export class CodeCompletionEngine {
 
     // キーボードイベント
     this.editor.on('keydown', (cm, event) => {
-      if (!this.isEnabled) return;
+      if (this.completionMode === 'none') return;
 
       // Ctrl+I で手動補完（IntelliSenseのI）
       if (event.ctrlKey && event.code === 'KeyI') {
         event.preventDefault();
-        this.requestCompletion();
+        this.requestCompletion(true); // 手動フラグを追加
         return;
       }
 
@@ -148,7 +168,7 @@ export class CodeCompletionEngine {
     }, 500); // 500ms デバウンス（高速化のため短縮）
   }
 
-  async requestCompletion() {
+  async requestCompletion(isManual = false) {
     const cursor = this.editor.getCursor();
     const line = this.editor.getLine(cursor.line);
     const beforeCursor = line.substring(0, cursor.ch);
@@ -162,7 +182,7 @@ export class CodeCompletionEngine {
     
     // キャッシュから確認
     if (this.cache.has(cacheKey)) {
-      this.showSuggestions(this.cache.get(cacheKey), cursor);
+      this.handleSuggestions(this.cache.get(cacheKey), cursor, isManual);
       return;
     }
 
@@ -177,17 +197,49 @@ export class CodeCompletionEngine {
       }
       this.cache.set(cacheKey, suggestions);
       
-      // 候補が1つの場合はインライン表示、複数の場合はポップアップ表示
-      console.log('補完候補数:', suggestions.length, '候補:', suggestions);
-      if (suggestions.length === 1) {
-        console.log('インライン補完を表示:', suggestions[0]);
-        this.showInlineSuggestion(suggestions[0], cursor);
-      } else if (suggestions.length > 1) {
-        console.log('ポップアップを表示');
-        this.showSuggestions(suggestions, cursor);
-      }
+      this.handleSuggestions(suggestions, cursor, isManual);
     } catch (error) {
       console.error('補完生成エラー:', error);
+    }
+  }
+
+  handleSuggestions(suggestions, cursor, isManual = false) {
+    console.log('補完候補数:', suggestions.length, '候補:', suggestions, 'モード:', this.completionMode, '手動:', isManual);
+    
+    if (!suggestions || suggestions.length === 0) return;
+
+    switch (this.completionMode) {
+      case 'inline-only':
+        // インライン補完のみ
+        if (suggestions.length >= 1) {
+          console.log('インライン補完を表示:', suggestions[0]);
+          this.showInlineSuggestion(suggestions[0], cursor);
+        }
+        break;
+        
+      case 'popup-only':
+        // 複数候補のみ（手動時またはCtrl+I）
+        if (isManual && suggestions.length > 0) {
+          console.log('ポップアップを表示');
+          this.showSuggestions(suggestions, cursor);
+        }
+        break;
+        
+      case 'both':
+        // 両方対応
+        if (suggestions.length === 1 && !isManual) {
+          console.log('インライン補完を表示:', suggestions[0]);
+          this.showInlineSuggestion(suggestions[0], cursor);
+        } else if (suggestions.length > 1 || isManual) {
+          console.log('ポップアップを表示');
+          this.showSuggestions(suggestions, cursor);
+        }
+        break;
+        
+      case 'none':
+      default:
+        // 何もしない
+        break;
     }
   }
 
@@ -241,26 +293,32 @@ Only output COMPLETION: lines.`;
     const completions = [];
     const lastWord = beforeCursor.trim().split(/\s+/).pop();
     
-    // 基本的なPython補完（テスト用に簡素化）
+    // 基本的なPython補完
     if (lastWord.startsWith('prin')) {
-      completions.push('print()');
+      completions.push('print()', 'print("")', 'print(f"")');
     } else if (lastWord.startsWith('inpu')) {
-      completions.push('input()');
+      completions.push('input()', 'input("")');
     } else if (lastWord === 'if') {
-      completions.push('if True:');
+      completions.push('if True:', 'if __name__ == "__main__":');
     } else if (lastWord === 'for') {
-      completions.push('for i in range():');
+      completions.push('for i in range():', 'for item in list:');
     } else if (lastWord === 'def') {
-      completions.push('def function():');
+      completions.push('def function():', 'def main():');
     } else if (beforeCursor.includes('.')) {
-      completions.push('append()');
+      completions.push('append()', 'split()', 'strip()', 'replace()');
     } else {
-      // デフォルトで何か返す（テスト用）
-      completions.push('print()');
+      // 一般的なPython候補
+      completions.push('print()', 'input()', 'len()', 'range()', 'str()');
     }
     
     console.log('基本補完結果:', completions);
-    return completions.slice(0, 1); // 1つだけ返してインライン表示をテスト
+    
+    // モードに応じて返す候補数を調整
+    if (this.completionMode === 'inline-only') {
+      return completions.slice(0, 1); // インライン用に1つだけ
+    } else {
+      return completions.slice(0, 5); // 複数候補用に最大5つ
+    }
   }
 
   showSuggestions(suggestions, cursor) {
