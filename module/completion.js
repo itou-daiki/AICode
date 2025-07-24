@@ -49,13 +49,18 @@ export class CodeCompletionEngine {
 
     // エディタイベント
     this.editor.on('inputRead', (cm, event) => {
+      console.log('inputRead イベント発生:', event, 'enabled:', this.isEnabled, 'autoEnabled:', this.autoCompletionEnabled);
       if (!this.isEnabled || !this.autoCompletionEnabled) return;
       
-      // 特定の文字での自動補完トリガー
+      // より積極的な自動補完トリガー
       const triggerChars = ['.', '(', '[', ' '];
       const lastChar = event.text[0];
       
-      if (triggerChars.includes(lastChar) || event.text[0].length > 1) {
+      console.log('入力文字:', lastChar, 'イベントテキスト:', event.text);
+      
+      // 文字入力の場合は常にトリガー（テスト用）
+      if (event.text && event.text[0] && event.text[0].trim() !== '') {
+        console.log('自動補完をトリガー');
         this.debouncedCompletion();
       }
     });
@@ -217,28 +222,30 @@ Only output COMPLETION: lines.`;
   }
 
   getBasicCompletions(beforeCursor) {
+    console.log('getBasicCompletions 呼び出し:', beforeCursor);
     const completions = [];
     const lastWord = beforeCursor.trim().split(/\s+/).pop();
     
-    // 基本的なPython補完
-    if (lastWord === 'print') {
-      completions.push('print()', 'print("")');
-    } else if (lastWord === 'input') {
-      completions.push('input()', 'input("")');
+    // 基本的なPython補完（テスト用に簡素化）
+    if (lastWord.startsWith('prin')) {
+      completions.push('print()');
+    } else if (lastWord.startsWith('inpu')) {
+      completions.push('input()');
     } else if (lastWord === 'if') {
-      completions.push('if True:', 'if __name__ == "__main__":');
+      completions.push('if True:');
     } else if (lastWord === 'for') {
-      completions.push('for i in range():', 'for item in ');
+      completions.push('for i in range():');
     } else if (lastWord === 'def') {
-      completions.push('def function_name():', 'def main():');
+      completions.push('def function():');
     } else if (beforeCursor.includes('.')) {
-      completions.push('append()', 'split()', 'strip()', 'replace()', 'join()');
+      completions.push('append()');
     } else {
-      // 一般的なPythonキーワード
-      completions.push('print()', 'input()', 'len()', 'range()', 'str()', 'int()', 'float()');
+      // デフォルトで何か返す（テスト用）
+      completions.push('print()');
     }
     
-    return completions.slice(0, 5);
+    console.log('基本補完結果:', completions);
+    return completions.slice(0, 1); // 1つだけ返してインライン表示をテスト
   }
 
   showSuggestions(suggestions, cursor) {
