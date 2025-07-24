@@ -168,6 +168,8 @@
       border-radius: 4px;
       background: #1e1e1e !important;
       color: #d4d4d4 !important;
+      font-size: 16px !important;
+      font-family: 'Consolas', 'Monaco', 'Courier New', monospace !important;
     }
     .CodeMirror-lines {
       background: #1e1e1e !important;
@@ -192,6 +194,35 @@
     }
     .CodeMirror-activeline-background {
       background: #2a2a2a !important;
+    }
+    
+    /* Python シンタックスハイライト - ダークモード */
+    .cm-s-default .cm-keyword {
+      color: #569cd6 !important; /* def, if, for, import など */
+    }
+    .cm-s-default .cm-string {
+      color: #ce9178 !important; /* 文字列 */
+    }
+    .cm-s-default .cm-comment {
+      color: #6a9955 !important; /* コメント */
+    }
+    .cm-s-default .cm-number {
+      color: #b5cea8 !important; /* 数値 */
+    }
+    .cm-s-default .cm-builtin {
+      color: #4ec9b0 !important; /* print, len など */
+    }
+    .cm-s-default .cm-variable {
+      color: #9cdcfe !important; /* 変数名 */
+    }
+    .cm-s-default .cm-def {
+      color: #dcdcaa !important; /* 関数定義 */
+    }
+    .cm-s-default .cm-operator {
+      color: #d4d4d4 !important; /* 演算子 */
+    }
+    .cm-s-default .cm-bracket {
+      color: #ffd700 !important; /* 括弧 */
     }
     #editor button, #result button {
       align-self: flex-start;
@@ -551,18 +582,10 @@
             <span class="toggle-slider"></span>
           </label>
         </div>
-        <div style="display: flex; align-items: center; gap: 0.5em; margin-bottom: 0.5em;">
-          <label for="auto-completion-toggle" style="font-size: 0.9em;">自動補完:</label>
-          <label class="toggle-switch">
-            <input type="checkbox" id="auto-completion-toggle" checked>
-            <span class="toggle-slider"></span>
-          </label>
-        </div>
         <div style="font-size: 0.8em; color: #7f8c8d;">
-          <span id="completion-status">有効</span> - 
-          <span id="completion-trigger">Ctrl+I</span>で複数候補表示<br>
-          単一候補: 薄い色で表示 → <strong>Tab</strong>で決定<br>
-          複数候補: ポップアップ → ↑↓で選択、<strong>Tab</strong>で決定
+          <span id="completion-status">有効</span><br>
+          自動表示: 単一候補は薄い色、複数候補は<strong>Ctrl+I</strong><br>
+          <strong>Tab</strong>で決定、↑↓で選択、<strong>Esc</strong>でキャンセル
         </div>
       </div>
       <div class="section">

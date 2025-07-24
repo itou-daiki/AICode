@@ -31,19 +31,11 @@ export class CodeCompletionEngine {
     
     toggle.addEventListener('change', (e) => {
       this.isEnabled = e.target.checked;
+      this.autoCompletionEnabled = e.target.checked; // 一つのボタンで両方制御
       status.textContent = this.isEnabled ? '有効' : '無効';
       if (!this.isEnabled) {
         this.hidePopup();
-      }
-    });
-
-    // 自動補完トグルスイッチのイベント
-    const autoToggle = document.getElementById('auto-completion-toggle');
-    
-    autoToggle.addEventListener('change', (e) => {
-      this.autoCompletionEnabled = e.target.checked;
-      if (!this.autoCompletionEnabled) {
-        this.hidePopup();
+        this.hideInlineSuggestion();
       }
     });
 
