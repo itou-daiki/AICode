@@ -268,7 +268,18 @@ export async function initEditor() {
   });
 
   // コード補完エンジンを初期化
+  console.log('エディタ初期化完了、CodeCompletionEngineを作成中...');
   completionEngine = new CodeCompletionEngine(editor);
+  console.log('CodeCompletionEngine作成完了:', completionEngine);
+  
+  // テスト用：エディタイベントの動作確認
+  editor.on('change', (cm, change) => {
+    console.log('エディタ change イベント:', change);
+  });
+  
+  editor.on('inputRead', (cm, event) => {
+    console.log('エディタ inputRead イベント（直接）:', event);
+  });
 
   problemFiles = await fetchProblemFiles();
   

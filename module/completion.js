@@ -3,6 +3,7 @@ import { callGemini } from './ai.js';
 
 export class CodeCompletionEngine {
   constructor(editor) {
+    console.log('CodeCompletionEngine コンストラクタ呼び出し', editor);
     this.editor = editor;
     this.isEnabled = true;
     this.autoCompletionEnabled = true;
@@ -16,6 +17,8 @@ export class CodeCompletionEngine {
     
     this.initPopup();
     this.bindEvents();
+    
+    console.log('CodeCompletionEngine 初期化完了');
   }
 
   initPopup() {
@@ -25,27 +28,34 @@ export class CodeCompletionEngine {
   }
 
   bindEvents() {
+    console.log('bindEvents 開始');
+    
     // コード補完トグルスイッチのイベント
     const toggle = document.getElementById('code-completion-toggle');
     const status = document.getElementById('completion-status');
     
-    toggle.addEventListener('change', (e) => {
-      this.isEnabled = e.target.checked;
-      this.autoCompletionEnabled = e.target.checked; // 一つのボタンで両方制御
-      status.textContent = this.isEnabled ? '有効' : '無効';
-      if (!this.isEnabled) {
-        this.hidePopup();
-        this.hideInlineSuggestion();
-      }
-      
-      // AIコード修正ボタンの状態も更新
-      const aiFixBtn = document.getElementById('ai-fix-code');
-      if (aiFixBtn) {
-        aiFixBtn.disabled = !this.isEnabled;
-        aiFixBtn.style.opacity = this.isEnabled ? '1' : '0.5';
-        aiFixBtn.title = this.isEnabled ? 'AIがコードを最適化します' : 'コード補完をONにしてください';
-      }
-    });
+    console.log('トグルスイッチ要素:', toggle);
+    
+    if (toggle) {
+      toggle.addEventListener('change', (e) => {
+        console.log('トグルスイッチ変更:', e.target.checked);
+        this.isEnabled = e.target.checked;
+        this.autoCompletionEnabled = e.target.checked; // 一つのボタンで両方制御
+        status.textContent = this.isEnabled ? '有効' : '無効';
+        if (!this.isEnabled) {
+          this.hidePopup();
+          this.hideInlineSuggestion();
+        }
+        
+        // AIコード修正ボタンの状態も更新
+        const aiFixBtn = document.getElementById('ai-fix-code');
+        if (aiFixBtn) {
+          aiFixBtn.disabled = !this.isEnabled;
+          aiFixBtn.style.opacity = this.isEnabled ? '1' : '0.5';
+          aiFixBtn.title = this.isEnabled ? 'AIがコードを最適化します' : 'コード補完をONにしてください';
+        }
+      });
+    }
 
     // エディタイベント
     this.editor.on('inputRead', (cm, event) => {
