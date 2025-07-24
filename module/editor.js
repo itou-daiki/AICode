@@ -337,7 +337,7 @@ export async function initEditor() {
   
   // コード補完状態に応じてAIコード修正ボタンを制御
   function updateAIFixButtonState() {
-    const completionEnabled = completionEngine && completionEngine.isEnabled;
+    const completionEnabled = completionEngine && completionEngine.completionMode !== 'none';
     aiFixBtn.disabled = !completionEnabled;
     aiFixBtn.style.opacity = completionEnabled ? '1' : '0.5';
     aiFixBtn.title = completionEnabled ? 'AIがコードを最適化します' : 'コード補完をONにしてください';
@@ -346,9 +346,11 @@ export async function initEditor() {
   // 初期状態を設定
   updateAIFixButtonState();
   
-  // コード補完の状態変更を監視
-  const completionToggle = document.getElementById('code-completion-toggle');
-  completionToggle.addEventListener('change', updateAIFixButtonState);
+  // コード補完の状態変更を監視（新しいselect要素）
+  const completionModeSelect = document.getElementById('completion-mode-select');
+  if (completionModeSelect) {
+    completionModeSelect.addEventListener('change', updateAIFixButtonState);
+  }
 
   document.getElementById('btn-explain').addEventListener('click', explainProblem);
   document.getElementById('btn-review').addEventListener('click', reviewCode);
