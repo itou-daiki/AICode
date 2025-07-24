@@ -272,7 +272,8 @@ export async function initEditor() {
   completionEngine = new CodeCompletionEngine(editor);
   console.log('CodeCompletionEngine作成完了:', completionEngine);
   
-  // テスト用：エディタイベントの動作確認
+  // テスト用デバッグを無効化（パフォーマンス改善）
+  /*
   editor.on('change', (cm, change) => {
     console.log('エディタ change イベント:', change);
   });
@@ -281,7 +282,7 @@ export async function initEditor() {
     console.log('エディタ inputRead イベント（直接）:', event);
     
     // 手動で補完エンジンのメソッドを呼び出してテスト
-    if (completionEngine && completionEngine.isEnabled) {
+    if (completionEngine && completionEngine.completionMode !== 'none') {
       console.log('手動で補完処理を呼び出し');
       const cursor = editor.getCursor();
       const line = editor.getLine(cursor.line);
@@ -300,6 +301,7 @@ export async function initEditor() {
       }
     }
   });
+  */
 
   problemFiles = await fetchProblemFiles();
   

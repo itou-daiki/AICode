@@ -3,22 +3,26 @@ import { callGemini } from './ai.js';
 
 export class CodeCompletionEngine {
   constructor(editor) {
-    console.log('CodeCompletionEngine コンストラクタ呼び出し', editor);
-    this.editor = editor;
-    this.completionMode = 'both'; // 'inline-only', 'popup-only', 'both', 'none'
-    this.debounceTimer = null;
-    this.cache = new Map();
-    this.popup = null;
-    this.currentSuggestions = [];
-    this.selectedIndex = -1;
-    this.inlineWidget = null;
-    this.currentInlineSuggestion = null;
-    this.isShowingInline = false; // インライン表示中フラグ
-    
-    this.initPopup();
-    this.bindEvents();
-    
-    console.log('CodeCompletionEngine 初期化完了');
+    try {
+      console.log('CodeCompletionEngine コンストラクタ呼び出し', editor);
+      this.editor = editor;
+      this.completionMode = 'both'; // 'inline-only', 'popup-only', 'both', 'none'
+      this.debounceTimer = null;
+      this.cache = new Map();
+      this.popup = null;
+      this.currentSuggestions = [];
+      this.selectedIndex = -1;
+      this.inlineWidget = null;
+      this.currentInlineSuggestion = null;
+      this.isShowingInline = false; // インライン表示中フラグ
+      
+      this.initPopup();
+      this.bindEvents();
+      
+      console.log('CodeCompletionEngine 初期化完了');
+    } catch (error) {
+      console.error('CodeCompletionEngine 初期化エラー:', error);
+    }
   }
 
   initPopup() {
@@ -28,70 +32,70 @@ export class CodeCompletionEngine {
   }
 
   bindEvents() {
-    console.log('bindEvents 開始');
-    
-    // コード補完モード選択のイベント
-    const modeSelect = document.getElementById('completion-mode-select');
-    const status = document.getElementById('completion-status');
-    const description = document.getElementById('completion-description');
-    
-    console.log('モード選択要素:', modeSelect);
-    
-    if (modeSelect) {
-      modeSelect.addEventListener('change', (e) => {
-        const mode = e.target.value;
-        console.log('補完モード変更:', mode);
-        this.completionMode = mode;
-        
-        // ステータス表示を更新
-        const modeTexts = {
-          'inline-only': 'インライン補完のみ',
-          'popup-only': '複数候補のみ',
-          'both': 'インライン + 複数候補',
-          'none': '補完なし'
-        };
-        
-        const descriptions = {
-          'inline-only': '単一候補を薄い色で表示',
-          'popup-only': 'Ctrl+I で複数候補表示',
-          'both': '単一候補: 薄い色表示、複数候補: Ctrl+I',
-          'none': '補完機能は無効'
-        };
-        
-        status.textContent = modeTexts[mode];
-        description.textContent = descriptions[mode];
-        
-        // 現在の補完を隠す
-        if (mode === 'none') {
-          this.hidePopup();
-          this.hideInlineSuggestion();
-        }
-        
-        // AIコード修正ボタンの状態も更新
-        const aiFixBtn = document.getElementById('ai-fix-code');
-        if (aiFixBtn) {
-          const isEnabled = mode !== 'none';
-          aiFixBtn.disabled = !isEnabled;
-          aiFixBtn.style.opacity = isEnabled ? '1' : '0.5';
-          aiFixBtn.title = isEnabled ? 'AIがコードを最適化します' : 'コード補完をONにしてください';
-        }
-      });
+    try {
+      console.log('bindEvents 開始');
+      
+      // コード補完モード選択のイベント
+      const modeSelect = document.getElementById('completion-mode-select');
+      const status = document.getElementById('completion-status');
+      const description = document.getElementById('completion-description');
+      
+      console.log('モード選択要素:', modeSelect);
+      
+      if (modeSelect) {
+        modeSelect.addEventListener('change', (e) => {
+          try {
+            const mode = e.target.value;
+            console.log('補完モード変更:', mode);
+            this.completionMode = mode;
+            
+            // ステータス表示を更新
+            const modeTexts = {
+              'inline-only': 'インライン補完のみ',
+              'popup-only': '複数候補のみ',
+              'both': 'インライン + 複数候補',
+              'none': '補完なし'
+            };
+            
+            const descriptions = {
+              'inline-only': '単一候補を薄い色で表示',
+              'popup-only': 'Ctrl+I で複数候補表示',
+              'both': '単一候補: 薄い色表示、複数候補: Ctrl+I',
+              'none': '補完機能は無効'
+            };
+            
+            if (status) status.textContent = modeTexts[mode];
+            if (description) description.textContent = descriptions[mode];
+            
+            // 現在の補完を隠す
+            if (mode === 'none') {
+              this.hidePopup();
+              this.hideInlineSuggestion();
+            }
+            
+            // AIコード修正ボタンの状態も更新
+            const aiFixBtn = document.getElementById('ai-fix-code');
+            if (aiFixBtn) {
+              const isEnabled = mode !== 'none';
+              aiFixBtn.disabled = !isEnabled;
+              aiFixBtn.style.opacity = isEnabled ? '1' : '0.5';
+              aiFixBtn.title = isEnabled ? 'AIがコードを最適化します' : 'コード補完をONにしてください';
+            }
+          } catch (error) {
+            console.error('モード変更エラー:', error);
+          }
+        });
+      }
+    } catch (error) {
+      console.error('bindEvents エラー:', error);
     }
 
-    // エディタイベント
+    // エディタイベント（デバッグログ簡素化）
     this.editor.on('inputRead', (cm, event) => {
-      console.log('inputRead イベント発生:', event, 'mode:', this.completionMode);
       if (this.completionMode === 'none') return;
       
-      // より積極的な自動補完トリガー
-      const triggerChars = ['.', '(', '[', ' '];
-      const lastChar = event.text[0];
-      
-      console.log('入力文字:', lastChar, 'イベントテキスト:', event.text);
-      
-      // 文字入力の場合は常にトリガー（テスト用）
+      // 文字入力の場合は自動補完をトリガー
       if (event.text && event.text[0] && event.text[0].trim() !== '') {
-        console.log('自動補完をトリガー');
         this.debouncedCompletion();
       }
     });
@@ -204,15 +208,12 @@ export class CodeCompletionEngine {
   }
 
   handleSuggestions(suggestions, cursor, isManual = false) {
-    console.log('補完候補数:', suggestions.length, '候補:', suggestions, 'モード:', this.completionMode, '手動:', isManual);
-    
     if (!suggestions || suggestions.length === 0) return;
 
     switch (this.completionMode) {
       case 'inline-only':
         // インライン補完のみ
         if (suggestions.length >= 1) {
-          console.log('インライン補完を表示:', suggestions[0]);
           this.showInlineSuggestion(suggestions[0], cursor);
         }
         break;
@@ -220,7 +221,6 @@ export class CodeCompletionEngine {
       case 'popup-only':
         // 複数候補のみ（手動時またはCtrl+I）
         if (isManual && suggestions.length > 0) {
-          console.log('ポップアップを表示');
           this.showSuggestions(suggestions, cursor);
         }
         break;
@@ -228,10 +228,8 @@ export class CodeCompletionEngine {
       case 'both':
         // 両方対応
         if (suggestions.length === 1 && !isManual) {
-          console.log('インライン補完を表示:', suggestions[0]);
           this.showInlineSuggestion(suggestions[0], cursor);
         } else if (suggestions.length > 1 || isManual) {
-          console.log('ポップアップを表示');
           this.showSuggestions(suggestions, cursor);
         }
         break;
@@ -289,7 +287,6 @@ Only output COMPLETION: lines.`;
   }
 
   getBasicCompletions(beforeCursor) {
-    console.log('getBasicCompletions 呼び出し:', beforeCursor);
     const completions = [];
     const lastWord = beforeCursor.trim().split(/\s+/).pop();
     
@@ -310,8 +307,6 @@ Only output COMPLETION: lines.`;
       // 一般的なPython候補
       completions.push('print()', 'input()', 'len()', 'range()', 'str()');
     }
-    
-    console.log('基本補完結果:', completions);
     
     // モードに応じて返す候補数を調整
     if (this.completionMode === 'inline-only') {
@@ -355,7 +350,6 @@ Only output COMPLETION: lines.`;
   }
 
   showInlineSuggestion(suggestion, cursor) {
-    console.log('showInlineSuggestion 呼び出し:', suggestion, cursor);
     this.hidePopup(); // ポップアップを隠す
     this.hideInlineSuggestion(); // 既存のインライン補完を隠す
     
@@ -384,12 +378,9 @@ Only output COMPLETION: lines.`;
     
     // フラグをリセット
     this.isShowingInline = false;
-    
-    console.log('インライン補完表示完了');
   }
 
   hideInlineSuggestion() {
-    console.log('hideInlineSuggestion 呼び出し');
     if (this.inlineWidget) {
       this.inlineWidget.clear();
       this.inlineWidget = null;
