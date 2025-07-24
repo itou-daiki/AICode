@@ -66,7 +66,10 @@ export class CodeCompletionEngine {
         } else if (event.key === 'ArrowUp') {
           event.preventDefault();
           this.selectPrevious();
-        } else if (event.key === 'Enter' || event.key === 'Tab') {
+        } else if (event.key === 'Tab') {
+          event.preventDefault();
+          this.applySelected();
+        } else if (event.key === 'Enter') {
           event.preventDefault();
           this.applySelected();
         } else if (event.key === 'Escape') {
