@@ -279,6 +279,26 @@ export async function initEditor() {
   
   editor.on('inputRead', (cm, event) => {
     console.log('エディタ inputRead イベント（直接）:', event);
+    
+    // 手動で補完エンジンのメソッドを呼び出してテスト
+    if (completionEngine && completionEngine.isEnabled) {
+      console.log('手動で補完処理を呼び出し');
+      const cursor = editor.getCursor();
+      const line = editor.getLine(cursor.line);
+      const beforeCursor = line.substring(0, cursor.ch);
+      
+      if (beforeCursor.trim().length > 0) {
+        console.log('手動補完テスト - beforeCursor:', beforeCursor);
+        // 基本補完をテスト
+        const suggestions = completionEngine.getBasicCompletions(beforeCursor);
+        console.log('手動補完結果:', suggestions);
+        
+        if (suggestions.length === 1) {
+          console.log('インライン表示テスト');
+          completionEngine.showInlineSuggestion(suggestions[0], cursor);
+        }
+      }
+    }
   });
 
   problemFiles = await fetchProblemFiles();
