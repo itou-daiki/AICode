@@ -39,7 +39,7 @@ function initApiKeyForm() {
 // ページ読み込み時にAPIキーフォームを初期化
 window.addEventListener('DOMContentLoaded', initApiKeyForm);
 
-async function callGemini(prompt, maxTokens = 500) {
+export async function callGemini(prompt, maxTokens = 500) {
   try {
     // APIキーがない場合はデモレスポンスを返す
     if (!apiKey) {

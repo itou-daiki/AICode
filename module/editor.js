@@ -1,10 +1,12 @@
 // module/editor.js
 import { explainProblem, reviewCode } from './ai.js';
+import { CodeCompletionEngine } from './completion.js';
 
 export let currentProblem;
 export let editor;
 export let isFreeCodingMode = false;  // フリーコーディングモードの状態を追加
 let pyodide;
+let completionEngine;
 let problemFiles = [];
 let currentProblemIndex = 0;
 let isWaitingForInput = false;
@@ -256,8 +258,17 @@ export async function initEditor() {
   pyodide.globals.set('js', window);
   
   editor = CodeMirror.fromTextArea(document.getElementById('code'), {
-    mode: 'python', lineNumbers: true, indentUnit: 4, tabSize: 4
+    mode: 'python', 
+    lineNumbers: true, 
+    indentUnit: 4, 
+    tabSize: 4,
+    extraKeys: {
+      'Ctrl-Space': 'autocomplete'
+    }
   });
+
+  // コード補完エンジンを初期化
+  completionEngine = new CodeCompletionEngine(editor);
 
   problemFiles = await fetchProblemFiles();
   

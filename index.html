@@ -348,6 +348,78 @@
       text-align: right;
     }
     
+    /* トグルスイッチのスタイル */
+    .toggle-switch {
+      position: relative;
+      display: inline-block;
+      width: 44px;
+      height: 24px;
+    }
+    .toggle-switch input {
+      opacity: 0;
+      width: 0;
+      height: 0;
+    }
+    .toggle-slider {
+      position: absolute;
+      cursor: pointer;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background-color: #ccc;
+      border-radius: 24px;
+      transition: 0.3s;
+    }
+    .toggle-slider:before {
+      position: absolute;
+      content: "";
+      height: 18px;
+      width: 18px;
+      left: 3px;
+      bottom: 3px;
+      background-color: white;
+      border-radius: 50%;
+      transition: 0.3s;
+    }
+    input:checked + .toggle-slider {
+      background-color: #3498db;
+    }
+    input:checked + .toggle-slider:before {
+      transform: translateX(20px);
+    }
+    
+    /* コード補完ポップアップのスタイル */
+    .code-completion-popup {
+      position: absolute;
+      background: white;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+      box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+      max-width: 400px;
+      max-height: 200px;
+      overflow-y: auto;
+      z-index: 1000;
+      display: none;
+    }
+    .completion-item {
+      padding: 8px 12px;
+      cursor: pointer;
+      border-bottom: 1px solid #f0f0f0;
+      font-family: 'Courier New', monospace;
+      font-size: 0.9em;
+    }
+    .completion-item:hover {
+      background-color: #e3f2fd;
+    }
+    .completion-item.selected {
+      background-color: #2196f3;
+      color: white;
+    }
+    .completion-item:last-child {
+      border-bottom: none;
+    }
+    
     /* 実行時入力フォーム */
     #runtime-input-container {
       display: none;
@@ -422,6 +494,21 @@
         </div>
         <div id="api-key-status"></div>
       </div>
+      
+      <h2>コード補完</h2>
+      <div class="section">
+        <div style="display: flex; align-items: center; gap: 0.5em; margin-bottom: 0.5em;">
+          <label for="code-completion-toggle" style="font-size: 0.9em;">AI補完:</label>
+          <label class="toggle-switch">
+            <input type="checkbox" id="code-completion-toggle" checked>
+            <span class="toggle-slider"></span>
+          </label>
+        </div>
+        <div style="font-size: 0.8em; color: #7f8c8d;">
+          <span id="completion-status">有効</span> - 
+          <span id="completion-trigger">Ctrl+Space</span>で手動補完
+        </div>
+      </div>
       <div class="section">
         <button id="btn-explain">問題の解説を生成する</button>
       </div>
@@ -484,6 +571,7 @@
   <script src="https://cdn.jsdelivr.net/npm/codemirror@5.65.16/mode/python/python.js"></script>
   <script src="https://cdn.jsdelivr.net/pyodide/v0.23.4/full/pyodide.js"></script>
   <!-- Module Scripts -->
+  <script type="module" src="module/completion.js"></script>
   <script type="module" src="module/editor.js"></script>
   <script type="module" src="module/sidebar.js"></script>
   <script type="module" src="module/ai.js"></script>
