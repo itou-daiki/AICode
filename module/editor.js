@@ -1,5 +1,5 @@
 // module/editor.js
-import { explainProblem, reviewCode } from './ai.js';
+import { explainProblem, reviewCode, fixCode } from './ai.js';
 import { CodeCompletionEngine } from './completion.js';
 
 export let currentProblem;
@@ -297,6 +297,25 @@ export async function initEditor() {
   const runBtn = document.getElementById('run'); 
   runBtn.disabled = false;
   runBtn.addEventListener('click', runCode);
+
+  // AIコード修正ボタンの初期化
+  const aiFixBtn = document.getElementById('ai-fix-code');
+  aiFixBtn.addEventListener('click', fixCode);
+  
+  // コード補完状態に応じてAIコード修正ボタンを制御
+  function updateAIFixButtonState() {
+    const completionEnabled = completionEngine && completionEngine.isEnabled;
+    aiFixBtn.disabled = !completionEnabled;
+    aiFixBtn.style.opacity = completionEnabled ? '1' : '0.5';
+    aiFixBtn.title = completionEnabled ? 'AIがコードを最適化します' : 'コード補完をONにしてください';
+  }
+  
+  // 初期状態を設定
+  updateAIFixButtonState();
+  
+  // コード補完の状態変更を監視
+  const completionToggle = document.getElementById('code-completion-toggle');
+  completionToggle.addEventListener('change', updateAIFixButtonState);
 
   document.getElementById('btn-explain').addEventListener('click', explainProblem);
   document.getElementById('btn-review').addEventListener('click', reviewCode);

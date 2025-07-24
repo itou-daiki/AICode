@@ -37,6 +37,14 @@ export class CodeCompletionEngine {
         this.hidePopup();
         this.hideInlineSuggestion();
       }
+      
+      // AIコード修正ボタンの状態も更新
+      const aiFixBtn = document.getElementById('ai-fix-code');
+      if (aiFixBtn) {
+        aiFixBtn.disabled = !this.isEnabled;
+        aiFixBtn.style.opacity = this.isEnabled ? '1' : '0.5';
+        aiFixBtn.title = this.isEnabled ? 'AIがコードを最適化します' : 'コード補完をONにしてください';
+      }
     });
 
     // エディタイベント

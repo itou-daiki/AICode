@@ -626,7 +626,10 @@
         <div id="editor">
           <h2>コードエディタ</h2>
           <textarea id="code"></textarea>
-          <button id="run" disabled>▶ 実行する</button>
+          <div style="display: flex; gap: 0.5em; margin-top: 0.5em;">
+            <button id="run" disabled>▶ 実行する</button>
+            <button id="ai-fix-code" disabled style="background: linear-gradient(135deg, #8e44ad, #9b59b6); border: none; border-radius: 4px; padding: 0.5em 1em; color: white; cursor: pointer; font-weight: 500;">🤖 AIコード修正</button>
+          </div>
         </div>
 
         <div id="result">

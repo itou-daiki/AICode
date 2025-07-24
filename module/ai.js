@@ -354,6 +354,78 @@ export async function generateNewProblem() {
   }
 }
 
+// AIコード修正機能
+export async function fixCode() {
+  const button = document.getElementById('ai-fix-code');
+  const originalText = button.textContent;
+  button.textContent = '修正中...';
+  button.disabled = true;
+  
+  try {
+    const code = editor.getValue();
+    
+    if (!code.trim()) {
+      alert('修正するコードを入力してください。');
+      return;
+    }
+
+    let prompt;
+    if (isFreeCodingMode) {
+      // フリーコーディングモードの場合
+      prompt = `以下のPythonコードを分析し、より良いコードに修正してください。コードの意図を保ちながら、以下の観点で改善してください：
+
+1. 可読性の向上
+2. 効率性の改善
+3. Pythonらしい書き方（Pythonic）
+4. エラー処理の追加
+5. コメントの改善
+
+元のコード:
+\`\`\`python
+${code}
+\`\`\`
+
+修正版のコードのみを出力してください（説明は不要）。`;
+    } else {
+      // 問題解決モードの場合
+      prompt = `以下は「${currentProblem.title}」の問題を解くPythonコードです。コードの意図を理解し、より効率的で読みやすく、正確な解答に修正してください。
+
+問題: ${currentProblem.description}
+入力例: ${currentProblem.input}
+期待出力: ${currentProblem.expected}
+
+現在のコード:
+\`\`\`python
+${code}
+\`\`\`
+
+修正版のコードのみを出力してください（説明は不要）。問題の要求を満たすことを最優先にしてください。`;
+    }
+
+    const fixedCode = await callGemini(prompt, 500);
+    
+    // コードブロックから実際のコードを抽出
+    let cleanedCode = fixedCode;
+    const codeMatch = fixedCode.match(/```python\n([\s\S]*?)\n```/);
+    if (codeMatch) {
+      cleanedCode = codeMatch[1];
+    } else {
+      // ```で囲まれていない場合は、そのまま使用
+      cleanedCode = fixedCode.replace(/```/g, '').trim();
+    }
+    
+    // エディタに修正されたコードを設定
+    editor.setValue(cleanedCode);
+    
+  } catch (error) {
+    console.error('コード修正エラー:', error);
+    alert('コードの修正中にエラーが発生しました: ' + error.message);
+  } finally {
+    button.textContent = originalText;
+    button.disabled = false;
+  }
+}
+
 // 正誤判定機能
 export async function checkAnswer() {
   const resultDiv = document.getElementById('check-result');
