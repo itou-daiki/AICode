@@ -5,11 +5,14 @@ export class CodeCompletionEngine {
   constructor(editor) {
     this.editor = editor;
     this.isEnabled = true;
+    this.autoCompletionEnabled = true;
     this.debounceTimer = null;
     this.cache = new Map();
     this.popup = null;
     this.currentSuggestions = [];
     this.selectedIndex = -1;
+    this.inlineWidget = null;
+    this.currentInlineSuggestion = null;
     
     this.initPopup();
     this.bindEvents();
@@ -22,7 +25,7 @@ export class CodeCompletionEngine {
   }
 
   bindEvents() {
-    // トグルスイッチのイベント
+    // コード補完トグルスイッチのイベント
     const toggle = document.getElementById('code-completion-toggle');
     const status = document.getElementById('completion-status');
     
@@ -34,9 +37,19 @@ export class CodeCompletionEngine {
       }
     });
 
+    // 自動補完トグルスイッチのイベント
+    const autoToggle = document.getElementById('auto-completion-toggle');
+    
+    autoToggle.addEventListener('change', (e) => {
+      this.autoCompletionEnabled = e.target.checked;
+      if (!this.autoCompletionEnabled) {
+        this.hidePopup();
+      }
+    });
+
     // エディタイベント
     this.editor.on('inputRead', (cm, event) => {
-      if (!this.isEnabled) return;
+      if (!this.isEnabled || !this.autoCompletionEnabled) return;
       
       // 特定の文字での自動補完トリガー
       const triggerChars = ['.', '(', '[', ' '];
@@ -51,8 +64,8 @@ export class CodeCompletionEngine {
     this.editor.on('keydown', (cm, event) => {
       if (!this.isEnabled) return;
 
-      // Ctrl+Space で手動補完
-      if (event.ctrlKey && event.code === 'Space') {
+      // Ctrl+I で手動補完（IntelliSenseのI）
+      if (event.ctrlKey && event.code === 'KeyI') {
         event.preventDefault();
         this.requestCompletion();
         return;
@@ -75,15 +88,35 @@ export class CodeCompletionEngine {
         } else if (event.key === 'Escape') {
           event.preventDefault();
           this.hidePopup();
+          this.hideInlineSuggestion();
+        }
+      }
+
+      // インライン補完の処理
+      if (this.currentInlineSuggestion) {
+        if (event.key === 'Tab') {
+          event.preventDefault();
+          this.acceptInlineSuggestion();
+        } else if (event.key === 'Escape') {
+          event.preventDefault();
+          this.hideInlineSuggestion();
         }
       }
     });
 
-    // エディタ外クリックでポップアップを隠す
+    // エディタ外クリックでポップアップとインライン補完を隠す
     document.addEventListener('click', (e) => {
       if (!this.editor.getWrapperElement().contains(e.target) && 
           !this.popup.contains(e.target)) {
         this.hidePopup();
+        this.hideInlineSuggestion();
+      }
+    });
+
+    // エディタのカーソル移動でインライン補完を隠す
+    this.editor.on('cursorActivity', () => {
+      if (this.currentInlineSuggestion) {
+        this.hideInlineSuggestion();
       }
     });
   }
@@ -124,7 +157,12 @@ export class CodeCompletionEngine {
       }
       this.cache.set(cacheKey, suggestions);
       
-      this.showSuggestions(suggestions, cursor);
+      // 候補が1つの場合はインライン表示、複数の場合はポップアップ表示
+      if (suggestions.length === 1) {
+        this.showInlineSuggestion(suggestions[0], cursor);
+      } else if (suggestions.length > 1) {
+        this.showSuggestions(suggestions, cursor);
+      }
     } catch (error) {
       console.error('補完生成エラー:', error);
     }
@@ -231,6 +269,51 @@ Only output COMPLETION: lines.`;
   hidePopup() {
     this.popup.style.display = 'none';
     this.selectedIndex = -1;
+  }
+
+  showInlineSuggestion(suggestion, cursor) {
+    this.hidePopup(); // ポップアップを隠す
+    this.hideInlineSuggestion(); // 既存のインライン補完を隠す
+    
+    const line = this.editor.getLine(cursor.line);
+    const beforeCursor = line.substring(0, cursor.ch);
+    
+    // 補完テキストを表示
+    this.currentInlineSuggestion = suggestion;
+    
+    // CodeMirrorのマーカーを使用してインライン表示
+    const from = { line: cursor.line, ch: cursor.ch };
+    const to = { line: cursor.line, ch: cursor.ch };
+    
+    // 薄い色のテキストを挿入
+    const widget = document.createElement('span');
+    widget.className = 'inline-suggestion';
+    widget.textContent = suggestion;
+    widget.style.color = '#999';
+    widget.style.fontStyle = 'italic';
+    widget.style.opacity = '0.7';
+    
+    this.inlineWidget = this.editor.setBookmark(from, {
+      widget: widget,
+      insertLeft: false
+    });
+  }
+
+  hideInlineSuggestion() {
+    if (this.inlineWidget) {
+      this.inlineWidget.clear();
+      this.inlineWidget = null;
+    }
+    this.currentInlineSuggestion = null;
+  }
+
+  acceptInlineSuggestion() {
+    if (this.currentInlineSuggestion) {
+      const cursor = this.editor.getCursor();
+      this.editor.replaceRange(this.currentInlineSuggestion, cursor);
+      this.hideInlineSuggestion();
+      this.editor.focus();
+    }
   }
 
   selectNext() {

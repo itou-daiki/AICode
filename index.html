@@ -420,6 +420,24 @@
       border-bottom: none;
     }
     
+    /* インライン補完のスタイル */
+    .inline-completion {
+      position: relative;
+      display: inline;
+    }
+    .inline-completion-text {
+      color: #999 !important;
+      background: transparent !important;
+      position: relative;
+      pointer-events: none;
+      font-style: italic;
+    }
+    .CodeMirror-line .inline-suggestion {
+      color: #999;
+      font-style: italic;
+      opacity: 0.7;
+    }
+    
     /* 実行時入力フォーム */
     #runtime-input-container {
       display: none;
@@ -503,10 +521,18 @@
             <span class="toggle-slider"></span>
           </label>
         </div>
+        <div style="display: flex; align-items: center; gap: 0.5em; margin-bottom: 0.5em;">
+          <label for="auto-completion-toggle" style="font-size: 0.9em;">自動補完:</label>
+          <label class="toggle-switch">
+            <input type="checkbox" id="auto-completion-toggle" checked>
+            <span class="toggle-slider"></span>
+          </label>
+        </div>
         <div style="font-size: 0.8em; color: #7f8c8d;">
           <span id="completion-status">有効</span> - 
-          <span id="completion-trigger">Ctrl+Space</span>で手動補完<br>
-          <strong>Tab</strong>で決定、↑↓で選択、<strong>Esc</strong>でキャンセル
+          <span id="completion-trigger">Ctrl+I</span>で複数候補表示<br>
+          単一候補: 薄い色で表示 → <strong>Tab</strong>で決定<br>
+          複数候補: ポップアップ → ↑↓で選択、<strong>Tab</strong>で決定
         </div>
       </div>
       <div class="section">
