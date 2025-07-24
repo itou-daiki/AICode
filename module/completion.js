@@ -158,9 +158,12 @@ export class CodeCompletionEngine {
       this.cache.set(cacheKey, suggestions);
       
       // 候補が1つの場合はインライン表示、複数の場合はポップアップ表示
+      console.log('補完候補数:', suggestions.length, '候補:', suggestions);
       if (suggestions.length === 1) {
+        console.log('インライン補完を表示:', suggestions[0]);
         this.showInlineSuggestion(suggestions[0], cursor);
       } else if (suggestions.length > 1) {
+        console.log('ポップアップを表示');
         this.showSuggestions(suggestions, cursor);
       }
     } catch (error) {
@@ -272,46 +275,61 @@ Only output COMPLETION: lines.`;
   }
 
   showInlineSuggestion(suggestion, cursor) {
+    console.log('showInlineSuggestion 呼び出し:', suggestion, cursor);
     this.hidePopup(); // ポップアップを隠す
     this.hideInlineSuggestion(); // 既存のインライン補完を隠す
     
-    const line = this.editor.getLine(cursor.line);
-    const beforeCursor = line.substring(0, cursor.ch);
-    
-    // 補完テキストを表示
+    // 補完テキストを保存
     this.currentInlineSuggestion = suggestion;
+    this.originalCursorPos = cursor;
     
-    // CodeMirrorのマーカーを使用してインライン表示
-    const from = { line: cursor.line, ch: cursor.ch };
-    const to = { line: cursor.line, ch: cursor.ch };
+    // 現在のカーソル位置に一時的にテキストを挿入
+    this.editor.replaceRange(suggestion, cursor);
     
-    // 薄い色のテキストを挿入
-    const widget = document.createElement('span');
-    widget.className = 'inline-suggestion';
-    widget.textContent = suggestion;
-    widget.style.color = '#666';
-    widget.style.fontStyle = 'italic';
-    widget.style.opacity = '0.8';
+    // 挿入したテキストの範囲
+    const from = cursor;
+    const to = { line: cursor.line, ch: cursor.ch + suggestion.length };
     
-    this.inlineWidget = this.editor.setBookmark(from, {
-      widget: widget,
-      insertLeft: false
+    // マーカーでグレーアウト表示
+    this.inlineWidget = this.editor.markText(from, to, {
+      className: 'inline-suggestion-highlight',
+      css: 'color: #666 !important; opacity: 0.7 !important; font-style: italic !important;'
     });
+    
+    // カーソルを元の位置に戻す
+    this.editor.setCursor(cursor);
+    
+    console.log('インライン補完表示完了');
   }
 
   hideInlineSuggestion() {
+    console.log('hideInlineSuggestion 呼び出し');
     if (this.inlineWidget) {
       this.inlineWidget.clear();
       this.inlineWidget = null;
     }
+    if (this.currentInlineSuggestion && this.originalCursorPos) {
+      // 挿入した補完テキストを削除
+      const from = this.originalCursorPos;
+      const to = { line: from.line, ch: from.ch + this.currentInlineSuggestion.length };
+      this.editor.replaceRange('', from, to);
+    }
     this.currentInlineSuggestion = null;
+    this.originalCursorPos = null;
   }
 
   acceptInlineSuggestion() {
-    if (this.currentInlineSuggestion) {
+    if (this.currentInlineSuggestion && this.inlineWidget) {
+      // マーカーをクリアして、補完を確定
+      this.inlineWidget.clear();
+      this.inlineWidget = null;
+      
+      // カーソルを補完の終端に移動
       const cursor = this.editor.getCursor();
-      this.editor.replaceRange(this.currentInlineSuggestion, cursor);
-      this.hideInlineSuggestion();
+      const newCursor = { line: cursor.line, ch: cursor.ch + this.currentInlineSuggestion.length };
+      this.editor.setCursor(newCursor);
+      
+      this.currentInlineSuggestion = null;
       this.editor.focus();
     }
   }
