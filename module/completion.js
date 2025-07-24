@@ -289,9 +289,9 @@ Only output COMPLETION: lines.`;
     const widget = document.createElement('span');
     widget.className = 'inline-suggestion';
     widget.textContent = suggestion;
-    widget.style.color = '#999';
+    widget.style.color = '#666';
     widget.style.fontStyle = 'italic';
-    widget.style.opacity = '0.7';
+    widget.style.opacity = '0.8';
     
     this.inlineWidget = this.editor.setBookmark(from, {
       widget: widget,

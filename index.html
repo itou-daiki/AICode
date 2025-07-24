@@ -162,7 +162,37 @@
       font-size: 1em;
       color: #2c3e50;
     }
-    .CodeMirror { flex: 1; border: 1px solid #dfe6e9; border-radius: 4px; }
+    .CodeMirror { 
+      flex: 1; 
+      border: 1px solid #dfe6e9; 
+      border-radius: 4px;
+      background: #1e1e1e !important;
+      color: #d4d4d4 !important;
+    }
+    .CodeMirror-lines {
+      background: #1e1e1e !important;
+      color: #d4d4d4 !important;
+    }
+    .CodeMirror-line {
+      background: #1e1e1e !important;
+      color: #d4d4d4 !important;
+    }
+    .CodeMirror-cursor {
+      border-left: 1px solid #d4d4d4 !important;
+    }
+    .CodeMirror-selected {
+      background: #264f78 !important;
+    }
+    .CodeMirror-gutters {
+      background: #252526 !important;
+      border-right: 1px solid #3e3e42 !important;
+    }
+    .CodeMirror-linenumber {
+      color: #858585 !important;
+    }
+    .CodeMirror-activeline-background {
+      background: #2a2a2a !important;
+    }
     #editor button, #result button {
       align-self: flex-start;
       background: #3498db;
@@ -433,9 +463,9 @@
       font-style: italic;
     }
     .CodeMirror-line .inline-suggestion {
-      color: #999;
+      color: #666 !important;
       font-style: italic;
-      opacity: 0.7;
+      opacity: 0.8;
     }
     
     /* 実行時入力フォーム */
