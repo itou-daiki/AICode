@@ -14,6 +14,7 @@ export class CodeCompletionEngine {
     this.selectedIndex = -1;
     this.inlineWidget = null;
     this.currentInlineSuggestion = null;
+    this.isShowingInline = false; // インライン表示中フラグ
     
     this.initPopup();
     this.bindEvents();
@@ -128,12 +129,16 @@ export class CodeCompletionEngine {
       }
     });
 
-    // エディタのカーソル移動でインライン補完を隠す
-    this.editor.on('cursorActivity', () => {
-      if (this.currentInlineSuggestion) {
+    // エディタのカーソル移動でインライン補完を隠す（テスト用に一時的に無効化）
+    /*
+    this.editor.on('cursorActivity', (cm) => {
+      // インライン補完表示中の自動カーソル移動は無視
+      if (this.currentInlineSuggestion && !this.isShowingInline) {
+        console.log('cursorActivity でインライン補完を隠す');
         this.hideInlineSuggestion();
       }
     });
+    */
   }
 
   debouncedCompletion() {
@@ -296,6 +301,9 @@ Only output COMPLETION: lines.`;
     this.hidePopup(); // ポップアップを隠す
     this.hideInlineSuggestion(); // 既存のインライン補完を隠す
     
+    // インライン表示中フラグを設定
+    this.isShowingInline = true;
+    
     // 補完テキストを保存
     this.currentInlineSuggestion = suggestion;
     this.originalCursorPos = cursor;
@@ -315,6 +323,9 @@ Only output COMPLETION: lines.`;
     
     // カーソルを元の位置に戻す
     this.editor.setCursor(cursor);
+    
+    // フラグをリセット
+    this.isShowingInline = false;
     
     console.log('インライン補完表示完了');
   }
