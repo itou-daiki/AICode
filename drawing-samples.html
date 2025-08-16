@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <title>描画モード - サンプル集</title>
+    <style>
+        body { font-family: 'Segoe UI', Tahoma, sans-serif; margin: 2em; }
+        .sample { margin: 2em 0; padding: 1em; border: 1px solid #ddd; border-radius: 4px; }
+        .sample h3 { color: #2c3e50; margin-top: 0; }
+        .code { background: #f8f9fa; padding: 1em; border-radius: 4px; margin: 1em 0; }
+        pre { margin: 0; font-family: 'Courier New', monospace; }
+        .nav { margin-bottom: 2em; }
+        .nav a { color: #3498db; text-decoration: none; margin-right: 1em; }
+    </style>
+</head>
+<body>
+    <div class="nav">
+        <a href="index.html">← 問題モードに戻る</a>
+        <a href="drawing.html">🎨 描画モードを開く</a>
+    </div>
+
+    <h1>描画モード - サンプルコード集</h1>
+    <p>p5.jsライクなPython描画機能のサンプルコードです。</p>
+
+    <div class="sample">
+        <h3>基本図形</h3>
+        <div class="code">
+            <pre># 円を描画
+p5.circle(200, 200, 100)
+
+# 四角形を描画
+p5.rect(150, 150, 100, 50)
+
+# 線を描画
+p5.line(50, 50, 350, 350)</pre>
+        </div>
+    </div>
+
+    <div class="sample">
+        <h3>色の設定</h3>
+        <div class="code">
+            <pre># 赤色で塗りつぶし
+p5.fill(255, 0, 0)
+p5.circle(150, 150, 80)
+
+# 緑色の輪郭
+p5.stroke(0, 255, 0)
+p5.stroke_weight(3)
+p5.rect(250, 150, 80, 80)</pre>
+        </div>
+    </div>
+
+    <div class="sample">
+        <h3>複雑な図形</h3>
+        <div class="code">
+            <pre># 三角形
+p5.triangle(200, 100, 150, 200, 250, 200)
+
+# 楕円
+p5.ellipse(200, 300, 120, 80)
+
+# 弧
+import math
+p5.arc(200, 200, 100, 100, 0, math.pi)</pre>
+        </div>
+    </div>
+
+    <div class="sample">
+        <h3>アニメーション風の描画</h3>
+        <div class="code">
+            <pre># 背景をクリア
+p5.background(240, 240, 240)
+
+# 複数の円を描画
+for i in range(5):
+    x = 80 + i * 60
+    y = 200
+    p5.fill(255 - i * 50, i * 50, 100)
+    p5.circle(x, y, 40)</pre>
+        </div>
+    </div>
+
+    <div class="sample">
+        <h3>座標変換</h3>
+        <div class="code">
+            <pre># 座標系を保存
+p5.push()
+
+# 中心に移動して回転
+p5.translate(200, 200)
+p5.rotate(45)  # 45度回転（度数法）
+
+# 四角形を描画
+p5.rect(-25, -25, 50, 50)
+
+# 座標系を復元
+p5.pop()</pre>
+        </div>
+    </div>
+
+    <div class="sample">
+        <h3>テキスト描画</h3>
+        <div class="code">
+            <pre># テキストサイズを設定
+p5.text_size(24)
+
+# テキストを描画
+p5.fill(0, 0, 255)
+p5.text("Hello, Python!", 150, 200)</pre>
+        </div>
+    </div>
+
+    <div class="sample">
+        <h3>パターン描画</h3>
+        <div class="code">
+            <pre># グリッドパターン
+for x in range(0, 400, 40):
+    for y in range(0, 400, 40):
+        if (x + y) % 80 == 0:
+            p5.fill(200, 100, 100)
+        else:
+            p5.fill(100, 100, 200)
+        p5.rect(x, y, 40, 40)</pre>
+        </div>
+    </div>
+
+    <div class="sample">
+        <h3>数学的な図形</h3>
+        <div class="code">
+            <pre># スパイラル
+import math
+
+p5.stroke(100, 50, 200)
+p5.stroke_weight(2)
+p5.no_fill()
+
+for i in range(100):
+    angle = i * 0.2
+    radius = i * 2
+    x = 200 + radius * math.cos(angle)
+    y = 200 + radius * math.sin(angle)
+    p5.point(x, y)</pre>
+        </div>
+    </div>
+
+</body>
+</html>

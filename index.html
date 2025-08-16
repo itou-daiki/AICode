@@ -60,6 +60,27 @@
       margin: 0;
       font-size: 1.2em;
     }
+    .header-right {
+      margin-left: auto;
+      display: flex;
+      gap: 0.5em;
+    }
+    .mode-switch {
+      background: #8e44ad;
+      color: #fff;
+      border: none;
+      border-radius: 4px;
+      padding: 0.5em 1em;
+      cursor: pointer;
+      text-decoration: none;
+      font-size: 0.8em;
+      display: flex;
+      align-items: center;
+      gap: 0.3em;
+    }
+    .mode-switch:hover {
+      background: #7d3c98;
+    }
     #loader {
       position: fixed;
       top: 0; left: 0;
@@ -555,6 +576,9 @@
       </div>
     </div>
     <h1>easyCode</h1>
+    <div class="header-right">
+      <a href="drawing.html" class="mode-switch">🎨 描画モード</a>
+    </div>
   </header>
 
   <div id="loader">

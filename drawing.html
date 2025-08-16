@@ -1,0 +1,243 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <link rel="icon" type="image/x-icon" href="/favicon.ico">
+  <meta charset="UTF-8">
+  <title>easyCode - 描画モード</title>
+  <!-- CodeMirror CSS -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/codemirror@5.65.16/lib/codemirror.css" />
+  <style>
+    :root { --header-height: 64px; }
+    html, body { margin: 0; padding: 0; height: 100%; font-family: 'Segoe UI', Tahoma, sans-serif; overflow: hidden; }
+    header {
+      position: relative;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      height: var(--header-height);
+      background: #2c3e50;
+      color: #ecf0f1;
+      padding: 0 1em;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+    .header-left {
+      display: flex;
+      align-items: center;
+      gap: 1em;
+    }
+    .logo {
+      font-size: 1.5em;
+      font-weight: bold;
+      color: #3498db;
+    }
+    .nav-button {
+      background: #3498db;
+      color: #fff;
+      border: none;
+      border-radius: 4px;
+      padding: 0.5em 1em;
+      cursor: pointer;
+      text-decoration: none;
+      font-size: 0.9em;
+    }
+    .nav-button:hover {
+      background: #2980b9;
+    }
+    .controls {
+      display: flex;
+      gap: 0.5em;
+    }
+    .controls button {
+      background: #27ae60;
+      color: #fff;
+      border: none;
+      border-radius: 4px;
+      padding: 0.5em 1em;
+      cursor: pointer;
+      font-size: 0.9em;
+    }
+    .controls button:hover {
+      background: #229954;
+    }
+    .controls button:disabled {
+      background: #95a5a6;
+      cursor: not-allowed;
+    }
+    #clear-btn {
+      background: #e74c3c;
+    }
+    #clear-btn:hover {
+      background: #c0392b;
+    }
+    .main-container {
+      display: flex;
+      height: calc(100vh - var(--header-height));
+    }
+    .editor-panel {
+      width: 50%;
+      display: flex;
+      flex-direction: column;
+      border-right: 1px solid #bdc3c7;
+    }
+    .canvas-panel {
+      width: 50%;
+      display: flex;
+      flex-direction: column;
+      background: #f8f9fa;
+    }
+    .panel-header {
+      background: #34495e;
+      color: #ecf0f1;
+      padding: 0.5em 1em;
+      font-weight: bold;
+      font-size: 0.9em;
+    }
+    .editor-container {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+    }
+    .canvas-container {
+      flex: 1;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      padding: 1em;
+    }
+    #canvas {
+      border: 2px solid #bdc3c7;
+      background: #fff;
+    }
+    .CodeMirror {
+      height: 100%;
+      font-size: 14px;
+    }
+    .output-section {
+      height: 150px;
+      border-top: 1px solid #bdc3c7;
+      display: flex;
+      flex-direction: column;
+    }
+    .output-header {
+      background: #95a5a6;
+      color: #fff;
+      padding: 0.3em 1em;
+      font-size: 0.8em;
+      font-weight: bold;
+    }
+    #output {
+      flex: 1;
+      padding: 0.5em;
+      font-family: 'Courier New', monospace;
+      font-size: 12px;
+      background: #2c3e50;
+      color: #ecf0f1;
+      border: none;
+      resize: none;
+      white-space: pre-wrap;
+      overflow-y: auto;
+    }
+    .examples {
+      padding: 1em;
+      background: #ecf0f1;
+      border-top: 1px solid #bdc3c7;
+    }
+    .examples h3 {
+      margin: 0 0 0.5em 0;
+      color: #2c3e50;
+      font-size: 0.9em;
+    }
+    .example-code {
+      background: #fff;
+      border: 1px solid #bdc3c7;
+      border-radius: 4px;
+      padding: 0.5em;
+      margin: 0.3em 0;
+      font-family: 'Courier New', monospace;
+      font-size: 11px;
+      cursor: pointer;
+      color: #2c3e50;
+    }
+    .example-code:hover {
+      background: #f8f9fa;
+    }
+    .loader {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(52, 73, 94, 0.9);
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      color: #ecf0f1;
+      font-size: 1.2em;
+      z-index: 1000;
+    }
+  </style>
+</head>
+<body>
+  <div id="loader" class="loader">
+    描画モードを読み込み中...
+  </div>
+
+  <header>
+    <div class="header-left">
+      <div class="logo">easyCode</div>
+      <span>描画モード</span>
+    </div>
+    <div class="controls">
+      <a href="index.html" class="nav-button">← 問題モードに戻る</a>
+      <button id="run-btn" disabled>▶ 実行する</button>
+      <button id="clear-btn">🗑 クリア</button>
+    </div>
+  </header>
+
+  <div class="main-container">
+    <div class="editor-panel">
+      <div class="panel-header">Python コードエディタ</div>
+      <div class="editor-container">
+        <textarea id="code" style="display: none;"># p5.jsライクなPython描画コード
+# キャンバスサイズ: 400x400
+
+# 円を描画
+p5.circle(200, 200, 100)
+
+# 四角形を描画
+p5.rect(150, 150, 100, 50)
+
+# 線を描画
+p5.line(50, 50, 350, 350)
+</textarea>
+      </div>
+      <div class="output-section">
+        <div class="output-header">実行結果</div>
+        <textarea id="output" readonly></textarea>
+      </div>
+      <div class="examples">
+        <h3>サンプルコード（クリックで挿入）</h3>
+        <div class="example-code">p5.circle(200, 200, 50)  # 円を描画</div>
+        <div class="example-code">p5.rect(100, 100, 80, 60)  # 四角形を描画</div>
+        <div class="example-code">p5.line(0, 0, 400, 400)  # 線を描画</div>
+        <div class="example-code">p5.fill(255, 0, 0)  # 赤色で塗りつぶし</div>
+        <div class="example-code">p5.stroke(0, 255, 0)  # 緑色の輪郭</div>
+      </div>
+    </div>
+
+    <div class="canvas-panel">
+      <div class="panel-header">描画キャンバス (400x400)</div>
+      <div class="canvas-container">
+        <canvas id="canvas" width="400" height="400"></canvas>
+      </div>
+    </div>
+  </div>
+
+  <!-- Pyodide -->
+  <script src="https://cdn.jsdelivr.net/pyodide/v0.23.4/full/pyodide.js"></script>
+  <!-- CodeMirror JS -->
+  <script src="https://cdn.jsdelivr.net/npm/codemirror@5.65.16/lib/codemirror.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/codemirror@5.65.16/mode/python/python.js"></script>
+  <script type="module" src="module/drawing.js"></script>
+</body>
+</html>
