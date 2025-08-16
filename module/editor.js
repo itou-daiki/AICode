@@ -262,6 +262,9 @@ export async function initEditor() {
     lineNumbers: true, 
     indentUnit: 4, 
     tabSize: 4,
+    selectionPointer: true,
+    styleSelectedText: true,
+    showCursorWhenSelecting: true,
     extraKeys: {
       'Ctrl-Space': 'autocomplete'
     }
