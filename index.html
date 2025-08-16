@@ -614,15 +614,15 @@
         <div style="margin-bottom: 0.5em;">
           <label style="font-size: 0.9em; display: block; margin-bottom: 0.3em;">コード補完モード:</label>
           <select id="completion-mode-select" style="width: 100%; padding: 0.3em; border: 1px solid #dfe6e9; border-radius: 4px; font-size: 0.9em;">
-            <option value="inline-only">インライン補完のみ</option>
+            <option value="inline-only" selected>インライン補完のみ</option>
             <option value="popup-only">複数候補のみ</option>
-            <option value="both" selected>インライン + 複数候補</option>
+            <option value="both">インライン + 複数候補</option>
             <option value="none">補完なし</option>
           </select>
         </div>
         <div style="font-size: 0.8em; color: #7f8c8d;">
-          <span id="completion-status">インライン + 複数候補</span><br>
-          <span id="completion-description">単一候補: 薄い色表示、複数候補: Ctrl+I</span><br>
+          <span id="completion-status">インライン補完のみ</span><br>
+          <span id="completion-description">単一候補を薄い色で表示</span><br>
           <strong>Tab</strong>で決定、↑↓で選択、<strong>Esc</strong>でキャンセル
         </div>
       </div>
@@ -685,6 +685,102 @@
 
     </div>
   </div>
+
+  <!-- easyCode アプリケーション説明 -->
+  <footer style="background: linear-gradient(135deg, #f8f9fa, #e9ecef); padding: 3em 2em; margin-top: 3em; border-top: 1px solid #dee2e6;">
+    <div style="max-width: 1200px; margin: 0 auto;">
+      <div style="text-align: center; margin-bottom: 2em;">
+        <h2 style="color: #2c3e50; font-size: 2em; margin-bottom: 0.5em;">🚀 easyCode について</h2>
+        <p style="color: #7f8c8d; font-size: 1.1em; margin: 0;">AI搭載のインテリジェントなPythonコーディング環境</p>
+      </div>
+      
+      <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 2em; margin-bottom: 2em;">
+        <div style="background: white; padding: 1.5em; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+          <h3 style="color: #8e44ad; margin-bottom: 1em; display: flex; align-items: center;">
+            <span style="font-size: 1.5em; margin-right: 0.5em;">🤖</span>
+            AI コード補完
+          </h3>
+          <p style="color: #555; line-height: 1.6; margin: 0;">
+            リアルタイムでPythonコードを解析し、文脈に応じた補完候補を提供。インライン表示で自然な入力体験を実現します。
+          </p>
+        </div>
+        
+        <div style="background: white; padding: 1.5em; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+          <h3 style="color: #27ae60; margin-bottom: 1em; display: flex; align-items: center;">
+            <span style="font-size: 1.5em; margin-right: 0.5em;">🎨</span>
+            描画モード
+          </h3>
+          <p style="color: #555; line-height: 1.6; margin: 0;">
+            p5.js風のAPIでグラフィック描画が可能。setup()とdraw()を使って、創造的なプログラミング学習ができます。
+          </p>
+        </div>
+        
+        <div style="background: white; padding: 1.5em; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+          <h3 style="color: #e74c3c; margin-bottom: 1em; display: flex; align-items: center;">
+            <span style="font-size: 1.5em; margin-right: 0.5em;">⚡</span>
+            即座に実行
+          </h3>
+          <p style="color: #555; line-height: 1.6; margin: 0;">
+            Pyodideを使用してブラウザ内でPythonコードを実行。インストール不要で、どこでもプログラミング学習が始められます。
+          </p>
+        </div>
+        
+        <div style="background: white; padding: 1.5em; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+          <h3 style="color: #3498db; margin-bottom: 1em; display: flex; align-items: center;">
+            <span style="font-size: 1.5em; margin-right: 0.5em;">🎯</span>
+            問題解決
+          </h3>
+          <p style="color: #555; line-height: 1.6; margin: 0;">
+            プログラミング課題の自動生成と、AIによる正誤判定機能で、効率的な学習サイクルをサポートします。
+          </p>
+        </div>
+        
+        <div style="background: white; padding: 1.5em; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+          <h3 style="color: #f39c12; margin-bottom: 1em; display: flex; align-items: center;">
+            <span style="font-size: 1.5em; margin-right: 0.5em;">💬</span>
+            AIアシスタント
+          </h3>
+          <p style="color: #555; line-height: 1.6; margin: 0;">
+            チャット形式でAIに質問可能。コードの疑問やエラーの解決方法を、リアルタイムで相談できます。
+          </p>
+        </div>
+        
+        <div style="background: white; padding: 1.5em; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+          <h3 style="color: #9b59b6; margin-bottom: 1em; display: flex; align-items: center;">
+            <span style="font-size: 1.5em; margin-right: 0.5em;">🔧</span>
+            コード修正
+          </h3>
+          <p style="color: #555; line-height: 1.6; margin: 0;">
+            AIがコードの問題を自動検出し、改善提案を実行。初心者から上級者まで、コード品質向上をサポートします。
+          </p>
+        </div>
+      </div>
+      
+      <div style="text-align: center; padding: 1.5em; background: rgba(142, 68, 173, 0.1); border-radius: 8px;">
+        <h3 style="color: #8e44ad; margin-bottom: 1em;">💡 使い方のヒント</h3>
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 1em; text-align: left;">
+          <div>
+            <strong style="color: #2c3e50;">Tab</strong> - インライン補完を受け入れ
+          </div>
+          <div>
+            <strong style="color: #2c3e50;">Ctrl + I</strong> - 複数候補を表示
+          </div>
+          <div>
+            <strong style="color: #2c3e50;">Esc</strong> - 補完をキャンセル
+          </div>
+          <div>
+            <strong style="color: #2c3e50;">🤖 AIコード修正</strong> - コードを自動改善
+          </div>
+        </div>
+      </div>
+      
+      <div style="text-align: center; margin-top: 2em; padding-top: 1em; border-top: 1px solid #dee2e6; color: #7f8c8d;">
+        <p style="margin: 0; font-size: 0.9em;">
+          ⚡ Powered by AI Technology | 🐍 Python in Browser | 🎨 Creative Coding
+        </p>
+      </div>
+    </div>
+  </footer>
 
   <!-- JS Libraries -->
   <script src="https://cdn.jsdelivr.net/npm/codemirror@5.65.16/lib/codemirror.js"></script>

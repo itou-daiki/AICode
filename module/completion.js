@@ -6,7 +6,7 @@ export class CodeCompletionEngine {
     try {
       console.log('CodeCompletionEngine コンストラクタ呼び出し', editor);
       this.editor = editor;
-      this.completionMode = 'both'; // 'inline-only', 'popup-only', 'both', 'none'
+      this.completionMode = 'inline-only'; // デフォルトをインライン補完のみに変更
       this.debounceTimer = null;
       this.cache = new Map();
       this.popup = null;
