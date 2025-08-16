@@ -303,7 +303,7 @@ _orig_stdout, _orig_stderr = sys.stdout, sys.stderr
 sys.stdout, sys.stderr = _out, _err
 
 try:
-${code.split('\\n').map(l => '    ' + l).join('\\n')}
+${code.split('\\n').map(l => l.trim() ? '    ' + l : '').join('\\n')}
 except Exception:
     traceback.print_exc(file=_err)
 finally:
