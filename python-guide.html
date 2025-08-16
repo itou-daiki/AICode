@@ -1,0 +1,819 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Python プログラミングガイド | easyCode</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      line-height: 1.6;
+      color: #2c3e50;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      min-height: 100vh;
+    }
+
+    .container {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 2em;
+    }
+
+    header {
+      text-align: center;
+      background: rgba(255, 255, 255, 0.95);
+      padding: 3em 2em;
+      border-radius: 12px;
+      margin-bottom: 2em;
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+    }
+
+    header h1 {
+      font-size: 3em;
+      margin-bottom: 0.5em;
+      background: linear-gradient(135deg, #667eea, #764ba2);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+
+    header p {
+      font-size: 1.3em;
+      color: #7f8c8d;
+      margin-bottom: 1em;
+    }
+
+    .nav-buttons {
+      display: flex;
+      justify-content: center;
+      gap: 1em;
+      flex-wrap: wrap;
+    }
+
+    .nav-btn {
+      background: linear-gradient(135deg, #3498db, #2980b9);
+      color: white;
+      padding: 0.8em 1.5em;
+      border: none;
+      border-radius: 25px;
+      text-decoration: none;
+      font-weight: 500;
+      transition: transform 0.2s, box-shadow 0.2s;
+      cursor: pointer;
+    }
+
+    .nav-btn:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 4px 12px rgba(52, 152, 219, 0.3);
+    }
+
+    .back-btn {
+      background: linear-gradient(135deg, #95a5a6, #7f8c8d);
+    }
+
+    .content-grid {
+      display: grid;
+      gap: 2em;
+      margin-bottom: 2em;
+    }
+
+    .section {
+      background: rgba(255, 255, 255, 0.95);
+      padding: 2.5em;
+      border-radius: 12px;
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+    }
+
+    .section h2 {
+      font-size: 2.2em;
+      margin-bottom: 1em;
+      color: #2c3e50;
+      display: flex;
+      align-items: center;
+      gap: 0.5em;
+    }
+
+    .section h3 {
+      font-size: 1.5em;
+      margin: 1.5em 0 0.8em 0;
+      color: #34495e;
+      border-left: 4px solid #3498db;
+      padding-left: 1em;
+    }
+
+    .code-block {
+      background: #2c3e50;
+      color: #ecf0f1;
+      padding: 1.5em;
+      border-radius: 8px;
+      margin: 1em 0;
+      font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+      font-size: 0.95em;
+      overflow-x: auto;
+      position: relative;
+    }
+
+    .code-block::before {
+      content: 'Python';
+      position: absolute;
+      top: 0.5em;
+      right: 1em;
+      background: #3498db;
+      color: white;
+      padding: 0.2em 0.6em;
+      border-radius: 4px;
+      font-size: 0.7em;
+      font-weight: bold;
+    }
+
+    .output {
+      background: #27ae60;
+      color: white;
+      padding: 1em 1.5em;
+      border-radius: 8px;
+      margin: 0.5em 0;
+      font-family: monospace;
+    }
+
+    .output::before {
+      content: '出力: ';
+      font-weight: bold;
+    }
+
+    .tip {
+      background: linear-gradient(135deg, #f39c12, #e67e22);
+      color: white;
+      padding: 1.5em;
+      border-radius: 8px;
+      margin: 1.5em 0;
+    }
+
+    .tip::before {
+      content: '💡 ';
+      font-size: 1.2em;
+    }
+
+    .warning {
+      background: linear-gradient(135deg, #e74c3c, #c0392b);
+      color: white;
+      padding: 1.5em;
+      border-radius: 8px;
+      margin: 1.5em 0;
+    }
+
+    .warning::before {
+      content: '⚠️ ';
+      font-size: 1.2em;
+    }
+
+    .feature-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+      gap: 1.5em;
+      margin: 2em 0;
+    }
+
+    .feature-card {
+      background: rgba(255, 255, 255, 0.1);
+      padding: 1.5em;
+      border-radius: 8px;
+      border: 1px solid rgba(255, 255, 255, 0.2);
+    }
+
+    .comparison-table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 1.5em 0;
+    }
+
+    .comparison-table th,
+    .comparison-table td {
+      padding: 1em;
+      text-align: left;
+      border-bottom: 1px solid #ddd;
+    }
+
+    .comparison-table th {
+      background: #3498db;
+      color: white;
+    }
+
+    .comparison-table tr:nth-child(even) {
+      background: #f8f9fa;
+    }
+
+    .quick-ref {
+      background: linear-gradient(135deg, #9b59b6, #8e44ad);
+      color: white;
+      padding: 2em;
+      border-radius: 12px;
+      margin: 2em 0;
+    }
+
+    .quick-ref h3 {
+      color: white;
+      border-left-color: white;
+    }
+
+    .ref-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+      gap: 1em;
+      margin-top: 1em;
+    }
+
+    .ref-item {
+      background: rgba(255, 255, 255, 0.1);
+      padding: 1em;
+      border-radius: 6px;
+    }
+
+    @media (max-width: 768px) {
+      .container {
+        padding: 1em;
+      }
+      
+      header h1 {
+        font-size: 2em;
+      }
+      
+      .nav-buttons {
+        flex-direction: column;
+        align-items: center;
+      }
+      
+      .section {
+        padding: 1.5em;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <h1>🐍 Python プログラミングガイド</h1>
+      <p>初心者から上級者まで - 包括的なPython学習リソース</p>
+      <div class="nav-buttons">
+        <a href="index.html" class="nav-btn back-btn">← easyCode に戻る</a>
+        <a href="#basics" class="nav-btn">基礎文法</a>
+        <a href="#control" class="nav-btn">制御構文</a>
+        <a href="#data" class="nav-btn">データ構造</a>
+        <a href="#functions" class="nav-btn">関数・クラス</a>
+        <a href="#practice" class="nav-btn">実践例</a>
+      </div>
+    </header>
+
+    <div class="content-grid">
+      <!-- Python概要 -->
+      <section class="section">
+        <h2>🌟 Pythonとは</h2>
+        <p>Pythonは、<strong>読みやすく、書きやすい</strong>プログラミング言語です。1991年にGuido van Rossumによって開発され、現在では世界中で最も人気のあるプログラミング言語の一つです。</p>
+        
+        <div class="feature-grid">
+          <div class="feature-card">
+            <h4>🚀 シンプルな文法</h4>
+            <p>英語に近い自然な文法で、初心者にも理解しやすい</p>
+          </div>
+          <div class="feature-card">
+            <h4>🔧 豊富なライブラリ</h4>
+            <p>AI、Web開発、データ分析など幅広い分野に対応</p>
+          </div>
+          <div class="feature-card">
+            <h4>🌍 クロスプラットフォーム</h4>
+            <p>Windows、Mac、Linuxで動作</p>
+          </div>
+          <div class="feature-card">
+            <h4>👥 大きなコミュニティ</h4>
+            <p>世界中の開発者が情報を共有</p>
+          </div>
+        </div>
+
+        <div class="tip">
+          <strong>なぜPythonを学ぶべきか？</strong><br>
+          • AI・機械学習の主流言語<br>
+          • Web開発（Django、Flask）<br>
+          • データサイエンス（pandas、numpy）<br>
+          • 自動化・スクリプト作成<br>
+          • 就職・転職に有利
+        </div>
+      </section>
+
+      <!-- 基礎文法 -->
+      <section id="basics" class="section">
+        <h2>📝 基礎文法</h2>
+        
+        <h3>🔤 変数と値の代入</h3>
+        <p>Pythonでは型を指定せずに変数を作成できます：</p>
+        <div class="code-block">
+# 変数の基本
+name = "太郎"          # 文字列
+age = 20              # 整数
+height = 175.5        # 浮動小数点数
+is_student = True     # ブール値
+
+print(f"名前: {name}, 年齢: {age}歳")
+        </div>
+        <div class="output">名前: 太郎, 年齢: 20歳</div>
+
+        <h3>📊 データ型</h3>
+        <table class="comparison-table">
+          <tr>
+            <th>データ型</th>
+            <th>例</th>
+            <th>説明</th>
+          </tr>
+          <tr>
+            <td><code>int</code></td>
+            <td><code>42, -10, 0</code></td>
+            <td>整数</td>
+          </tr>
+          <tr>
+            <td><code>float</code></td>
+            <td><code>3.14, -2.5</code></td>
+            <td>浮動小数点数</td>
+          </tr>
+          <tr>
+            <td><code>str</code></td>
+            <td><code>"Hello", 'Python'</code></td>
+            <td>文字列</td>
+          </tr>
+          <tr>
+            <td><code>bool</code></td>
+            <td><code>True, False</code></td>
+            <td>真偽値</td>
+          </tr>
+          <tr>
+            <td><code>list</code></td>
+            <td><code>[1, 2, 3]</code></td>
+            <td>リスト（配列）</td>
+          </tr>
+          <tr>
+            <td><code>dict</code></td>
+            <td><code>{"key": "value"}</code></td>
+            <td>辞書</td>
+          </tr>
+        </table>
+
+        <h3>🧮 演算子</h3>
+        <div class="code-block">
+# 算術演算子
+print(10 + 3)    # 13 (足し算)
+print(10 - 3)    # 7  (引き算)
+print(10 * 3)    # 30 (掛け算)
+print(10 / 3)    # 3.333... (割り算)
+print(10 // 3)   # 3  (整数除算)
+print(10 % 3)    # 1  (余り)
+print(10 ** 3)   # 1000 (べき乗)
+
+# 比較演算子
+print(5 > 3)     # True
+print(5 == 5)    # True
+print(5 != 3)    # True
+        </div>
+
+        <div class="warning">
+          <strong>インデントに注意！</strong><br>
+          Pythonはインデント（字下げ）でコードブロックを判断します。他の言語の { } の代わりです。
+        </div>
+      </section>
+
+      <!-- 制御構文 -->
+      <section id="control" class="section">
+        <h2>🔀 制御構文</h2>
+        
+        <h3>🤔 条件分岐 (if文)</h3>
+        <div class="code-block">
+score = 85
+
+if score >= 90:
+    print("優秀です！")
+elif score >= 70:
+    print("良好です")
+elif score >= 60:
+    print("合格です")
+else:
+    print("もう少し頑張りましょう")
+
+# 三項演算子
+result = "合格" if score >= 60 else "不合格"
+print(result)
+        </div>
+        <div class="output">良好です<br>合格</div>
+
+        <h3>🔄 繰り返し処理 (for文)</h3>
+        <div class="code-block">
+# リストの要素を順番に処理
+fruits = ["りんご", "バナナ", "オレンジ"]
+for fruit in fruits:
+    print(f"好きな果物: {fruit}")
+
+# 数値の範囲で繰り返し
+for i in range(5):  # 0, 1, 2, 3, 4
+    print(f"カウント: {i}")
+
+# range()の詳細な使い方
+for i in range(2, 10, 2):  # 2から10未満まで2つずつ
+    print(i)  # 2, 4, 6, 8
+        </div>
+
+        <h3>⏰ 条件付き繰り返し (while文)</h3>
+        <div class="code-block">
+# 基本的なwhile文
+count = 0
+while count < 3:
+    print(f"実行回数: {count + 1}")
+    count += 1
+
+# 無限ループの回避
+import random
+while True:
+    number = random.randint(1, 10)
+    print(f"数値: {number}")
+    if number == 7:
+        print("7が出たので終了！")
+        break  # ループを抜ける
+        </div>
+
+        <h3>🎛️ ループ制御</h3>
+        <div class="code-block">
+# break: ループを完全に抜ける
+# continue: 現在の繰り返しをスキップ
+
+for i in range(10):
+    if i == 3:
+        continue  # 3をスキップ
+    if i == 7:
+        break     # 7で終了
+    print(i)      # 0, 1, 2, 4, 5, 6
+        </div>
+      </section>
+
+      <!-- データ構造 -->
+      <section id="data" class="section">
+        <h2>📦 データ構造</h2>
+        
+        <h3>📋 リスト (List)</h3>
+        <p>順序のあるデータの集合。要素の追加・削除・変更が可能です。</p>
+        <div class="code-block">
+# リストの作成
+numbers = [1, 2, 3, 4, 5]
+mixed = ["文字", 123, True, [1, 2]]
+
+# 要素のアクセス
+print(numbers[0])     # 1 (最初の要素)
+print(numbers[-1])    # 5 (最後の要素)
+print(numbers[1:4])   # [2, 3, 4] (スライス)
+
+# 要素の追加・削除
+numbers.append(6)     # 末尾に追加
+numbers.insert(0, 0)  # 先頭に追加
+numbers.remove(3)     # 値3を削除
+popped = numbers.pop() # 末尾を削除して取得
+
+# リスト内包表記
+squares = [x**2 for x in range(5)]  # [0, 1, 4, 9, 16]
+        </div>
+
+        <h3>📚 辞書 (Dictionary)</h3>
+        <p>キーと値のペアでデータを管理します。</p>
+        <div class="code-block">
+# 辞書の作成
+student = {
+    "name": "田中",
+    "age": 18,
+    "grade": "高校3年",
+    "subjects": ["数学", "英語", "国語"]
+}
+
+# 値のアクセス・変更
+print(student["name"])        # 田中
+print(student.get("age"))     # 18
+student["age"] = 19           # 値を変更
+student["hobby"] = "読書"     # 新しいキーを追加
+
+# 辞書の操作
+print(student.keys())         # キー一覧
+print(student.values())       # 値一覧
+print(student.items())        # キー・値のペア
+
+# 辞書内包表記
+word_lengths = {word: len(word) for word in ["Python", "Java", "C++"]}
+        </div>
+
+        <h3>📦 タプル (Tuple)</h3>
+        <p>変更不可能な順序データ。座標や設定値などに使用。</p>
+        <div class="code-block">
+# タプルの作成
+point = (10, 20)
+colors = ("red", "green", "blue")
+
+# アンパック
+x, y = point
+print(f"座標: ({x}, {y})")
+
+# 複数の値を返す関数
+def get_name_age():
+    return "山田", 25
+
+name, age = get_name_age()
+        </div>
+
+        <h3>🔢 セット (Set)</h3>
+        <p>重複のない要素の集合。集合演算が可能。</p>
+        <div class="code-block">
+# セットの作成
+fruits = {"apple", "banana", "orange", "apple"}  # 重複は削除
+print(fruits)  # {'banana', 'orange', 'apple'}
+
+# 集合演算
+set1 = {1, 2, 3, 4}
+set2 = {3, 4, 5, 6}
+
+print(set1 & set2)  # {3, 4} (積集合)
+print(set1 | set2)  # {1, 2, 3, 4, 5, 6} (和集合)
+print(set1 - set2)  # {1, 2} (差集合)
+        </div>
+      </section>
+
+      <!-- 関数とクラス -->
+      <section id="functions" class="section">
+        <h2>🔧 関数とクラス</h2>
+        
+        <h3>⚙️ 関数の定義</h3>
+        <div class="code-block">
+# 基本的な関数
+def greet(name):
+    return f"こんにちは、{name}さん！"
+
+# デフォルト引数
+def introduce(name, age=20):
+    return f"私は{name}、{age}歳です"
+
+# 複数の戻り値
+def calculate(a, b):
+    return a + b, a - b, a * b, a / b
+
+# 可変長引数
+def sum_all(*numbers):
+    return sum(numbers)
+
+# キーワード引数
+def create_profile(**kwargs):
+    return kwargs
+
+# 使用例
+print(greet("太郎"))
+print(introduce("花子"))
+add, sub, mul, div = calculate(10, 3)
+print(sum_all(1, 2, 3, 4, 5))
+profile = create_profile(name="佐藤", age=30, city="東京")
+        </div>
+
+        <h3>🏗️ クラスとオブジェクト</h3>
+        <div class="code-block">
+class Student:
+    # クラス変数
+    school_name = "Python高校"
+    
+    def __init__(self, name, age):
+        # インスタンス変数
+        self.name = name
+        self.age = age
+        self.grades = []
+    
+    def add_grade(self, subject, score):
+        self.grades.append({"subject": subject, "score": score})
+    
+    def get_average(self):
+        if not self.grades:
+            return 0
+        total = sum(grade["score"] for grade in self.grades)
+        return total / len(self.grades)
+    
+    def __str__(self):
+        return f"Student: {self.name} ({self.age}歳)"
+
+# クラスの使用
+student = Student("田中太郎", 17)
+student.add_grade("数学", 85)
+student.add_grade("英語", 92)
+print(student)
+print(f"平均点: {student.get_average()}")
+        </div>
+
+        <h3>🔒 継承とカプセル化</h3>
+        <div class="code-block">
+class Person:
+    def __init__(self, name, age):
+        self.name = name
+        self._age = age  # プロテクト属性
+        self.__id = id(self)  # プライベート属性
+    
+    def speak(self):
+        return f"{self.name}が話しています"
+
+class Teacher(Person):  # Personクラスを継承
+    def __init__(self, name, age, subject):
+        super().__init__(name, age)  # 親クラスの初期化
+        self.subject = subject
+    
+    def teach(self):
+        return f"{self.name}先生が{self.subject}を教えています"
+    
+    def speak(self):  # メソッドのオーバーライド
+        return f"{self.name}先生が授業中です"
+
+# 使用例
+teacher = Teacher("山田花子", 35, "数学")
+print(teacher.teach())
+print(teacher.speak())
+        </div>
+      </section>
+
+      <!-- 実践例 -->
+      <section id="practice" class="section">
+        <h2>🚀 実践的なコード例</h2>
+        
+        <h3>📊 データ処理の例</h3>
+        <div class="code-block">
+# 学生の成績データを処理
+students_data = [
+    {"name": "田中", "math": 85, "english": 78, "science": 92},
+    {"name": "佐藤", "math": 92, "english": 85, "science": 88},
+    {"name": "鈴木", "math": 78, "english": 92, "science": 85},
+]
+
+# 各学生の平均点を計算
+def calculate_averages(students):
+    for student in students:
+        subjects = ["math", "english", "science"]
+        total = sum(student[subject] for subject in subjects)
+        student["average"] = round(total / len(subjects), 1)
+    return students
+
+# 上位学生を抽出
+def get_top_students(students, threshold=85):
+    return [s for s in students if s["average"] >= threshold]
+
+# 実行
+students_with_avg = calculate_averages(students_data)
+top_students = get_top_students(students_with_avg)
+
+for student in top_students:
+    print(f"{student['name']}: 平均{student['average']}点")
+        </div>
+
+        <h3>🎯 簡単なゲーム</h3>
+        <div class="code-block">
+import random
+
+class NumberGuessGame:
+    def __init__(self, max_number=100):
+        self.target = random.randint(1, max_number)
+        self.attempts = 0
+        self.max_attempts = 7
+        
+    def play(self):
+        print(f"1から100の数を当ててください！（{self.max_attempts}回まで）")
+        
+        while self.attempts < self.max_attempts:
+            try:
+                guess = int(input("予想: "))
+                self.attempts += 1
+                
+                if guess == self.target:
+                    print(f"正解！{self.attempts}回で当てました！")
+                    return True
+                elif guess < self.target:
+                    print("もっと大きい数です")
+                else:
+                    print("もっと小さい数です")
+                    
+                remaining = self.max_attempts - self.attempts
+                print(f"残り{remaining}回")
+                
+            except ValueError:
+                print("数値を入力してください")
+        
+        print(f"ゲームオーバー！答えは{self.target}でした")
+        return False
+
+# ゲーム実行
+# game = NumberGuessGame()
+# game.play()
+        </div>
+
+        <h3>📁 ファイル操作</h3>
+        <div class="code-block">
+# ファイルの読み書き
+def save_todo_list(todos, filename="todo.txt"):
+    """TODOリストをファイルに保存"""
+    with open(filename, "w", encoding="utf-8") as file:
+        for i, todo in enumerate(todos, 1):
+            file.write(f"{i}. {todo}\n")
+
+def load_todo_list(filename="todo.txt"):
+    """ファイルからTODOリストを読み込み"""
+    todos = []
+    try:
+        with open(filename, "r", encoding="utf-8") as file:
+            for line in file:
+                # "1. タスク名" から "タスク名" を抽出
+                todo = line.strip().split(". ", 1)[1]
+                todos.append(todo)
+    except FileNotFoundError:
+        print("ファイルが見つかりません")
+    return todos
+
+# 使用例
+todo_list = ["Python学習", "プロジェクト完成", "読書"]
+save_todo_list(todo_list)
+loaded_todos = load_todo_list()
+print("保存されたTODO:", loaded_todos)
+        </div>
+
+        <div class="quick-ref">
+          <h3>🚀 よく使うPythonテクニック</h3>
+          <div class="ref-grid">
+            <div class="ref-item">
+              <strong>リスト内包表記</strong><br>
+              <code>[x*2 for x in range(5)]</code>
+            </div>
+            <div class="ref-item">
+              <strong>辞書内包表記</strong><br>
+              <code>{k: v*2 for k, v in dict.items()}</code>
+            </div>
+            <div class="ref-item">
+              <strong>三項演算子</strong><br>
+              <code>result = "A" if x > 5 else "B"</code>
+            </div>
+            <div class="ref-item">
+              <strong>enumerate</strong><br>
+              <code>for i, item in enumerate(list):</code>
+            </div>
+            <div class="ref-item">
+              <strong>zip</strong><br>
+              <code>for a, b in zip(list1, list2):</code>
+            </div>
+            <div class="ref-item">
+              <strong>f文字列</strong><br>
+              <code>f"Hello {name}, you are {age}"</code>
+            </div>
+            <div class="ref-item">
+              <strong>ファイル操作</strong><br>
+              <code>with open("file.txt") as f:</code>
+            </div>
+            <div class="ref-item">
+              <strong>例外処理</strong><br>
+              <code>try: ... except Exception: ...</code>
+            </div>
+          </div>
+        </div>
+
+        <div class="tip">
+          <strong>Python学習のコツ</strong><br>
+          • 毎日少しずつでもコードを書く<br>
+          • エラーメッセージを恐れない<br>
+          • 公式ドキュメントを読む習慣をつける<br>
+          • GitHubでオープンソースコードを読む<br>
+          • 実際のプロジェクトを作ってみる
+        </div>
+      </section>
+    </div>
+
+    <footer style="text-align: center; padding: 2em; background: rgba(255, 255, 255, 0.95); border-radius: 12px; margin-top: 2em;">
+      <h3>🎓 学習を続けよう！</h3>
+      <p>このガイドはPythonの基礎をカバーしています。さらに学習を進めるには：</p>
+      <div class="nav-buttons">
+        <a href="index.html" class="nav-btn">easyCodeで実践</a>
+        <a href="drawing.html" class="nav-btn">描画モードを試す</a>
+      </div>
+      <p style="margin-top: 1em; color: #7f8c8d;">
+        🐍 Happy Pythoning! | Made with ❤️ by easyCode
+      </p>
+    </footer>
+  </div>
+
+  <script>
+    // スムーズスクロール
+    document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+      anchor.addEventListener('click', function (e) {
+        e.preventDefault();
+        const target = document.querySelector(this.getAttribute('href'));
+        if (target) {
+          target.scrollIntoView({
+            behavior: 'smooth',
+            block: 'start'
+          });
+        }
+      });
+    });
+  </script>
+</body>
+</html>
