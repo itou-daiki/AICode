@@ -268,6 +268,9 @@ export async function initEditor() {
     dragDrop: true,
     allowDropFileTypes: null,
     configureMouse: () => ({ addNew: false }),
+    rtlMoveVisually: true,
+    smartIndent: true,
+    electricChars: true,
     extraKeys: {
       'Ctrl-Space': 'autocomplete'
     }
@@ -292,6 +295,24 @@ export async function initEditor() {
   // 選択状態を監視してデバッグ
   editor.on('beforeSelectionChange', (cm, obj) => {
     console.log('Selection changing:', obj.ranges);
+  });
+  
+  // 選択範囲の表示を強化
+  editor.on('cursorActivity', (cm) => {
+    const selections = cm.listSelections();
+    if (selections && selections.length > 0) {
+      console.log('Selection active:', selections);
+    }
+  });
+  
+  // マウスイベントで選択を強化
+  editor.on('mousedown', (cm, event) => {
+    setTimeout(() => {
+      const selection = cm.getSelection();
+      if (selection) {
+        console.log('Mouse selection:', selection);
+      }
+    }, 10);
   });
 
   // コード補完エンジンを初期化

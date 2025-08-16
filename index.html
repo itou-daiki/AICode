@@ -208,31 +208,42 @@
       background: #1e1e1e !important;
       color: #d4d4d4 !important;
     }
-    .CodeMirror-cursor {
-      border-left: 1px solid #d4d4d4 !important;
-    }
     /* =====================================
-       CodeMirror 選択範囲スタイル（強力版）
+       CodeMirror 選択範囲スタイル（改良版）
        ===================================== */
     
-    /* 最も重要な選択範囲クラス */
+    /* 行レベルの選択背景 */
     .CodeMirror div.CodeMirror-selected {
-      background: #3498db !important;
+      background: rgba(52, 152, 219, 0.3) !important;
       position: relative !important;
       z-index: 1 !important;
     }
     
-    /* 選択されたテキスト */
+    /* 文字レベルの選択（最も重要） */
     .CodeMirror .CodeMirror-selectedtext {
       background: #3498db !important;
       color: #ffffff !important;
       position: relative !important;
-      z-index: 2 !important;
+      z-index: 3 !important;
+      border-radius: 2px !important;
+    }
+    
+    /* より具体的な文字選択 */
+    .CodeMirror-line .CodeMirror-selectedtext {
+      background: #3498db !important;
+      color: #ffffff !important;
+      box-shadow: 0 0 1px rgba(52, 152, 219, 0.5) !important;
     }
     
     /* ドラッグ中の選択 */
     .CodeMirror-selecting div.CodeMirror-selected {
-      background: rgba(52, 152, 219, 0.8) !important;
+      background: rgba(52, 152, 219, 0.4) !important;
+    }
+    
+    /* 選択中の文字を強調 */
+    .CodeMirror-selecting .CodeMirror-selectedtext {
+      background: #2980b9 !important;
+      color: #ffffff !important;
     }
     
     /* 全てのCodeMirror要素内での選択を強制 */
@@ -251,16 +262,11 @@
       background: transparent !important;
     }
     
-    /* 追加の選択範囲設定 */
-    .CodeMirror-line-background.CodeMirror-selected {
-      background: #3498db !important;
-      opacity: 0.7 !important;
-    }
-    
-    /* 確実に表示されるように */
-    .CodeMirror-selected {
-      background: #3498db !important;
-      opacity: 0.8 !important;
+    /* より精密な選択表示 */
+    .CodeMirror-cursor {
+      border-left: 2px solid #ffffff !important;
+      border-right: none !important;
+      width: 0 !important;
     }
     
     /* エディタ全体でドラッグ可能に */
