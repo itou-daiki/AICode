@@ -105,7 +105,7 @@
     @keyframes spin { to { transform: rotate(360deg); } }
     #container {
       display: flex;
-      min-height: calc(70vh - var(--header-height));
+      min-height: calc(100vh - var(--header-height));
       visibility: hidden;
     }
     aside {
@@ -269,20 +269,6 @@
       -moz-user-select: text !important;
       -ms-user-select: text !important;
       user-select: text !important;
-    }
-    
-    /* レスポンシブ対応：小さな画面でのコンパクト表示 */
-    @media (max-width: 768px) {
-      #container {
-        min-height: calc(60vh - var(--header-height));
-      }
-      main {
-        min-height: 250px;
-      }
-      .CodeMirror {
-        min-height: 200px;
-        max-height: 40vh;
-      }
     }
     .CodeMirror-gutters {
       background: #252526 !important;
@@ -759,7 +745,7 @@
   </div>
 
   <!-- easyCode アプリケーション説明 -->
-  <footer style="background: linear-gradient(135deg, #f8f9fa, #e9ecef); padding: 2em 2em; margin-top: 1em; border-top: 1px solid #dee2e6;">
+  <footer style="background: linear-gradient(135deg, #f8f9fa, #e9ecef); padding: 3em 2em; margin-top: 3em; border-top: 1px solid #dee2e6;">
     <div style="max-width: 1200px; margin: 0 auto;">
       <div style="text-align: center; margin-bottom: 2em;">
         <h2 style="color: #2c3e50; font-size: 2em; margin-bottom: 0.5em;">🚀 easyCode について</h2>
@@ -856,7 +842,7 @@
       
       <div style="text-align: center; margin-top: 2em; padding-top: 1em; border-top: 1px solid #dee2e6; color: #7f8c8d;">
         <p style="margin: 0; font-size: 0.9em;">
-          ⚡ Powered by AI Technology | 🐍 Python in Browser | 🎨 Creative Coding
+          ⚡ Created by Dit-Lab.(Daiki ITO) | 🐍 Python in Browser | 🎨 Creative Coding
         </p>
       </div>
     </div>
