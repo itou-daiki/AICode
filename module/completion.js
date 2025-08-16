@@ -377,31 +377,21 @@ Only output COMPLETION: lines.`;
       return;
     }
     
-    // インライン表示中フラグを設定
-    this.isShowingInline = true;
-    
     // 補完テキストを保存
     this.currentInlineSuggestion = completionPart;
     this.originalCursorPos = cursor;
     
-    // カーソル位置に一時的にテキストを挿入
-    this.editor.replaceRange(completionPart, cursor);
+    // インライン補完要素を作成
+    const inlineElement = document.createElement('span');
+    inlineElement.textContent = completionPart;
+    inlineElement.style.cssText = 'color: #999; opacity: 0.7; font-style: italic; pointer-events: none;';
+    inlineElement.className = 'inline-suggestion-highlight';
     
-    // 挿入したテキストの範囲
-    const from = cursor;
-    const to = { line: cursor.line, ch: cursor.ch + completionPart.length };
-    
-    // マーカーでグレーアウト表示
-    this.inlineWidget = this.editor.markText(from, to, {
-      className: 'inline-suggestion-highlight',
-      css: 'color: #666 !important; opacity: 0.7 !important; font-style: italic !important;'
+    // カーソル位置にウィジェットとして挿入
+    this.inlineWidget = this.editor.setBookmark(cursor, {
+      widget: inlineElement,
+      insertLeft: false
     });
-    
-    // カーソルを元の位置に戻す（グレーアウト部分の前）
-    this.editor.setCursor(cursor);
-    
-    // フラグをリセット
-    this.isShowingInline = false;
   }
 
   hideInlineSuggestion() {
@@ -409,24 +399,21 @@ Only output COMPLETION: lines.`;
       this.inlineWidget.clear();
       this.inlineWidget = null;
     }
-    if (this.currentInlineSuggestion && this.originalCursorPos) {
-      // 挿入した補完テキストを削除
-      const from = this.originalCursorPos;
-      const to = { line: from.line, ch: from.ch + this.currentInlineSuggestion.length };
-      this.editor.replaceRange('', from, to);
-    }
     this.currentInlineSuggestion = null;
     this.originalCursorPos = null;
   }
 
   acceptInlineSuggestion() {
     if (this.currentInlineSuggestion && this.inlineWidget) {
-      // マーカーをクリアして、補完を確定
+      // ウィジェットをクリア
       this.inlineWidget.clear();
       this.inlineWidget = null;
       
-      // カーソルを補完の終端に移動
+      // 現在のカーソル位置に補完テキストを挿入
       const cursor = this.editor.getCursor();
+      this.editor.replaceRange(this.currentInlineSuggestion, cursor);
+      
+      // カーソルを補完の終端に移動
       const newCursor = { line: cursor.line, ch: cursor.ch + this.currentInlineSuggestion.length };
       this.editor.setCursor(newCursor);
       
