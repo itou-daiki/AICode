@@ -306,7 +306,8 @@ Only output COMPLETION: lines.`;
     } else if (lastWord === 'if' || (lastWord.startsWith('i') && 'if'.startsWith(lastWord))) {
       completions.push('if', 'if True:', 'if __name__ == "__main__":');
     } else if (lastWord === 'for' || (lastWord.startsWith('f') && 'for'.startsWith(lastWord))) {
-      completions.push('for', 'for i in range():', 'for item in list:');
+      // forの場合は完全な文として提供
+      completions.push('for', 'for i in range(10):', 'for item in list:');
     } else if (lastWord === 'def' || (lastWord.startsWith('d') && 'def'.startsWith(lastWord))) {
       completions.push('def', 'def function():', 'def main():');
     } else if (lastWord === 'class' || (lastWord.startsWith('c') && 'class'.startsWith(lastWord))) {
@@ -443,10 +444,27 @@ Only output COMPLETION: lines.`;
     const words = beforeCursor.split(/\s+/);
     const currentWord = words[words.length - 1] || '';
     
-    // 既にタイプされた部分を除いた補完部分を計算
-    let completionPart = suggestion;
-    if (suggestion.startsWith(currentWord) && currentWord.length > 0) {
-      completionPart = suggestion.substring(currentWord.length);
+    // インライン表示する部分を計算
+    let completionPart = '';
+    
+    if (currentWord.length > 0) {
+      if (suggestion.startsWith(currentWord)) {
+        // 候補が現在の単語で始まる場合 -> 残りの部分を表示
+        completionPart = suggestion.substring(currentWord.length);
+      } else if (suggestion.includes(currentWord)) {
+        // 候補に現在の単語が含まれる場合 -> 全体を表示
+        // この場合は、現在の単語を置換する必要があることを示すため、
+        // 特別な表示をする（例：全体を表示）
+        completionPart = suggestion;
+        // 現在の単語を保存して後で置換に使用
+        this.wordToReplace = currentWord;
+      } else {
+        // 関係ない場合は全体を表示
+        completionPart = suggestion;
+      }
+    } else {
+      // 現在の単語がない場合は全体を表示
+      completionPart = suggestion;
     }
     
     // 補完部分がない場合は表示しない
@@ -457,6 +475,7 @@ Only output COMPLETION: lines.`;
     // 補完テキストを保存
     this.currentInlineSuggestion = completionPart;
     this.originalCursorPos = cursor;
+    this.fullSuggestion = suggestion; // 完全な候補も保存
     
     // インライン補完要素を作成
     const inlineElement = document.createElement('span');
@@ -491,27 +510,42 @@ Only output COMPLETION: lines.`;
       const line = this.editor.getLine(cursor.line);
       const beforeCursor = line.substring(0, cursor.ch);
       const afterCursor = line.substring(cursor.ch);
-      
-      // 元の候補を再構築（currentWordを考慮）
       const words = beforeCursor.split(/\s+/);
       const currentWord = words[words.length - 1] || '';
-      const fullSuggestion = currentWord + this.currentInlineSuggestion;
+      
+      // 使用する候補を決定
+      const suggestionToUse = this.fullSuggestion || (currentWord + this.currentInlineSuggestion);
+      
+      // 置換範囲を決定
+      let replaceFrom = cursor;
+      let replaceTo = cursor;
+      let textToInsert = this.currentInlineSuggestion;
+      
+      if (this.wordToReplace || (currentWord.length > 0 && this.fullSuggestion && this.fullSuggestion.includes(currentWord))) {
+        // 単語を置換する必要がある場合
+        const wordStart = cursor.ch - currentWord.length;
+        replaceFrom = { line: cursor.line, ch: wordStart };
+        replaceTo = cursor;
+        textToInsert = suggestionToUse;
+      }
       
       // スペースが必要かどうかを判断
-      let textToInsert = this.currentInlineSuggestion;
-      const needsSpace = this.needsSpaceAfter(fullSuggestion, beforeCursor, afterCursor);
+      const needsSpace = this.needsSpaceAfter(suggestionToUse, beforeCursor, afterCursor);
       if (needsSpace) {
         textToInsert += ' ';
       }
       
-      // 補完テキストを挿入
-      this.editor.replaceRange(textToInsert, cursor);
+      // テキストを置換/挿入
+      this.editor.replaceRange(textToInsert, replaceFrom, replaceTo);
       
-      // カーソルを補完の終端に移動
-      const newCursor = { line: cursor.line, ch: cursor.ch + textToInsert.length };
+      // カーソルを適切な位置に移動
+      const newCursor = { line: replaceFrom.line, ch: replaceFrom.ch + textToInsert.length };
       this.editor.setCursor(newCursor);
       
+      // クリーンアップ
       this.currentInlineSuggestion = null;
+      this.fullSuggestion = null;
+      this.wordToReplace = null;
       this.editor.focus();
     }
   }
@@ -558,6 +592,31 @@ Only output COMPLETION: lines.`;
     
     // 挿入するテキストを準備
     let textToInsert = suggestion;
+    let replaceFrom, replaceTo;
+    
+    // 置換範囲を決定するロジック
+    if (currentWord.length > 0) {
+      // 現在の単語がある場合の判定
+      if (suggestion.startsWith(currentWord)) {
+        // 候補が現在の単語で始まる場合 -> 拡張（例: "p" -> "print()"）
+        const wordStart = cursor.ch - currentWord.length;
+        replaceFrom = { line: cursor.line, ch: wordStart };
+        replaceTo = cursor;
+      } else if (suggestion.includes(currentWord)) {
+        // 候補に現在の単語が含まれる場合 -> 置換（例: "for" -> "for i in range(10):"）
+        const wordStart = cursor.ch - currentWord.length;
+        replaceFrom = { line: cursor.line, ch: wordStart };
+        replaceTo = cursor;
+      } else {
+        // 候補が現在の単語と関係ない場合 -> 追加
+        replaceFrom = cursor;
+        replaceTo = cursor;
+      }
+    } else {
+      // 現在の単語がない場合 -> 追加
+      replaceFrom = cursor;
+      replaceTo = cursor;
+    }
     
     // スペースが必要かどうかを判断
     const needsSpace = this.needsSpaceAfter(suggestion, beforeCursor, afterCursor);
@@ -565,17 +624,8 @@ Only output COMPLETION: lines.`;
       textToInsert += ' ';
     }
     
-    // 既にタイプされた部分を考慮した挿入処理
-    if (suggestion.startsWith(currentWord) && currentWord.length > 0) {
-      // 既存の部分文字列を削除してから完全な候補を挿入
-      const wordStart = cursor.ch - currentWord.length;
-      const from = { line: cursor.line, ch: wordStart };
-      const to = cursor;
-      this.editor.replaceRange(textToInsert, from, to);
-    } else {
-      // 通常の挿入
-      this.editor.replaceRange(textToInsert, cursor);
-    }
+    // テキストを置換
+    this.editor.replaceRange(textToInsert, replaceFrom, replaceTo);
     
     this.hidePopup();
     this.editor.focus();
