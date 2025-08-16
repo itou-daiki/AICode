@@ -117,6 +117,10 @@
       font-size: 0.95em;
       overflow-x: auto;
       position: relative;
+      white-space: pre-wrap;
+      line-height: 1.5;
+      word-wrap: break-word;
+      tab-size: 4;
     }
 
     .code-block::before {
@@ -139,6 +143,8 @@
       border-radius: 8px;
       margin: 0.5em 0;
       font-family: monospace;
+      white-space: pre-wrap;
+      line-height: 1.4;
     }
 
     .output::before {
@@ -404,7 +410,8 @@ else:
 result = "合格" if score >= 60 else "不合格"
 print(result)
         </div>
-        <div class="output">良好です<br>合格</div>
+        <div class="output">良好です
+合格</div>
 
         <h3>🔄 繰り返し処理 (for文)</h3>
         <div class="code-block">
