@@ -290,6 +290,7 @@ Only output COMPLETION: lines.`;
     const completions = [];
     const words = beforeCursor.trim().split(/\s+/);
     const lastWord = words[words.length - 1] || '';
+    const secondLastWord = words.length > 1 ? words[words.length - 2] : '';
     
     // 基本的なPython補完 - 部分マッチをより細かく
     if (lastWord.startsWith('p') && 'print'.startsWith(lastWord)) {
@@ -302,17 +303,35 @@ Only output COMPLETION: lines.`;
       completions.push('range()', 'range(10)');
     } else if (lastWord.startsWith('s') && 'str'.startsWith(lastWord)) {
       completions.push('str()');
-    } else if (lastWord === 'if') {
-      completions.push('if True:', 'if __name__ == "__main__":');
-    } else if (lastWord === 'for') {
-      completions.push('for i in range():', 'for item in list:');
-    } else if (lastWord === 'def') {
-      completions.push('def function():', 'def main():');
+    } else if (lastWord === 'if' || (lastWord.startsWith('i') && 'if'.startsWith(lastWord))) {
+      completions.push('if', 'if True:', 'if __name__ == "__main__":');
+    } else if (lastWord === 'for' || (lastWord.startsWith('f') && 'for'.startsWith(lastWord))) {
+      completions.push('for', 'for i in range():', 'for item in list:');
+    } else if (lastWord === 'def' || (lastWord.startsWith('d') && 'def'.startsWith(lastWord))) {
+      completions.push('def', 'def function():', 'def main():');
+    } else if (lastWord === 'class' || (lastWord.startsWith('c') && 'class'.startsWith(lastWord))) {
+      completions.push('class', 'class MyClass:');
+    } else if (lastWord === 'import' || (lastWord.startsWith('i') && 'import'.startsWith(lastWord) && lastWord.length > 1)) {
+      completions.push('import', 'import os', 'import sys');
+    } else if (lastWord === 'from' || (lastWord.startsWith('f') && 'from'.startsWith(lastWord) && lastWord !== 'for')) {
+      completions.push('from', 'from os import', 'from sys import');
+    } else if (secondLastWord === 'import' || beforeCursor.includes('from ')) {
+      // import文の補完
+      completions.push('os', 'sys', 'math', 'random', 'json', 'datetime');
+    } else if (lastWord === 'try' || (lastWord.startsWith('t') && 'try'.startsWith(lastWord))) {
+      completions.push('try:');
+    } else if (lastWord === 'except' || (lastWord.startsWith('e') && 'except'.startsWith(lastWord))) {
+      completions.push('except:', 'except Exception:');
+    } else if (lastWord === 'while' || (lastWord.startsWith('w') && 'while'.startsWith(lastWord))) {
+      completions.push('while', 'while True:');
+    } else if (lastWord === 'with' || (lastWord.startsWith('w') && 'with'.startsWith(lastWord) && lastWord !== 'while')) {
+      completions.push('with', 'with open() as f:');
     } else if (beforeCursor.includes('.')) {
-      completions.push('append()', 'split()', 'strip()', 'replace()');
+      // メソッド補完
+      completions.push('append()', 'split()', 'strip()', 'replace()', 'join()', 'lower()', 'upper()');
     } else if (lastWord.length === 0) {
       // 何も入力されていない場合の一般的なPython候補
-      completions.push('print()', 'input()', 'len()', 'range()', 'str()');
+      completions.push('print()', 'input()', 'len()', 'range()', 'str()', 'if', 'for', 'def');
     }
     
     // モードに応じて返す候補数を調整
@@ -321,6 +340,64 @@ Only output COMPLETION: lines.`;
     } else {
       return completions.slice(0, 5); // 複数候補用に最大5つ
     }
+  }
+
+  // スペースが必要かどうかを判断するヘルパーメソッド
+  needsSpaceAfter(suggestion, beforeCursor, afterCursor) {
+    // Python キーワードでスペースが必要なもの
+    const keywordsNeedingSpace = [
+      'if', 'elif', 'else:', 'for', 'while', 'def', 'class', 
+      'import', 'from', 'try:', 'except:', 'finally:', 'with',
+      'lambda', 'return', 'yield', 'raise', 'assert', 'del',
+      'global', 'nonlocal', 'pass', 'break', 'continue'
+    ];
+    
+    // 関数呼び出しや演算子でスペースが不要なもの
+    const noSpacePatterns = [
+      /.*\(\)$/,        // 関数呼び出し: print(), input()
+      /.*\[\]$/,        // リストアクセス: list[]
+      /.*\.\w+$/,       // メソッド呼び出し: str.split
+      /.*[+\-*/=%<>!]=?$/, // 演算子
+      /.*[,;:]$/,       // 区切り文字
+      /.*["'].*["']$/   // 文字列リテラル
+    ];
+    
+    // カーソル直後の文字を確認
+    const nextChar = afterCursor.charAt(0);
+    
+    // 1. 既に適切な文字が続いている場合はスペース不要
+    if (nextChar && /[(),[\];:.]/.test(nextChar)) {
+      return false;
+    }
+    
+    // 2. 関数呼び出しや演算子パターンの場合はスペース不要
+    for (const pattern of noSpacePatterns) {
+      if (pattern.test(suggestion)) {
+        return false;
+      }
+    }
+    
+    // 3. Pythonキーワードの場合はスペース必要
+    const trimmedSuggestion = suggestion.replace(/:$/, ''); // コロンを除去して判定
+    if (keywordsNeedingSpace.includes(trimmedSuggestion) || keywordsNeedingSpace.includes(suggestion)) {
+      return true;
+    }
+    
+    // 4. コロンで終わる場合（制御構文）はスペース不要（改行が適切）
+    if (suggestion.endsWith(':')) {
+      return false;
+    }
+    
+    // 5. デフォルトは前後の文脈から判断
+    const wordBefore = beforeCursor.trim().split(/\s+/).pop();
+    
+    // import文の場合はスペース必要
+    if (wordBefore === 'import' || wordBefore === 'from') {
+      return true;
+    }
+    
+    // その他の場合はスペース不要
+    return false;
   }
 
   showSuggestions(suggestions, cursor) {
@@ -409,12 +486,29 @@ Only output COMPLETION: lines.`;
       this.inlineWidget.clear();
       this.inlineWidget = null;
       
-      // 現在のカーソル位置に補完テキストを挿入
+      // 現在のカーソル位置と前後のテキストを取得
       const cursor = this.editor.getCursor();
-      this.editor.replaceRange(this.currentInlineSuggestion, cursor);
+      const line = this.editor.getLine(cursor.line);
+      const beforeCursor = line.substring(0, cursor.ch);
+      const afterCursor = line.substring(cursor.ch);
+      
+      // 元の候補を再構築（currentWordを考慮）
+      const words = beforeCursor.split(/\s+/);
+      const currentWord = words[words.length - 1] || '';
+      const fullSuggestion = currentWord + this.currentInlineSuggestion;
+      
+      // スペースが必要かどうかを判断
+      let textToInsert = this.currentInlineSuggestion;
+      const needsSpace = this.needsSpaceAfter(fullSuggestion, beforeCursor, afterCursor);
+      if (needsSpace) {
+        textToInsert += ' ';
+      }
+      
+      // 補完テキストを挿入
+      this.editor.replaceRange(textToInsert, cursor);
       
       // カーソルを補完の終端に移動
-      const newCursor = { line: cursor.line, ch: cursor.ch + this.currentInlineSuggestion.length };
+      const newCursor = { line: cursor.line, ch: cursor.ch + textToInsert.length };
       this.editor.setCursor(newCursor);
       
       this.currentInlineSuggestion = null;
@@ -455,11 +549,21 @@ Only output COMPLETION: lines.`;
   applySuggestion(suggestion) {
     const cursor = this.editor.getCursor();
     
-    // カーソル位置前のテキストを取得
+    // カーソル位置前後のテキストを取得
     const line = this.editor.getLine(cursor.line);
     const beforeCursor = line.substring(0, cursor.ch);
+    const afterCursor = line.substring(cursor.ch);
     const words = beforeCursor.split(/\s+/);
     const currentWord = words[words.length - 1] || '';
+    
+    // 挿入するテキストを準備
+    let textToInsert = suggestion;
+    
+    // スペースが必要かどうかを判断
+    const needsSpace = this.needsSpaceAfter(suggestion, beforeCursor, afterCursor);
+    if (needsSpace) {
+      textToInsert += ' ';
+    }
     
     // 既にタイプされた部分を考慮した挿入処理
     if (suggestion.startsWith(currentWord) && currentWord.length > 0) {
@@ -467,10 +571,10 @@ Only output COMPLETION: lines.`;
       const wordStart = cursor.ch - currentWord.length;
       const from = { line: cursor.line, ch: wordStart };
       const to = cursor;
-      this.editor.replaceRange(suggestion, from, to);
+      this.editor.replaceRange(textToInsert, from, to);
     } else {
       // 通常の挿入
-      this.editor.replaceRange(suggestion, cursor);
+      this.editor.replaceRange(textToInsert, cursor);
     }
     
     this.hidePopup();
