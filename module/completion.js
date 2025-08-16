@@ -288,13 +288,20 @@ Only output COMPLETION: lines.`;
 
   getBasicCompletions(beforeCursor) {
     const completions = [];
-    const lastWord = beforeCursor.trim().split(/\s+/).pop();
+    const words = beforeCursor.trim().split(/\s+/);
+    const lastWord = words[words.length - 1] || '';
     
-    // 基本的なPython補完
-    if (lastWord.startsWith('prin')) {
+    // 基本的なPython補完 - 部分マッチをより細かく
+    if (lastWord.startsWith('p') && 'print'.startsWith(lastWord)) {
       completions.push('print()', 'print("")', 'print(f"")');
-    } else if (lastWord.startsWith('inpu')) {
+    } else if (lastWord.startsWith('i') && 'input'.startsWith(lastWord)) {
       completions.push('input()', 'input("")');
+    } else if (lastWord.startsWith('l') && 'len'.startsWith(lastWord)) {
+      completions.push('len()');
+    } else if (lastWord.startsWith('r') && 'range'.startsWith(lastWord)) {
+      completions.push('range()', 'range(10)');
+    } else if (lastWord.startsWith('s') && 'str'.startsWith(lastWord)) {
+      completions.push('str()');
     } else if (lastWord === 'if') {
       completions.push('if True:', 'if __name__ == "__main__":');
     } else if (lastWord === 'for') {
@@ -303,8 +310,8 @@ Only output COMPLETION: lines.`;
       completions.push('def function():', 'def main():');
     } else if (beforeCursor.includes('.')) {
       completions.push('append()', 'split()', 'strip()', 'replace()');
-    } else {
-      // 一般的なPython候補
+    } else if (lastWord.length === 0) {
+      // 何も入力されていない場合の一般的なPython候補
       completions.push('print()', 'input()', 'len()', 'range()', 'str()');
     }
     
@@ -353,19 +360,36 @@ Only output COMPLETION: lines.`;
     this.hidePopup(); // ポップアップを隠す
     this.hideInlineSuggestion(); // 既存のインライン補完を隠す
     
+    // カーソル位置前のテキストを取得
+    const line = this.editor.getLine(cursor.line);
+    const beforeCursor = line.substring(0, cursor.ch);
+    const words = beforeCursor.split(/\s+/);
+    const currentWord = words[words.length - 1] || '';
+    
+    // 既にタイプされた部分を除いた補完部分を計算
+    let completionPart = suggestion;
+    if (suggestion.startsWith(currentWord) && currentWord.length > 0) {
+      completionPart = suggestion.substring(currentWord.length);
+    }
+    
+    // 補完部分がない場合は表示しない
+    if (!completionPart) {
+      return;
+    }
+    
     // インライン表示中フラグを設定
     this.isShowingInline = true;
     
     // 補完テキストを保存
-    this.currentInlineSuggestion = suggestion;
+    this.currentInlineSuggestion = completionPart;
     this.originalCursorPos = cursor;
     
-    // 現在のカーソル位置に一時的にテキストを挿入
-    this.editor.replaceRange(suggestion, cursor);
+    // カーソル位置に一時的にテキストを挿入
+    this.editor.replaceRange(completionPart, cursor);
     
     // 挿入したテキストの範囲
     const from = cursor;
-    const to = { line: cursor.line, ch: cursor.ch + suggestion.length };
+    const to = { line: cursor.line, ch: cursor.ch + completionPart.length };
     
     // マーカーでグレーアウト表示
     this.inlineWidget = this.editor.markText(from, to, {
@@ -373,7 +397,7 @@ Only output COMPLETION: lines.`;
       css: 'color: #666 !important; opacity: 0.7 !important; font-style: italic !important;'
     });
     
-    // カーソルを元の位置に戻す
+    // カーソルを元の位置に戻す（グレーアウト部分の前）
     this.editor.setCursor(cursor);
     
     // フラグをリセット
@@ -443,7 +467,25 @@ Only output COMPLETION: lines.`;
 
   applySuggestion(suggestion) {
     const cursor = this.editor.getCursor();
-    this.editor.replaceRange(suggestion, cursor);
+    
+    // カーソル位置前のテキストを取得
+    const line = this.editor.getLine(cursor.line);
+    const beforeCursor = line.substring(0, cursor.ch);
+    const words = beforeCursor.split(/\s+/);
+    const currentWord = words[words.length - 1] || '';
+    
+    // 既にタイプされた部分を考慮した挿入処理
+    if (suggestion.startsWith(currentWord) && currentWord.length > 0) {
+      // 既存の部分文字列を削除してから完全な候補を挿入
+      const wordStart = cursor.ch - currentWord.length;
+      const from = { line: cursor.line, ch: wordStart };
+      const to = cursor;
+      this.editor.replaceRange(suggestion, from, to);
+    } else {
+      // 通常の挿入
+      this.editor.replaceRange(suggestion, cursor);
+    }
+    
     this.hidePopup();
     this.editor.focus();
   }
