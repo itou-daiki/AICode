@@ -265,9 +265,33 @@ export async function initEditor() {
     selectionPointer: true,
     styleSelectedText: true,
     showCursorWhenSelecting: true,
+    dragDrop: true,
+    allowDropFileTypes: null,
+    configureMouse: () => ({ addNew: false }),
     extraKeys: {
       'Ctrl-Space': 'autocomplete'
     }
+  });
+  
+  // 選択機能を強制的に有効化
+  const wrapper = editor.getWrapperElement();
+  wrapper.style.userSelect = 'text';
+  wrapper.style.webkitUserSelect = 'text';
+  wrapper.style.mozUserSelect = 'text';
+  wrapper.style.msUserSelect = 'text';
+  
+  // CodeMirror内のすべての要素で選択を有効化
+  const elements = wrapper.querySelectorAll('*');
+  elements.forEach(el => {
+    el.style.userSelect = 'text';
+    el.style.webkitUserSelect = 'text';
+    el.style.mozUserSelect = 'text';
+    el.style.msUserSelect = 'text';
+  });
+  
+  // 選択状態を監視してデバッグ
+  editor.on('beforeSelectionChange', (cm, obj) => {
+    console.log('Selection changing:', obj.ranges);
   });
 
   // コード補完エンジンを初期化

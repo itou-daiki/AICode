@@ -211,59 +211,64 @@
     .CodeMirror-cursor {
       border-left: 1px solid #d4d4d4 !important;
     }
-    .CodeMirror-selected {
-      background: #3498db !important;
-      opacity: 1 !important;
-    }
-    .CodeMirror-selectedtext {
-      background: #3498db !important;
-      color: #ffffff !important;
-      opacity: 1 !important;
-    }
-    .CodeMirror-selecting {
-      background: rgba(52, 152, 219, 0.7) !important;
-      opacity: 1 !important;
-    }
-    /* 追加の選択範囲スタイル */
-    .CodeMirror-line-like .CodeMirror-selectedtext {
-      background: #3498db !important;
-      color: #ffffff !important;
-    }
-    .CodeMirror-line::selection {
-      background: #3498db !important;
-      color: #ffffff !important;
-    }
-    .CodeMirror-line::-moz-selection {
-      background: #3498db !important;
-      color: #ffffff !important;
-    }
+    /* =====================================
+       CodeMirror 選択範囲スタイル（強力版）
+       ===================================== */
     
-    /* より強力な選択範囲スタイル */
+    /* 最も重要な選択範囲クラス */
     .CodeMirror div.CodeMirror-selected {
       background: #3498db !important;
+      position: relative !important;
+      z-index: 1 !important;
     }
-    .CodeMirror .CodeMirror-line .CodeMirror-selectedtext {
-      background: #3498db !important;
-      color: #ffffff !important;
-    }
+    
+    /* 選択されたテキスト */
     .CodeMirror .CodeMirror-selectedtext {
       background: #3498db !important;
       color: #ffffff !important;
+      position: relative !important;
+      z-index: 2 !important;
     }
     
-    /* ドラッグ中の選択表示 */
-    .CodeMirror-drag-replacements {
-      background: rgba(52, 152, 219, 0.5) !important;
+    /* ドラッグ中の選択 */
+    .CodeMirror-selecting div.CodeMirror-selected {
+      background: rgba(52, 152, 219, 0.8) !important;
     }
     
-    /* 通常のブラウザ選択も強化 */
-    .CodeMirror-code ::selection {
-      background: #3498db !important;
-      color: #ffffff !important;
+    /* 全てのCodeMirror要素内での選択を強制 */
+    .CodeMirror * {
+      -webkit-user-select: text !important;
+      -moz-user-select: text !important;
+      -ms-user-select: text !important;
+      user-select: text !important;
     }
-    .CodeMirror-code ::-moz-selection {
+    
+    /* ブラウザデフォルト選択の無効化と再設定 */
+    .CodeMirror ::selection {
+      background: transparent !important;
+    }
+    .CodeMirror ::-moz-selection {
+      background: transparent !important;
+    }
+    
+    /* 追加の選択範囲設定 */
+    .CodeMirror-line-background.CodeMirror-selected {
       background: #3498db !important;
-      color: #ffffff !important;
+      opacity: 0.7 !important;
+    }
+    
+    /* 確実に表示されるように */
+    .CodeMirror-selected {
+      background: #3498db !important;
+      opacity: 0.8 !important;
+    }
+    
+    /* エディタ全体でドラッグ可能に */
+    .CodeMirror {
+      -webkit-user-select: text !important;
+      -moz-user-select: text !important;
+      -ms-user-select: text !important;
+      user-select: text !important;
     }
     .CodeMirror-gutters {
       background: #252526 !important;
