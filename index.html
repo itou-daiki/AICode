@@ -189,14 +189,15 @@
       font-size: 1em;
       color: #2c3e50;
     }
-    .CodeMirror { 
-      flex: 1; 
-      border: 1px solid #dfe6e9; 
+    .CodeMirror {
+      flex: 1;
+      border: 1px solid #dfe6e9;
       border-radius: 4px;
       background: #1e1e1e !important;
       color: #d4d4d4 !important;
       font-size: 16px !important;
       font-family: 'Consolas', 'Monaco', 'Courier New', monospace !important;
+      line-height: 1.5 !important;
       min-height: 250px;
       max-height: 50vh;
     }
@@ -245,36 +246,12 @@
       background: #2980b9 !important;
       color: #ffffff !important;
     }
-    
-    /* 全てのCodeMirror要素内での選択を強制 */
-    .CodeMirror * {
-      -webkit-user-select: text !important;
-      -moz-user-select: text !important;
-      -ms-user-select: text !important;
-      user-select: text !important;
-    }
-    
-    /* ブラウザデフォルト選択の無効化と再設定 */
-    .CodeMirror ::selection {
-      background: transparent !important;
-    }
-    .CodeMirror ::-moz-selection {
-      background: transparent !important;
-    }
-    
-    /* より精密な選択表示 */
+
+    /* カーソルスタイル */
     .CodeMirror-cursor {
       border-left: 2px solid #ffffff !important;
       border-right: none !important;
       width: 0 !important;
-    }
-    
-    /* エディタ全体でドラッグ可能に */
-    .CodeMirror {
-      -webkit-user-select: text !important;
-      -moz-user-select: text !important;
-      -ms-user-select: text !important;
-      user-select: text !important;
     }
     .CodeMirror-gutters {
       background: #252526 !important;
