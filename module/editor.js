@@ -258,61 +258,13 @@ export async function initEditor() {
   pyodide.globals.set('js', window);
   
   editor = CodeMirror.fromTextArea(document.getElementById('code'), {
-    mode: 'python', 
-    lineNumbers: true, 
-    indentUnit: 4, 
+    mode: 'python',
+    lineNumbers: true,
+    indentUnit: 4,
     tabSize: 4,
-    selectionPointer: true,
-    styleSelectedText: true,
-    showCursorWhenSelecting: true,
-    dragDrop: true,
-    allowDropFileTypes: null,
-    configureMouse: () => ({ addNew: false }),
-    rtlMoveVisually: true,
-    smartIndent: true,
-    electricChars: true,
     extraKeys: {
       'Ctrl-Space': 'autocomplete'
     }
-  });
-  
-  // 選択機能を強制的に有効化
-  const wrapper = editor.getWrapperElement();
-  wrapper.style.userSelect = 'text';
-  wrapper.style.webkitUserSelect = 'text';
-  wrapper.style.mozUserSelect = 'text';
-  wrapper.style.msUserSelect = 'text';
-  
-  // CodeMirror内のすべての要素で選択を有効化
-  const elements = wrapper.querySelectorAll('*');
-  elements.forEach(el => {
-    el.style.userSelect = 'text';
-    el.style.webkitUserSelect = 'text';
-    el.style.mozUserSelect = 'text';
-    el.style.msUserSelect = 'text';
-  });
-  
-  // 選択状態を監視してデバッグ
-  editor.on('beforeSelectionChange', (cm, obj) => {
-    console.log('Selection changing:', obj.ranges);
-  });
-  
-  // 選択範囲の表示を強化
-  editor.on('cursorActivity', (cm) => {
-    const selections = cm.listSelections();
-    if (selections && selections.length > 0) {
-      console.log('Selection active:', selections);
-    }
-  });
-  
-  // マウスイベントで選択を強化
-  editor.on('mousedown', (cm, event) => {
-    setTimeout(() => {
-      const selection = cm.getSelection();
-      if (selection) {
-        console.log('Mouse selection:', selection);
-      }
-    }, 10);
   });
 
   // コード補完エンジンを初期化

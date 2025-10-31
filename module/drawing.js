@@ -246,8 +246,7 @@ async function initDrawingEditor() {
         mode: 'python',
         lineNumbers: true,
         indentUnit: 4,
-        tabSize: 4,
-        theme: 'default'
+        tabSize: 4
     });
     
     // キャンバスの初期化
