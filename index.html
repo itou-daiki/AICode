@@ -193,84 +193,60 @@
       flex: 1;
       border: 1px solid #dfe6e9;
       border-radius: 4px;
-      background: #1e1e1e !important;
-      color: #d4d4d4 !important;
-      font-size: 16px !important;
-      font-family: 'Consolas', 'Monaco', 'Courier New', monospace !important;
-      line-height: 1.5 !important;
+      background: #1e1e1e;
+      font-size: 16px;
+      font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
       min-height: 250px;
       max-height: 50vh;
-      height: auto !important;
+      height: auto;
     }
     .CodeMirror-scroll {
-      min-height: 250px !important;
+      background: #1e1e1e;
     }
-    .CodeMirror-sizer {
-      margin-left: 0 !important;
-      margin-bottom: 0 !important;
+    /* CodeMirrorの内部構造には触れず、色のみ変更 */
+    .CodeMirror,
+    .CodeMirror-gutters {
+      background-color: #1e1e1e;
+      color: #d4d4d4;
     }
-    .CodeMirror-lines {
-      background: #1e1e1e !important;
-      color: #d4d4d4 !important;
-      padding: 4px 0 !important;
-      cursor: text !important;
-    }
-    .CodeMirror-line {
-      background: #1e1e1e !important;
-      color: #d4d4d4 !important;
-      padding: 0 4px !important;
-    }
-    .CodeMirror pre {
-      padding: 0 4px !important;
-      line-height: 1.5 !important;
+    .CodeMirror-gutters {
+      border-right: 1px solid #3e3e42;
     }
     /* =====================================
        CodeMirror 選択範囲スタイル（改良版）
        ===================================== */
-    
+
     /* 行レベルの選択背景 */
     .CodeMirror div.CodeMirror-selected {
-      background: rgba(52, 152, 219, 0.3) !important;
-      position: relative !important;
-      z-index: 1 !important;
+      background: rgba(52, 152, 219, 0.3);
     }
-    
+
     /* 文字レベルの選択（最も重要） */
     .CodeMirror .CodeMirror-selectedtext {
-      background: #3498db !important;
-      color: #ffffff !important;
-      position: relative !important;
-      z-index: 3 !important;
-      border-radius: 2px !important;
+      background: #3498db;
+      color: #ffffff;
     }
-    
+
     /* より具体的な文字選択 */
     .CodeMirror-line .CodeMirror-selectedtext {
-      background: #3498db !important;
-      color: #ffffff !important;
-      box-shadow: 0 0 1px rgba(52, 152, 219, 0.5) !important;
+      background: #3498db;
+      color: #ffffff;
     }
-    
+
     /* ドラッグ中の選択 */
     .CodeMirror-selecting div.CodeMirror-selected {
-      background: rgba(52, 152, 219, 0.4) !important;
+      background: rgba(52, 152, 219, 0.4);
     }
-    
+
     /* 選択中の文字を強調 */
     .CodeMirror-selecting .CodeMirror-selectedtext {
-      background: #2980b9 !important;
-      color: #ffffff !important;
+      background: #2980b9;
+      color: #ffffff;
     }
 
     /* カーソルスタイル */
     .CodeMirror-cursor {
-      border-left: 2px solid #ffffff !important;
-      border-right: none !important;
-      width: 0 !important;
-    }
-    .CodeMirror-gutters {
-      background: #252526 !important;
-      border-right: 1px solid #3e3e42 !important;
+      border-left: 2px solid #ffffff;
     }
     
     /* レスポンシブ対応：小さな画面でのコンパクト表示 */
@@ -287,39 +263,39 @@
       }
     }
     .CodeMirror-linenumber {
-      color: #858585 !important;
+      color: #858585;
     }
     .CodeMirror-activeline-background {
-      background: #2a2a2a !important;
+      background: #2a2a2a;
     }
-    
+
     /* Python シンタックスハイライト - ダークモード */
     .cm-s-default .cm-keyword {
-      color: #569cd6 !important; /* def, if, for, import など */
+      color: #569cd6; /* def, if, for, import など */
     }
     .cm-s-default .cm-string {
-      color: #ce9178 !important; /* 文字列 */
+      color: #ce9178; /* 文字列 */
     }
     .cm-s-default .cm-comment {
-      color: #6a9955 !important; /* コメント */
+      color: #6a9955; /* コメント */
     }
     .cm-s-default .cm-number {
-      color: #b5cea8 !important; /* 数値 */
+      color: #b5cea8; /* 数値 */
     }
     .cm-s-default .cm-builtin {
-      color: #4ec9b0 !important; /* print, len など */
+      color: #4ec9b0; /* print, len など */
     }
     .cm-s-default .cm-variable {
-      color: #9cdcfe !important; /* 変数名 */
+      color: #9cdcfe; /* 変数名 */
     }
     .cm-s-default .cm-def {
-      color: #dcdcaa !important; /* 関数定義 */
+      color: #dcdcaa; /* 関数定義 */
     }
     .cm-s-default .cm-operator {
-      color: #d4d4d4 !important; /* 演算子 */
+      color: #d4d4d4; /* 演算子 */
     }
     .cm-s-default .cm-bracket {
-      color: #ffd700 !important; /* 括弧 */
+      color: #ffd700; /* 括弧 */
     }
     #editor button, #result button {
       align-self: flex-start;
