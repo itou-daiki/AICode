@@ -306,9 +306,22 @@
       padding: 0.5em 1em;
       cursor: pointer;
       transition: background 0.2s;
+      height: 40px;
+      flex: 1;
     }
     #editor button:hover, #result button:hover {
       background: #2980b9;
+    }
+
+    /* AIコード修正ボタンのスタイル */
+    #ai-fix-code {
+      background: linear-gradient(135deg, #8e44ad, #9b59b6);
+      font-weight: 500;
+      height: 40px;
+      flex: 1;
+    }
+    #ai-fix-code:hover {
+      background: linear-gradient(135deg, #7d3c98, #8e44ad);
     }
     
     /* モダンなAIボタンスタイル */
@@ -318,7 +331,7 @@
       color: white;
       border: none;
       border-radius: 8px;
-      padding: 10px 15px;
+      padding: 0.5em 1em;
       margin: 8px 0;
       font-weight: 500;
       cursor: pointer;
@@ -328,6 +341,7 @@
       align-items: center;
       justify-content: center;
       gap: 8px;
+      height: 40px;
     }
     #btn-check-answer {
       background: linear-gradient(135deg, #4CAF50, #45a049);
@@ -712,7 +726,7 @@
           <textarea id="code"></textarea>
           <div style="display: flex; gap: 0.5em; margin-top: 0.5em;">
             <button id="run" disabled>▶ 実行する</button>
-            <button id="ai-fix-code" disabled style="background: linear-gradient(135deg, #8e44ad, #9b59b6); border: none; border-radius: 4px; padding: 0.5em 1em; color: white; cursor: pointer; font-weight: 500;">🤖 AIコード修正</button>
+            <button id="ai-fix-code" disabled>🤖 AIコード修正</button>
           </div>
         </div>
 
