@@ -618,6 +618,28 @@
       cursor: pointer;
       font-size: 0.9em;
     }
+
+    /* フリーコーディングモードのレイアウト */
+    body.free-coding-mode main {
+      min-height: calc(100vh - var(--header-height) - 2em);
+    }
+    body.free-coding-mode #editor,
+    body.free-coding-mode #result {
+      display: flex;
+      flex-direction: column;
+      height: 100%;
+    }
+    body.free-coding-mode .CodeMirror {
+      flex: 1;
+      min-height: 400px;
+      max-height: calc(100vh - var(--header-height) - 8em);
+      height: 100%;
+    }
+    body.free-coding-mode #output {
+      flex: 1;
+      min-height: 400px;
+      max-height: calc(100vh - var(--header-height) - 8em);
+    }
   </style>
 </head>
 <body>
