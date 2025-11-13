@@ -216,39 +216,80 @@
        CodeMirror 選択範囲スタイル（改良版）
        ===================================== */
 
-    /* 行レベルの選択背景 */
+    /* CodeMirrorのドラッグ選択を有効化 */
+    .CodeMirror {
+      user-select: text;
+      -webkit-user-select: text;
+      -moz-user-select: text;
+      -ms-user-select: text;
+    }
+
+    /* 行レベルの選択背景（より明確に） */
     .CodeMirror div.CodeMirror-selected {
-      background: rgba(52, 152, 219, 0.3);
+      background: rgba(52, 152, 219, 0.35) !important;
     }
 
     /* 文字レベルの選択（最も重要） */
     .CodeMirror .CodeMirror-selectedtext {
-      background: #3498db;
-      color: #ffffff;
+      background: #3498db !important;
+      color: #ffffff !important;
+      text-shadow: none !important;
     }
 
     /* より具体的な文字選択 */
     .CodeMirror-line .CodeMirror-selectedtext {
-      background: #3498db;
-      color: #ffffff;
+      background: #3498db !important;
+      color: #ffffff !important;
     }
 
-    /* ドラッグ中の選択 */
+    /* ドラッグ中の選択（より明確に） */
     .CodeMirror-selecting div.CodeMirror-selected {
-      background: rgba(52, 152, 219, 0.4);
+      background: rgba(52, 152, 219, 0.5) !important;
     }
 
     /* 選択中の文字を強調 */
     .CodeMirror-selecting .CodeMirror-selectedtext {
-      background: #2980b9;
-      color: #ffffff;
+      background: #2980b9 !important;
+      color: #ffffff !important;
+    }
+
+    /* ドラッグ中のカーソルスタイル */
+    .CodeMirror-selecting {
+      cursor: text !important;
     }
 
     /* カーソルスタイル */
     .CodeMirror-cursor {
       border-left: 2px solid #ffffff;
     }
-    
+
+    /* テキストがドラッグされている時の視覚的フィードバック */
+    .CodeMirror-lines {
+      cursor: text;
+    }
+
+    /* 選択範囲に境界線を追加（さらに明確に） */
+    .CodeMirror-selected {
+      border: 1px solid rgba(52, 152, 219, 0.6);
+      border-radius: 2px;
+    }
+
+    /* ダブルクリックやトリプルクリックでの選択も明確に */
+    .CodeMirror-selectedtext::selection {
+      background: #3498db !important;
+      color: #ffffff !important;
+    }
+
+    .CodeMirror-selectedtext::-moz-selection {
+      background: #3498db !important;
+      color: #ffffff !important;
+    }
+
+    /* 選択範囲の透明度を調整して見やすく */
+    .CodeMirror-focused .CodeMirror-selected {
+      background: rgba(52, 152, 219, 0.4) !important;
+    }
+
     /* レスポンシブ対応：小さな画面でのコンパクト表示 */
     @media (max-width: 768px) {
       #container {

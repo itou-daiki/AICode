@@ -262,6 +262,9 @@ export async function initEditor() {
     lineNumbers: true,
     indentUnit: 4,
     tabSize: 4,
+    dragDrop: false,  // ドラッグ&ドロップ無効化（選択のずれを防ぐ）
+    cursorBlinkRate: 530,
+    showCursorWhenSelecting: true,  // 選択中もカーソルを表示
     extraKeys: {
       'Ctrl-Space': 'autocomplete'
     }
