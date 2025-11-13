@@ -174,7 +174,8 @@
       min-height: 300px;
     }
     #editor, #result {
-      flex: 1;
+      flex: 1 1 50%;
+      min-width: 0;
       padding: 1em; box-sizing: border-box;
       display: flex; flex-direction: column;
       overflow: visible;
@@ -202,6 +203,8 @@
     }
     .CodeMirror-scroll {
       background: #1e1e1e;
+      overflow-x: auto;
+      overflow-y: auto;
     }
     /* CodeMirrorの内部構造には触れず、色のみ変更 */
     .CodeMirror,
@@ -355,7 +358,8 @@
       border: 1px solid #dfe6e9;
       border-radius: 4px;
       padding: 1em;
-      white-space: pre-wrap;
+      white-space: pre;
+      overflow-x: auto;
       overflow-y: auto;
       box-shadow: inset 0 0 5px rgba(0,0,0,0.03);
       position: relative;
