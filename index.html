@@ -174,7 +174,8 @@
       min-height: 300px;
     }
     #editor, #result {
-      flex: 1;
+      flex: 1 1 50%;
+      min-width: 0;
       padding: 1em; box-sizing: border-box;
       display: flex; flex-direction: column;
       overflow: visible;
@@ -202,6 +203,8 @@
     }
     .CodeMirror-scroll {
       background: #1e1e1e;
+      overflow-x: auto;
+      overflow-y: auto;
     }
     /* CodeMirrorの内部構造には触れず、色のみ変更 */
     .CodeMirror,
@@ -369,7 +372,8 @@
       border: 1px solid #dfe6e9;
       border-radius: 4px;
       padding: 1em;
-      white-space: pre-wrap;
+      white-space: pre;
+      overflow-x: auto;
       overflow-y: auto;
       box-shadow: inset 0 0 5px rgba(0,0,0,0.03);
       position: relative;
@@ -628,6 +632,28 @@
       cursor: pointer;
       font-size: 0.9em;
     }
+
+    /* フリーコーディングモードのレイアウト */
+    body.free-coding-mode main {
+      min-height: calc(100vh - var(--header-height) - 2em);
+    }
+    body.free-coding-mode #editor,
+    body.free-coding-mode #result {
+      display: flex;
+      flex-direction: column;
+      height: 100%;
+    }
+    body.free-coding-mode .CodeMirror {
+      flex: 1;
+      min-height: 400px;
+      max-height: calc(100vh - var(--header-height) - 8em);
+      height: 100%;
+    }
+    body.free-coding-mode #output {
+      flex: 1;
+      min-height: 400px;
+      max-height: calc(100vh - var(--header-height) - 8em);
+    }
   </style>
 </head>
 <body>
@@ -727,6 +753,9 @@
           <div style="display: flex; gap: 0.5em; margin-top: 0.5em;">
             <button id="run" disabled>▶ 実行する</button>
             <button id="ai-fix-code" disabled>🤖 AIコード修正</button>
+          <div style="display: flex; gap: 0.5em; margin-top: 0.5em; width: 100%;">
+            <button id="run" disabled style="flex: 1;">▶ 実行する</button>
+            <button id="ai-fix-code" disabled style="flex: 1; background: linear-gradient(135deg, #8e44ad, #9b59b6); border: none; border-radius: 4px; padding: 0.5em 1em; color: white; cursor: pointer; font-weight: 500;">🤖 AIコード修正</button>
           </div>
         </div>
 

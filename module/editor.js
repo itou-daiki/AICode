@@ -193,18 +193,21 @@ _out.getvalue() + _err.getvalue()
 // フリーコーディングモード
 function enterFreeCodingMode() {
   isFreeCodingMode = true;  // フラグを設定
-  
+
+  // フリーコーディングモードのクラスを追加
+  document.body.classList.add('free-coding-mode');
+
   // 問題エリアを非表示
   document.getElementById('problem-area').style.display = 'none';
-  
+
   // ナビゲーションボタンを無効化
   document.getElementById('prev-problem').disabled = true;
   document.getElementById('next-problem').disabled = true;
   document.getElementById('current-problem-label').textContent = 'フリーコーディング';
-  
+
   // エディタをクリア
   editor.setValue('# フリーコーディングモード\n# 自由にPythonコードを書いてみましょう！\n\n');
-  
+
   // 現在の問題をフリーコーディング用に設定
   currentProblem = {
     title: 'フリーコーディング',
@@ -213,41 +216,54 @@ function enterFreeCodingMode() {
     expected: '',
     template: ''
   };
-  
+
   // 正誤判定ボタンを非表示
   const checkButton = document.getElementById('btn-check-answer');
   if (checkButton) {
     checkButton.style.display = 'none';
   }
-  
+
   // 問題の解説ボタンを非表示
   const explainButton = document.getElementById('btn-explain');
   if (explainButton) {
     explainButton.style.display = 'none';
   }
+
+  // CodeMirrorのサイズをリフレッシュ
+  setTimeout(() => {
+    editor.refresh();
+  }, 100);
 }
 
 // 通常モードに戻る
 async function exitFreeCodingMode() {
   isFreeCodingMode = false;  // フラグをリセット
-  
+
+  // フリーコーディングモードのクラスを削除
+  document.body.classList.remove('free-coding-mode');
+
   // 問題エリアを表示
   document.getElementById('problem-area').style.display = 'block';
-  
+
   // 正誤判定ボタンを表示
   const checkButton = document.getElementById('btn-check-answer');
   if (checkButton) {
     checkButton.style.display = 'block';
   }
-  
+
   // 問題の解説ボタンを表示
   const explainButton = document.getElementById('btn-explain');
   if (explainButton) {
     explainButton.style.display = 'block';
   }
-  
+
   // 最初の問題に戻る
   await loadProblem(0);
+
+  // CodeMirrorのサイズをリフレッシュ
+  setTimeout(() => {
+    editor.refresh();
+  }, 100);
 }
 
 // 初期化
@@ -262,6 +278,7 @@ export async function initEditor() {
     lineNumbers: true,
     indentUnit: 4,
     tabSize: 4,
+    lineWrapping: false,
     extraKeys: {
       'Ctrl-Space': 'autocomplete'
     }
