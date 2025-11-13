@@ -262,6 +262,7 @@ export async function initEditor() {
     lineNumbers: true,
     indentUnit: 4,
     tabSize: 4,
+    lineWrapping: false,
     extraKeys: {
       'Ctrl-Space': 'autocomplete'
     }
