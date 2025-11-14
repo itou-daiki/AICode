@@ -1,46 +1,80 @@
 // module/editor.js
-import { explainProblem, reviewCode, fixCode } from './ai.js';
 import { CodeCompletionEngine } from './completion.js';
+import { appState } from './state.js';
+import { PYODIDE_CONFIG, EDITOR_CONFIG, UI_CONFIG } from './config.js';
 
-export let currentProblem;
-export let editor;
-export let isFreeCodingMode = false;  // フリーコーディングモードの状態を追加
-let pyodide;
+// AIモジュールの関数を動的にインポート（循環依存を回避）
+let aiModule = null;
+
 let completionEngine;
 let problemFiles = [];
 let currentProblemIndex = 0;
 let isWaitingForInput = false;
 let inputCallback = null;
 
-// 問題一覧を index.json から取得
+/**
+ * AIモジュールを遅延読み込み
+ */
+async function loadAIModule() {
+  if (!aiModule) {
+    aiModule = await import('./ai.js');
+  }
+  return aiModule;
+}
+
+/**
+ * 問題一覧を index.json から取得
+ * @returns {Promise<string[]>} 問題ファイルのパス配列
+ */
 async function fetchProblemFiles() {
   try {
-    const res = await fetch('problems/index.json');
+    const res = await fetch(UI_CONFIG.PROBLEMS_INDEX_PATH);
+    if (!res.ok) {
+      throw new Error(`HTTP ${res.status}: ${res.statusText}`);
+    }
     const list = await res.json();
-    return list.map(name => `problems/${name}`);
+    return list.map(name => `${UI_CONFIG.PROBLEMS_DIR}/${name}`);
   } catch (e) {
     console.error('問題一覧の読み込みに失敗:', e);
+    // ユーザーにエラーを通知
+    const problemContent = document.getElementById('problem-content');
+    if (problemContent) {
+      problemContent.innerHTML = `<p style="color: red;">問題の読み込みに失敗しました: ${e.message}</p>`;
+    }
     return [];
   }
 }
 
-// 問題を読み込み
+/**
+ * 問題を読み込み
+ * @param {number} idx 問題のインデックス
+ */
 async function loadProblem(idx) {
-  currentProblemIndex = idx;
-  const res = await fetch(problemFiles[idx]);
-  const data = await res.json();
-  currentProblem = data;
-  document.getElementById('problem-content').innerHTML =
-    `<h3>${data.title}</h3>
-     <p>${data.description}</p>
-     <h4>入力例</h4><pre>${data.input}</pre>
-     <h4>期待出力</h4><pre>${data.expected}</pre>`;
-  editor.setValue(data.template || '');
-  
-  // ナビゲーションボタンの状態を更新
-  document.getElementById('prev-problem').disabled = idx === 0;
-  document.getElementById('next-problem').disabled = idx === problemFiles.length - 1;
-  document.getElementById('current-problem-label').textContent = `問題${idx + 1}`;
+  try {
+    currentProblemIndex = idx;
+    const res = await fetch(problemFiles[idx]);
+    if (!res.ok) {
+      throw new Error(`HTTP ${res.status}: ${res.statusText}`);
+    }
+    const data = await res.json();
+    appState.setCurrentProblem(data);
+
+    document.getElementById('problem-content').innerHTML =
+      `<h3>${data.title}</h3>
+       <p>${data.description}</p>
+       <h4>入力例</h4><pre>${data.input}</pre>
+       <h4>期待出力</h4><pre>${data.expected}</pre>`;
+    appState.getEditor().setValue(data.template || '');
+
+    // ナビゲーションボタンの状態を更新
+    document.getElementById('prev-problem').disabled = idx === 0;
+    document.getElementById('next-problem').disabled = idx === problemFiles.length - 1;
+    document.getElementById('current-problem-label').textContent = `問題${idx + 1}`;
+  } catch (e) {
+    console.error('問題の読み込みに失敗:', e);
+    document.getElementById('problem-content').innerHTML =
+      `<p style="color: red;">問題の読み込みに失敗しました: ${e.message}</p>`;
+  }
 }
 
 // 前の問題に移動
@@ -104,11 +138,14 @@ function createCustomInput(outputEl) {
   };
 }
 
-// コード実行
+/**
+ * コードを実行
+ */
 async function runCode() {
   const outputEl = document.getElementById('output');
   outputEl.textContent = '実行中…\n';
-  const code = editor.getValue();
+  const code = appState.getEditor().getValue();
+  const pyodide = appState.getPyodide();
   
   // 実行時入力フォームを非表示
   document.getElementById('runtime-input-container').style.display = 'none';
@@ -190,9 +227,11 @@ _out.getvalue() + _err.getvalue()
 }
 
 
-// フリーコーディングモード
+/**
+ * フリーコーディングモードに入る
+ */
 function enterFreeCodingMode() {
-  isFreeCodingMode = true;  // フラグを設定
+  appState.setFreeCodingMode(true);
 
   // フリーコーディングモードのクラスを追加
   document.body.classList.add('free-coding-mode');
@@ -206,16 +245,16 @@ function enterFreeCodingMode() {
   document.getElementById('current-problem-label').textContent = 'フリーコーディング';
 
   // エディタをクリア
-  editor.setValue('# フリーコーディングモード\n# 自由にPythonコードを書いてみましょう！\n\n');
+  appState.getEditor().setValue('# フリーコーディングモード\n# 自由にPythonコードを書いてみましょう！\n\n');
 
   // 現在の問題をフリーコーディング用に設定
-  currentProblem = {
+  appState.setCurrentProblem({
     title: 'フリーコーディング',
     description: '自由にコードを書いて実行できます',
     input: '',
     expected: '',
     template: ''
-  };
+  });
 
   // 正誤判定ボタンを非表示
   const checkButton = document.getElementById('btn-check-answer');
@@ -231,13 +270,15 @@ function enterFreeCodingMode() {
 
   // CodeMirrorのサイズをリフレッシュ
   setTimeout(() => {
-    editor.refresh();
-  }, 100);
+    appState.getEditor().refresh();
+  }, UI_CONFIG.ANIMATION_DURATION);
 }
 
-// 通常モードに戻る
+/**
+ * 通常モードに戻る
+ */
 async function exitFreeCodingMode() {
-  isFreeCodingMode = false;  // フラグをリセット
+  appState.setFreeCodingMode(false);
 
   // フリーコーディングモードのクラスを削除
   document.body.classList.remove('free-coding-mode');
@@ -262,27 +303,34 @@ async function exitFreeCodingMode() {
 
   // CodeMirrorのサイズをリフレッシュ
   setTimeout(() => {
-    editor.refresh();
-  }, 100);
+    appState.getEditor().refresh();
+  }, UI_CONFIG.ANIMATION_DURATION);
 }
 
-// 初期化
+/**
+ * エディタとPyodideを初期化
+ */
 export async function initEditor() {
-  pyodide = await loadPyodide({ indexURL: 'https://cdn.jsdelivr.net/pyodide/v0.23.4/full/' });
-  
-  // pyodideにJavaScriptオブジェクトへのアクセスを提供
-  pyodide.globals.set('js', window);
-  
-  editor = CodeMirror.fromTextArea(document.getElementById('code'), {
-    mode: 'python',
-    lineNumbers: true,
-    indentUnit: 4,
-    tabSize: 4,
-    lineWrapping: false,
-    extraKeys: {
-      'Ctrl-Space': 'autocomplete'
-    }
-  });
+  try {
+    // Pyodideを読み込み
+    const pyodide = await loadPyodide({ indexURL: PYODIDE_CONFIG.INDEX_URL });
+
+    // pyodideにJavaScriptオブジェクトへのアクセスを提供
+    pyodide.globals.set('js', window);
+    appState.setPyodide(pyodide);
+
+    // CodeMirrorエディタを初期化
+    const editor = CodeMirror.fromTextArea(document.getElementById('code'), {
+      mode: EDITOR_CONFIG.MODE,
+      lineNumbers: EDITOR_CONFIG.LINE_NUMBERS,
+      indentUnit: EDITOR_CONFIG.INDENT_UNIT,
+      tabSize: EDITOR_CONFIG.TAB_SIZE,
+      lineWrapping: EDITOR_CONFIG.LINE_WRAPPING,
+      extraKeys: {
+        'Ctrl-Space': 'autocomplete'
+      }
+    });
+    appState.setEditor(editor);
 
   // コード補完エンジンを初期化
   console.log('エディタ初期化完了、CodeCompletionEngineを作成中...');
@@ -350,8 +398,11 @@ export async function initEditor() {
 
   // AIコード修正ボタンの初期化
   const aiFixBtn = document.getElementById('ai-fix-code');
-  aiFixBtn.addEventListener('click', fixCode);
-  
+  aiFixBtn.addEventListener('click', async () => {
+    const ai = await loadAIModule();
+    ai.fixCode();
+  });
+
   // コード補完状態に応じてAIコード修正ボタンを制御
   function updateAIFixButtonState() {
     const completionEnabled = completionEngine && completionEngine.completionMode !== 'none';
@@ -359,24 +410,38 @@ export async function initEditor() {
     aiFixBtn.style.opacity = completionEnabled ? '1' : '0.5';
     aiFixBtn.title = completionEnabled ? 'AIがコードを最適化します' : 'コード補完をONにしてください';
   }
-  
+
   // 初期状態を設定
   updateAIFixButtonState();
-  
+
   // コード補完の状態変更を監視（新しいselect要素）
   const completionModeSelect = document.getElementById('completion-mode-select');
   if (completionModeSelect) {
     completionModeSelect.addEventListener('change', updateAIFixButtonState);
   }
 
-  document.getElementById('btn-explain').addEventListener('click', explainProblem);
-  document.getElementById('btn-review').addEventListener('click', reviewCode);
+  // AI関数を動的にインポートしてイベントリスナーを設定
+  document.getElementById('btn-explain').addEventListener('click', async () => {
+    const ai = await loadAIModule();
+    ai.explainProblem();
+  });
+  document.getElementById('btn-review').addEventListener('click', async () => {
+    const ai = await loadAIModule();
+    ai.reviewCode();
+  });
   
   // 実行時入力フォームの設定
   setupRuntimeInput();
 
-  document.getElementById('loader').style.display = 'none';
-  document.getElementById('container').style.visibility = 'visible';
+    document.getElementById('loader').style.display = 'none';
+    document.getElementById('container').style.visibility = 'visible';
+  } catch (error) {
+    console.error('エディタの初期化に失敗:', error);
+    const loader = document.getElementById('loader');
+    if (loader) {
+      loader.innerHTML = `<p style="color: red;">初期化に失敗しました: ${error.message}<br>ページを再読み込みしてください。</p>`;
+    }
+  }
 }
 
 window.addEventListener('DOMContentLoaded', initEditor);

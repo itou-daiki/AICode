@@ -1,32 +1,39 @@
 // module/ai.js
-import { currentProblem, editor, isFreeCodingMode } from './editor.js';
+import { appState } from './state.js';
+import { API_CONFIG, STORAGE_KEYS } from './config.js';
 
-// Gemini APIの設定
-const GEMINI_API_URL = 'https://generativelanguage.googleapis.com/v1/models/gemini-2.0-flash:generateContent';
-let apiKey = localStorage.getItem('gemini_api_key') || '';
+// APIキーの管理
+let apiKey = localStorage.getItem(STORAGE_KEYS.API_KEY) || '';
 
 // チャット履歴
 let chatHistory = [];
 
-// APIキー保存処理の初期化
+/**
+ * APIキー保存処理の初期化
+ */
 function initApiKeyForm() {
   const apiKeyInput = document.getElementById('api-key');
   const saveButton = document.getElementById('save-api-key');
   const statusDiv = document.getElementById('api-key-status');
-  
+
+  if (!apiKeyInput || !saveButton || !statusDiv) {
+    console.warn('APIキーフォームの要素が見つかりません');
+    return;
+  }
+
   // 保存済みのAPIキーがあれば表示
   if (apiKey) {
     apiKeyInput.value = apiKey;
     statusDiv.textContent = '✓ 設定済み';
     statusDiv.style.color = 'green';
   }
-  
+
   // 保存ボタンのイベントリスナー
   saveButton.addEventListener('click', () => {
     const newApiKey = apiKeyInput.value.trim();
     if (newApiKey) {
       apiKey = newApiKey;
-      localStorage.setItem('gemini_api_key', apiKey);
+      localStorage.setItem(STORAGE_KEYS.API_KEY, apiKey);
       statusDiv.textContent = '✓ 保存しました';
       statusDiv.style.color = 'green';
     } else {
@@ -39,14 +46,22 @@ function initApiKeyForm() {
 // ページ読み込み時にAPIキーフォームを初期化
 window.addEventListener('DOMContentLoaded', initApiKeyForm);
 
+/**
+ * Gemini APIを呼び出す
+ * @param {string} prompt プロンプト
+ * @param {number} maxTokens 最大トークン数
+ * @returns {Promise<string>} APIレスポンス
+ */
 export async function callGemini(prompt, maxTokens = 500) {
   try {
+    const currentProblem = appState.getCurrentProblem();
+
     // APIキーがない場合はデモレスポンスを返す
     if (!apiKey) {
       const demoResponses = {
-        'explain': `# ${currentProblem.title} の解説
+        'explain': `# ${currentProblem?.title || '問題'} の解説
 
-この問題は${currentProblem.description}を解決します。
+この問題は${currentProblem?.description || 'プログラミング問題'}を解決します。
 
 **ポイント:**
 - 入力を正しく受け取る
@@ -90,39 +105,54 @@ export async function callGemini(prompt, maxTokens = 500) {
     }
 
     // APIキーがある場合は実際にGemini APIを呼び出す
-    const response = await fetch(`${GEMINI_API_URL}?key=${apiKey}`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({
-        contents: [{
-          role: 'user',
-          parts: [{
-            text: prompt
-          }]
-        }],
-        generationConfig: {
-          temperature: 0.7,
-          maxOutputTokens: maxTokens
-        }
-      })
-    });
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), API_CONFIG.REQUEST_TIMEOUT);
 
-    const data = await response.json();
-    
-    if (!response.ok) {
-      throw new Error(data.error?.message || response.statusText);
-    }
-    
-    // レスポンスからテキストを抽出
-    if (data.candidates && data.candidates.length > 0 && 
-        data.candidates[0].content && data.candidates[0].content.parts && 
-        data.candidates[0].content.parts.length > 0) {
-      return data.candidates[0].content.parts[0].text;
-    } else {
-      console.error('予期しないレスポンス形式:', data);
-      return 'APIからの応答を処理できませんでした。';
+    try {
+      const response = await fetch(`${API_CONFIG.GEMINI_API_URL}?key=${apiKey}`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          contents: [{
+            role: 'user',
+            parts: [{
+              text: prompt
+            }]
+          }],
+          generationConfig: {
+            temperature: 0.7,
+            maxOutputTokens: maxTokens
+          }
+        }),
+        signal: controller.signal
+      });
+
+      clearTimeout(timeoutId);
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        const errorMessage = data.error?.message || response.statusText;
+        throw new Error(`API Error (${response.status}): ${errorMessage}`);
+      }
+
+      // レスポンスからテキストを抽出
+      if (data.candidates && data.candidates.length > 0 &&
+          data.candidates[0].content && data.candidates[0].content.parts &&
+          data.candidates[0].content.parts.length > 0) {
+        return data.candidates[0].content.parts[0].text;
+      } else {
+        console.error('予期しないレスポンス形式:', data);
+        return 'APIからの応答を処理できませんでした。';
+      }
+    } catch (fetchError) {
+      clearTimeout(timeoutId);
+      if (fetchError.name === 'AbortError') {
+        throw new Error('リクエストがタイムアウトしました');
+      }
+      throw fetchError;
     }
   } catch (e) {
     console.error('AI呼び出しエラー', e);
@@ -130,24 +160,37 @@ export async function callGemini(prompt, maxTokens = 500) {
   }
 }
 
+/**
+ * 問題の解説を生成
+ */
 export async function explainProblem() {
+  const currentProblem = appState.getCurrentProblem();
+  if (!currentProblem) {
+    alert('問題が読み込まれていません');
+    return;
+  }
+
   document.getElementById('explanation').textContent = '生成中...';
   const prompt = `次の問題を簡潔に解説してください。3-4文程度で要点をまとめてください。\nタイトル: ${currentProblem.title}\n説明: ${currentProblem.description}`;
   const text = await callGemini(prompt, 300);
   document.getElementById('explanation').innerHTML = markdownToHtml(text);
 }
 
+/**
+ * コードをレビュー
+ */
 export async function reviewCode() {
   document.getElementById('review').textContent = '生成中...';
-  const code = editor.getValue();
-  
+  const code = appState.getEditor().getValue();
+  const isFreeCodingMode = appState.getIsFreeCodingMode();
+
   let prompt;
   if (isFreeCodingMode) {
     prompt = `次のPythonコードをレビューしてください。フリーコーディングモードなので、コードの品質、構造、ベストプラクティスについてアドバイスしてください。\n\nコード:\n${code}`;
   } else {
     prompt = `次のPythonコードを簡潔にレビューしてください。良い点1つと改善点1つを短く指摘してください。\n${code}`;
   }
-  
+
   const text = await callGemini(prompt, 300);
   document.getElementById('review').innerHTML = markdownToHtml(text);
 }
@@ -200,7 +243,11 @@ function markdownToHtml(markdown) {
   return processedMarkdown;
 }
 
-// チャット機能
+/**
+ * チャット機能
+ * @param {string} message ユーザーからのメッセージ
+ * @returns {Promise<string>} AIの応答
+ */
 export async function chatWithAI(message) {
   try {
     // APIキーがない場合はデモレスポンスを返す
@@ -209,8 +256,10 @@ export async function chatWithAI(message) {
     }
 
     // 現在のコードの内容を取得
-    const currentCode = editor.getValue();
-    
+    const currentCode = appState.getEditor().getValue();
+    const isFreeCodingMode = appState.getIsFreeCodingMode();
+    const currentProblem = appState.getCurrentProblem();
+
     let chatPrompt;
     if (isFreeCodingMode) {
       // フリーコーディングモードの場合
@@ -233,10 +282,10 @@ ${currentCode}
       // 通常モードの場合
       const problemContext = `
 現在の問題:
-タイトル: ${currentProblem.title}
-説明: ${currentProblem.description}
-入力例: ${currentProblem.input}
-期待出力: ${currentProblem.expected}
+タイトル: ${currentProblem?.title || 'なし'}
+説明: ${currentProblem?.description || 'なし'}
+入力例: ${currentProblem?.input || 'なし'}
+期待出力: ${currentProblem?.expected || 'なし'}
 
 現在のコード:
 ${currentCode}
@@ -257,40 +306,54 @@ ${problemContext}
 - 学習者が自分で解決できるよう導いてください`;
     }
 
-    // APIリクエスト
-    const response = await fetch(`${GEMINI_API_URL}?key=${apiKey}`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({
-        contents: [{
-          role: 'user',
-          parts: [{
-            text: chatPrompt
-          }]
-        }],
-        generationConfig: {
-          temperature: 0.7,
-          maxOutputTokens: 150
-        }
-      })
-    });
+    // APIリクエスト（タイムアウト付き）
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), API_CONFIG.REQUEST_TIMEOUT);
 
-    const data = await response.json();
-    
-    if (!response.ok) {
-      throw new Error(data.error?.message || response.statusText);
-    }
-    
-    // レスポンスからテキストを抽出
-    if (data.candidates && data.candidates.length > 0 && 
-        data.candidates[0].content && data.candidates[0].content.parts && 
-        data.candidates[0].content.parts.length > 0) {
-      return data.candidates[0].content.parts[0].text;
-    } else {
-      console.error('予期しないレスポンス形式:', data);
-      return 'APIからの応答を処理できませんでした。';
+    try {
+      const response = await fetch(`${API_CONFIG.GEMINI_API_URL}?key=${apiKey}`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          contents: [{
+            role: 'user',
+            parts: [{
+              text: chatPrompt
+            }]
+          }],
+          generationConfig: {
+            temperature: 0.7,
+            maxOutputTokens: 150
+          }
+        }),
+        signal: controller.signal
+      });
+
+      clearTimeout(timeoutId);
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error?.message || response.statusText);
+      }
+
+      // レスポンスからテキストを抽出
+      if (data.candidates && data.candidates.length > 0 &&
+          data.candidates[0].content && data.candidates[0].content.parts &&
+          data.candidates[0].content.parts.length > 0) {
+        return data.candidates[0].content.parts[0].text;
+      } else {
+        console.error('予期しないレスポンス形式:', data);
+        return 'APIからの応答を処理できませんでした。';
+      }
+    } catch (fetchError) {
+      clearTimeout(timeoutId);
+      if (fetchError.name === 'AbortError') {
+        throw new Error('リクエストがタイムアウトしました');
+      }
+      throw fetchError;
     }
   } catch (e) {
     console.error('チャットエラー', e);
@@ -298,12 +361,16 @@ ${problemContext}
   }
 }
 
-// 新しい問題を生成する関数
+/**
+ * 新しい問題を生成する関数
+ */
 export async function generateNewProblem() {
   const button = document.getElementById('btn-generate-problem');
+  if (!button) return;
+
   button.textContent = '生成中...';
   button.disabled = true;
-  
+
   try {
     const prompt = `プログラミング初学者向けのPython問題を1つ生成してください。以下のJSON形式で出力してください：
 {
@@ -317,31 +384,40 @@ export async function generateNewProblem() {
 基本的な入出力、条件分岐、ループなどの基礎的な内容にしてください。`;
 
     const text = await callGemini(prompt, 800);
-    
+
     // JSON部分を抽出
     const jsonMatch = text.match(/\{[\s\S]*\}/);
     if (jsonMatch) {
       const problemData = JSON.parse(jsonMatch[0]);
-      
+
       // 生成された問題を表示
-      document.getElementById('problem-content').innerHTML =
-        `<h3>${problemData.title}</h3>
-         <p>${problemData.description}</p>
-         <h4>入力例</h4><pre>${problemData.input.replace(/\\n/g, '\n')}</pre>
-         <h4>期待出力</h4><pre>${problemData.expected}</pre>`;
-      
+      const problemContent = document.getElementById('problem-content');
+      if (problemContent) {
+        problemContent.innerHTML =
+          `<h3>${problemData.title}</h3>
+           <p>${problemData.description}</p>
+           <h4>入力例</h4><pre>${problemData.input.replace(/\\n/g, '\n')}</pre>
+           <h4>期待出力</h4><pre>${problemData.expected}</pre>`;
+      }
+
       // エディタを更新
-      editor.setValue(problemData.template || '');
-      
+      appState.getEditor().setValue(problemData.template || '');
+
       // 現在の問題を更新
-      currentProblem.title = problemData.title;
-      currentProblem.description = problemData.description;
-      currentProblem.input = problemData.input.replace(/\\n/g, '\n');
-      currentProblem.expected = problemData.expected;
-      currentProblem.template = problemData.template;
-      
+      const newProblem = {
+        title: problemData.title,
+        description: problemData.description,
+        input: problemData.input.replace(/\\n/g, '\n'),
+        expected: problemData.expected,
+        template: problemData.template
+      };
+      appState.setCurrentProblem(newProblem);
+
       // ラベルを更新
-      document.getElementById('current-problem-label').textContent = 'AI生成問題';
+      const label = document.getElementById('current-problem-label');
+      if (label) {
+        label.textContent = 'AI生成問題';
+      }
     } else {
       throw new Error('問題の生成に失敗しました');
     }
@@ -354,16 +430,22 @@ export async function generateNewProblem() {
   }
 }
 
-// AIコード修正機能
+/**
+ * AIコード修正機能
+ */
 export async function fixCode() {
   const button = document.getElementById('ai-fix-code');
+  if (!button) return;
+
   const originalText = button.textContent;
   button.textContent = '修正中...';
   button.disabled = true;
-  
+
   try {
-    const code = editor.getValue();
-    
+    const code = appState.getEditor().getValue();
+    const isFreeCodingMode = appState.getIsFreeCodingMode();
+    const currentProblem = appState.getCurrentProblem();
+
     if (!code.trim()) {
       alert('修正するコードを入力してください。');
       return;
@@ -388,6 +470,11 @@ ${code}
 修正版のコードのみを出力してください（説明は不要）。`;
     } else {
       // 問題解決モードの場合
+      if (!currentProblem) {
+        alert('問題が読み込まれていません。');
+        return;
+      }
+
       prompt = `以下は「${currentProblem.title}」の問題を解くPythonコードです。コードの意図を理解し、より効率的で読みやすく、正確な解答に修正してください。
 
 問題: ${currentProblem.description}
@@ -403,7 +490,7 @@ ${code}
     }
 
     const fixedCode = await callGemini(prompt, 500);
-    
+
     // コードブロックから実際のコードを抽出
     let cleanedCode = fixedCode;
     const codeMatch = fixedCode.match(/```python\n([\s\S]*?)\n```/);
@@ -413,10 +500,10 @@ ${code}
       // ```で囲まれていない場合は、そのまま使用
       cleanedCode = fixedCode.replace(/```/g, '').trim();
     }
-    
+
     // エディタに修正されたコードを設定
-    editor.setValue(cleanedCode);
-    
+    appState.getEditor().setValue(cleanedCode);
+
   } catch (error) {
     console.error('コード修正エラー:', error);
     alert('コードの修正中にエラーが発生しました: ' + error.message);
@@ -426,18 +513,30 @@ ${code}
   }
 }
 
-// 正誤判定機能
+/**
+ * 正誤判定機能
+ */
 export async function checkAnswer() {
   const resultDiv = document.getElementById('check-result');
+  if (!resultDiv) return;
+
+  const currentProblem = appState.getCurrentProblem();
+  if (!currentProblem) {
+    alert('問題が読み込まれていません。');
+    return;
+  }
+
   resultDiv.style.display = 'block';
   resultDiv.textContent = '判定中...';
-  
-  // 実行結果を取得
-  const actualOutput = document.getElementById('output').textContent.trim();
-  const expectedOutput = currentProblem.expected.trim();
-  const code = editor.getValue();
-  
-  const prompt = `次のPythonコードが問題の要求を満たしているか判定してください。
+
+  try {
+    // 実行結果を取得
+    const outputEl = document.getElementById('output');
+    const actualOutput = outputEl ? outputEl.textContent.trim() : '';
+    const expectedOutput = currentProblem.expected.trim();
+    const code = appState.getEditor().getValue();
+
+    const prompt = `次のPythonコードが問題の要求を満たしているか判定してください。
 
 問題: ${currentProblem.title}
 説明: ${currentProblem.description}
@@ -456,8 +555,12 @@ ${actualOutput}
 
 簡潔に判定結果を出力してください。正解の場合は「✅ 正解です！」から始め、不正解の場合は「❌ 不正解です」から始めてください。`;
 
-  const text = await callGemini(prompt, 400);
-  resultDiv.innerHTML = markdownToHtml(text);
+    const text = await callGemini(prompt, 400);
+    resultDiv.innerHTML = markdownToHtml(text);
+  } catch (error) {
+    console.error('正誤判定エラー:', error);
+    resultDiv.innerHTML = `<p style="color: red;">判定中にエラーが発生しました: ${error.message}</p>`;
+  }
 }
 
 // 問題生成ボタンのイベントリスナーを追加
