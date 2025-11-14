@@ -329,8 +329,11 @@
       color: #d4d4d4 !important;
     }
     .CodeMirror-line {
-      background: #1e1e1e !important;
       color: #d4d4d4 !important;
+    }
+    /* 選択されていない行のみ背景色を適用 */
+    .CodeMirror-line:not(.CodeMirror-selectedtext) {
+      background: #1e1e1e;
     }
     .CodeMirror-cursor {
       border-left: 1px solid #d4d4d4 !important;
@@ -347,6 +350,8 @@
       color: #ffffff !important;
       font-weight: 500;
       text-shadow: 0 0 1px rgba(0, 0, 0, 0.3);
+      position: relative;
+      z-index: 10;
     }
 
     /* より具体的な文字選択 - 強い視覚効果 */
@@ -356,6 +361,13 @@
       font-weight: 500;
       text-shadow: 0 0 1px rgba(0, 0, 0, 0.3);
       box-shadow: 0 0 3px rgba(74, 158, 255, 0.6);
+      position: relative;
+      z-index: 10;
+    }
+
+    /* 選択された行の背景を明示的に設定 */
+    .CodeMirror-line.CodeMirror-selected {
+      background: rgba(52, 152, 219, 0.3) !important;
     }
 
     /* ドラッグ中の選択 - アニメーション効果で目立たせる */
@@ -372,6 +384,13 @@
       font-weight: 600;
       text-shadow: 0 0 2px rgba(0, 0, 0, 0.4);
       box-shadow: 0 0 4px rgba(92, 179, 255, 0.8);
+      position: relative;
+      z-index: 10;
+    }
+
+    /* ドラッグ中の行背景 */
+    .CodeMirror-selecting .CodeMirror-line {
+      background: transparent !important;
     }
 
     /* フォーカス時の選択を強調 */
