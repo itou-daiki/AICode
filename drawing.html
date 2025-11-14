@@ -163,14 +163,32 @@
     .CodeMirror-cursor {
       border-left: 1px solid #d4d4d4 !important;
     }
-    .CodeMirror-selected {
-      background: #264f78 !important;
+    /* 行レベルの選択背景 */
+    .CodeMirror div.CodeMirror-selected {
+      background: rgba(52, 152, 219, 0.3) !important;
     }
-    .CodeMirror-selectedtext {
-      background: #264f78 !important;
+
+    /* 文字レベルの選択（最も重要） */
+    .CodeMirror .CodeMirror-selectedtext {
+      background: #3498db !important;
+      color: #ffffff !important;
     }
-    .CodeMirror-selecting {
-      background: rgba(38, 79, 120, 0.7) !important;
+
+    /* より具体的な文字選択 */
+    .CodeMirror-line .CodeMirror-selectedtext {
+      background: #3498db !important;
+      color: #ffffff !important;
+    }
+
+    /* ドラッグ中の選択 */
+    .CodeMirror-selecting div.CodeMirror-selected {
+      background: rgba(52, 152, 219, 0.4) !important;
+    }
+
+    /* 選択中の文字を強調 */
+    .CodeMirror-selecting .CodeMirror-selectedtext {
+      background: #2980b9 !important;
+      color: #ffffff !important;
     }
     .CodeMirror-gutters {
       background: #252526 !important;
