@@ -942,14 +942,14 @@ function setupEventListeners() {
 async function runDrawingCode() {
     const outputEl = document.getElementById('output');
     outputEl.textContent = '実行中...\n';
-    
+
     const code = editor.getValue();
-    
+
     try {
         // キャンバスをクリア
         clearCanvas();
-        
-        // Python コードを実行用にラップ
+
+        // Python コードを実行用にラップ（インデントを保持）
         const wrappedCode = `
 import sys, traceback
 from io import StringIO
@@ -960,7 +960,9 @@ _orig_stdout, _orig_stderr = sys.stdout, sys.stderr
 sys.stdout, sys.stderr = _out, _err
 
 try:
-${code.split('\n').map(l => l.trim() ? '    ' + l : '').join('\n')}
+    exec("""
+${code}
+""")
 except Exception:
     traceback.print_exc(file=_err)
 finally:
@@ -968,10 +970,10 @@ finally:
 
 _out.getvalue() + _err.getvalue()
         `;
-        
+
         const result = await pyodide.runPython(wrappedCode);
         outputEl.textContent = result || '実行完了（出力なし）';
-        
+
     } catch (err) {
         outputEl.textContent = 'エラー: ' + err.message;
         console.error('描画エラー:', err);
