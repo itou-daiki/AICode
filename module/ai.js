@@ -395,9 +395,15 @@ export async function generateNewProblem() {
       if (problemContent) {
         problemContent.innerHTML =
           `<h3>${problemData.title}</h3>
-           <p>${problemData.description}</p>
-           <h4>入力例</h4><pre>${problemData.input.replace(/\\n/g, '\n')}</pre>
-           <h4>期待出力</h4><pre>${problemData.expected}</pre>`;
+           <div class="problem-layout">
+             <div class="problem-description">
+               <p>${problemData.description}</p>
+             </div>
+             <div class="problem-examples">
+               <h4>入力例</h4><pre>${problemData.input.replace(/\\n/g, '\n')}</pre>
+               <h4>期待出力</h4><pre>${problemData.expected}</pre>
+             </div>
+           </div>`;
       }
 
       // エディタを更新

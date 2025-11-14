@@ -178,7 +178,7 @@
       border-bottom: 2px solid #3498db;
     }
     #problem-area h3 {
-      margin: 1.5em 0 0.5em;
+      margin: 0 0 0.5em;
       font-size: 1em;
       font-weight: 600;
       color: #34495e;
@@ -191,6 +191,35 @@
       overflow-x: auto;
       box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
       font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+    }
+    /* 2カラムレイアウト */
+    .problem-layout {
+      display: flex;
+      gap: 2em;
+      margin-top: 1em;
+    }
+    .problem-description {
+      flex: 1;
+      min-width: 0;
+    }
+    .problem-examples {
+      flex: 1;
+      min-width: 0;
+    }
+    .problem-examples h4 {
+      margin: 0 0 0.5em;
+      font-size: 0.95em;
+      font-weight: 600;
+      color: #34495e;
+    }
+    .problem-examples h4:not(:first-child) {
+      margin-top: 1em;
+    }
+    @media (max-width: 768px) {
+      .problem-layout {
+        flex-direction: column;
+        gap: 1em;
+      }
     }
     main {
       display: flex;
