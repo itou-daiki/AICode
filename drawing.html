@@ -94,10 +94,10 @@
       overflow: hidden;
     }
     aside {
-      width: 300px;
+      width: 280px;
       background: #ecf0f1;
       overflow-y: auto;
-      padding: 1em;
+      padding: 0.5em;
       border-right: 2px solid #bdc3c7;
       transition: all 0.3s ease;
       position: relative;
@@ -110,13 +110,13 @@
     aside h2 {
       margin-top: 0;
       color: #2c3e50;
-      font-size: 1.2em;
+      font-size: 1em;
     }
     .section {
       background: #fff;
       border-radius: 4px;
-      padding: 0.8em;
-      margin-bottom: 1em;
+      padding: 0.5em;
+      margin-bottom: 0.5em;
       box-shadow: 0 1px 3px rgba(0,0,0,0.1);
     }
     .section button {
@@ -288,9 +288,9 @@
     .panel-header {
       background: #34495e;
       color: #ecf0f1;
-      padding: 0.5em 1em;
+      padding: 0.3em 0.5em;
       font-weight: bold;
-      font-size: 0.9em;
+      font-size: 0.85em;
     }
     .editor-container {
       flex: 1;
@@ -304,8 +304,7 @@
       display: flex;
       justify-content: center;
       align-items: flex-start;
-      padding: 1em 1em 1em 1em;
-      padding-top: 0.5em;
+      padding: 0.5em;
       overflow: auto;
       min-height: 0;
     }
@@ -439,8 +438,8 @@
     .output-header {
       background: #95a5a6;
       color: #fff;
-      padding: 0.3em 1em;
-      font-size: 0.8em;
+      padding: 0.2em 0.5em;
+      font-size: 0.75em;
       font-weight: bold;
     }
     #output {
@@ -457,17 +456,17 @@
     }
     .examples {
       flex: 1;
-      padding: 1em;
+      padding: 0.5em;
       background: #ecf0f1;
       overflow-y: auto;
     }
     .examples h3 {
-      margin: 1em 0 0.5em 0;
+      margin: 0.5em 0 0.3em 0;
       color: #2c3e50;
-      font-size: 0.9em;
+      font-size: 0.85em;
       font-weight: 600;
       border-bottom: 2px solid #3498db;
-      padding-bottom: 0.3em;
+      padding-bottom: 0.2em;
     }
     .examples h3:first-child {
       margin-top: 0;
@@ -476,8 +475,8 @@
       background: #fff;
       border: 1px solid #bdc3c7;
       border-radius: 4px;
-      padding: 0.5em;
-      margin: 0.3em 0;
+      padding: 0.3em;
+      margin: 0.2em 0;
       font-family: 'Courier New', monospace;
       font-size: 11px;
       cursor: pointer;
@@ -637,60 +636,52 @@
         <div class="editor-container">
           <textarea id="code" style="display: none;"># p5.jsライクなPython描画コード
 # キャンバスサイズ: 400x400
-# 新機能: 角丸四角形、数学関数、ノイズ、色関数など
+# setup()やdraw()関数なしで直接実行できます！
 
-def setup():
-    """初期設定を行う関数"""
-    # 背景色を設定（グラデーション風）
-    p5.background(240, 240, 250)
+# 背景色を設定
+p5.background(240, 240, 250)
 
-def draw():
-    """描画を行う関数"""
-    # 角丸四角形を描画
-    p5.fill(255, 100, 100)
-    p5.stroke(200, 50, 50)
-    p5.stroke_weight(3)
-    p5.rect(50, 50, 100, 80, 15, 15, 15, 15)  # 角丸
+# 角丸四角形を描画
+p5.fill(255, 100, 100)
+p5.stroke(200, 50, 50)
+p5.stroke_weight(3)
+p5.rect(50, 50, 100, 80, 15, 15, 15, 15)
 
-    # 正方形を描画
-    p5.fill(100, 255, 100)
-    p5.stroke(50, 200, 50)
-    p5.square(250, 50, 80)
+# 正方形を描画
+p5.fill(100, 255, 100)
+p5.stroke(50, 200, 50)
+p5.square(250, 50, 80)
 
-    # 円を描画（ランダムな位置を使用）
-    random_seed(42)  # 再現性のためシード設定
-    x = random(150, 250)
-    y = random(150, 250)
-    p5.fill(100, 100, 255)
-    p5.circle(x, y, 80)
+# 円を描画（ランダムな位置）
+random_seed(42)
+x = random(150, 250)
+y = random(150, 250)
+p5.fill(100, 100, 255)
+p5.circle(x, y, 80)
 
-    # 三角形を描画（数学関数を使用）
-    p5.fill(255, 200, 100)
-    angle = PI / 3
-    cx, cy = 100, 320
-    r = 40
-    x1, y1 = cx, cy - r
-    x2, y2 = cx + r * cos(angle), cy + r * sin(angle)
-    x3, y3 = cx - r * cos(angle), cy + r * sin(angle)
-    p5.triangle(x1, y1, x2, y2, x3, y3)
+# 三角形を描画
+p5.fill(255, 200, 100)
+angle = PI / 3
+cx, cy = 100, 320
+r = 40
+x1, y1 = cx, cy - r
+x2, y2 = cx + r * cos(angle), cy + r * sin(angle)
+x3, y3 = cx - r * cos(angle), cy + r * sin(angle)
+p5.triangle(x1, y1, x2, y2, x3, y3)
 
-    # ノイズを使った線描画
-    p5.stroke(150, 100, 200)
-    p5.stroke_weight(2)
-    for i in range(0, 400, 5):
-        n = noise(i * 0.01) * 100
-        p5.point(i, 350 + n)
+# for文を使ってノイズ線を描画
+p5.stroke(150, 100, 200)
+p5.stroke_weight(2)
+for i in range(0, 400, 5):
+    n = noise(i * 0.01) * 100
+    p5.point(i, 350 + n)
 
-    # テキストを描画
-    p5.fill(50, 50, 50)
-    p5.no_stroke()
-    p5.text_size(16)
-    p5.text_align('center', 'middle')
-    p5.text('p5.js拡張版!', 200, 20)
-
-# 関数を実行
-setup()
-draw()
+# テキストを描画
+p5.fill(50, 50, 50)
+p5.no_stroke()
+p5.text_size(16)
+p5.text_align('center', 'middle')
+p5.text('直接実行できる!', 200, 20)
 </textarea>
         </div>
       </div>
