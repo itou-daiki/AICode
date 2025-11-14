@@ -143,5 +143,146 @@ for i in range(100):
         </div>
     </div>
 
+    <div class="sample">
+        <h3>ベジェ曲線</h3>
+        <div class="code">
+            <pre># ベジェ曲線で波形を描画
+p5.background(240, 240, 240)
+
+p5.stroke(255, 0, 0)
+p5.stroke_weight(3)
+p5.no_fill()
+
+# 複数のベジェ曲線を描画
+p5.bezier(50, 200, 100, 50, 300, 50, 350, 200)
+p5.bezier(50, 200, 100, 350, 300, 350, 350, 200)
+
+# 制御点を表示
+p5.fill(0, 0, 255)
+p5.no_stroke()
+p5.circle(100, 50, 8)
+p5.circle(300, 50, 8)
+p5.circle(100, 350, 8)
+p5.circle(300, 350, 8)</pre>
+        </div>
+    </div>
+
+    <div class="sample">
+        <h3>カスタム形状</h3>
+        <div class="code">
+            <pre># begin_shape/vertex/end_shapeでカスタム形状を描画
+p5.background(240, 240, 240)
+
+# 星形を描画
+p5.fill(255, 200, 0)
+p5.stroke(200, 150, 0)
+p5.stroke_weight(2)
+
+p5.begin_shape()
+# 星の頂点を追加
+p5.vertex(200, 100)
+p5.vertex(220, 160)
+p5.vertex(280, 170)
+p5.vertex(230, 210)
+p5.vertex(250, 270)
+p5.vertex(200, 240)
+p5.vertex(150, 270)
+p5.vertex(170, 210)
+p5.vertex(120, 170)
+p5.vertex(180, 160)
+p5.end_shape('CLOSE')</pre>
+        </div>
+    </div>
+
+    <div class="sample">
+        <h3>角度モード</h3>
+        <div class="code">
+            <pre># 角度モードを使用した描画
+p5.background(240, 240, 240)
+
+# 度数法を使用
+p5.angle_mode('degrees')
+
+# 扇形を描画
+p5.fill(255, 100, 100)
+p5.arc(150, 200, 100, 100, 0, 90)
+
+p5.fill(100, 255, 100)
+p5.arc(250, 200, 100, 100, 90, 180)
+
+p5.fill(100, 100, 255)
+p5.arc(200, 150, 100, 100, 180, 270)</pre>
+        </div>
+    </div>
+
+    <div class="sample">
+        <h3>ランダム関数</h3>
+        <div class="code">
+            <pre># random関数でランダムな図形を描画
+p5.background(240, 240, 240)
+
+# ランダムな円を20個描画
+for i in range(20):
+    x = random(0, 400)
+    y = random(0, 400)
+    diameter = random(10, 50)
+
+    r = random(0, 255)
+    g = random(0, 255)
+    b = random(0, 255)
+
+    p5.fill(r, g, b, 150)
+    p5.no_stroke()
+    p5.circle(x, y, diameter)</pre>
+        </div>
+    </div>
+
+    <div class="sample">
+        <h3>描画モードの変更</h3>
+        <div class="code">
+            <pre># rectMode/ellipseModeで描画モードを変更
+p5.background(240, 240, 240)
+
+# デフォルト（corner）
+p5.fill(255, 100, 100, 150)
+p5.rect_mode('corner')
+p5.rect(50, 50, 80, 80)
+
+# centerモード
+p5.fill(100, 255, 100, 150)
+p5.rect_mode('center')
+p5.rect(200, 90, 80, 80)
+
+# radiusモード
+p5.fill(100, 100, 255, 150)
+p5.ellipse_mode('radius')
+p5.ellipse(320, 90, 40, 40)
+
+# 元に戻す
+p5.rect_mode('corner')
+p5.ellipse_mode('center')</pre>
+        </div>
+    </div>
+
+    <div class="sample">
+        <h3>透明度とグラデーション</h3>
+        <div class="code">
+            <pre># 透明度を使った重ね合わせ
+p5.background(255, 255, 255)
+
+# 3つの円を重ねる
+p5.no_stroke()
+
+p5.fill(255, 0, 0, 128)
+p5.circle(150, 200, 150)
+
+p5.fill(0, 255, 0, 128)
+p5.circle(250, 200, 150)
+
+p5.fill(0, 0, 255, 128)
+p5.circle(200, 280, 150)</pre>
+        </div>
+    </div>
+
 </body>
 </html>

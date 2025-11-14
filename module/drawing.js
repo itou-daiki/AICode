@@ -7,6 +7,15 @@ let ctx;
 
 // p5.jsライクな描画ライブラリをPythonで実装
 const P5_PYTHON_LIBRARY = `
+import math
+import random as _random
+
+# p5.js定数
+PI = math.pi
+TWO_PI = math.pi * 2
+HALF_PI = math.pi / 2
+QUARTER_PI = math.pi / 4
+
 class P5:
     def __init__(self, canvas_id='canvas'):
         import js
@@ -14,16 +23,24 @@ class P5:
         self.ctx = self.canvas.getContext('2d')
         self.width = self.canvas.width
         self.height = self.canvas.height
-        
+
         # デフォルト設定
         self.fill_color = 'black'
         self.stroke_color = 'black'
         self.stroke_width = 1
-        self.no_fill = False
-        self.no_stroke = False
-        
+        self.no_fill_flag = False
+        self.no_stroke_flag = False
+
         # 角度モード（度数法/ラジアン）
         self.angle_mode = 'radians'
+
+        # 描画モード
+        self.rect_mode = 'corner'  # corner, center, corners, radius
+        self.ellipse_mode = 'center'  # center, radius, corner, corners
+
+        # カスタム形状用
+        self.vertices = []
+        self.is_shape_open = False
         
     def clear(self):
         """キャンバスをクリア"""
@@ -39,31 +56,43 @@ class P5:
         self.ctx.fillStyle = color
         self.ctx.fillRect(0, 0, self.width, self.height)
         
-    def fill(self, r, g=None, b=None):
+    def fill(self, r, g=None, b=None, a=None):
         """塗りつぶし色を設定"""
         if g is None and b is None:
             # グレースケール
-            self.fill_color = f'rgb({r},{r},{r})'
+            if a is not None:
+                self.fill_color = f'rgba({r},{r},{r},{a/255})'
+            else:
+                self.fill_color = f'rgb({r},{r},{r})'
         else:
-            self.fill_color = f'rgb({r},{g},{b})'
-        self.no_fill = False
-        
+            if a is not None:
+                self.fill_color = f'rgba({r},{g},{b},{a/255})'
+            else:
+                self.fill_color = f'rgb({r},{g},{b})'
+        self.no_fill_flag = False
+
     def no_fill(self):
         """塗りつぶしを無効にする"""
-        self.no_fill = True
+        self.no_fill_flag = True
         
-    def stroke(self, r, g=None, b=None):
+    def stroke(self, r, g=None, b=None, a=None):
         """輪郭色を設定"""
         if g is None and b is None:
             # グレースケール
-            self.stroke_color = f'rgb({r},{r},{r})'
+            if a is not None:
+                self.stroke_color = f'rgba({r},{r},{r},{a/255})'
+            else:
+                self.stroke_color = f'rgb({r},{r},{r})'
         else:
-            self.stroke_color = f'rgb({r},{g},{b})'
-        self.no_stroke = False
-        
+            if a is not None:
+                self.stroke_color = f'rgba({r},{g},{b},{a/255})'
+            else:
+                self.stroke_color = f'rgb({r},{g},{b})'
+        self.no_stroke_flag = False
+
     def no_stroke(self):
         """輪郭を無効にする"""
-        self.no_stroke = True
+        self.no_stroke_flag = True
         
     def stroke_weight(self, weight):
         """輪郭の太さを設定"""
@@ -73,45 +102,79 @@ class P5:
         """円を描画"""
         radius = diameter / 2
         self.ctx.beginPath()
-        self.ctx.arc(x, y, radius, 0, 2 * 3.14159)
-        
-        if not self.no_fill:
+        self.ctx.arc(x, y, radius, 0, 2 * math.pi)
+
+        if not self.no_fill_flag:
             self.ctx.fillStyle = self.fill_color
             self.ctx.fill()
-            
-        if not self.no_stroke:
+
+        if not self.no_stroke_flag:
             self.ctx.strokeStyle = self.stroke_color
             self.ctx.lineWidth = self.stroke_width
             self.ctx.stroke()
             
-    def ellipse(self, x, y, width, height):
+    def ellipse(self, x, y, width, height=None):
         """楕円を描画"""
+        if height is None:
+            height = width
+
+        # ellipseModeに応じて座標を調整
+        if self.ellipse_mode == 'center':
+            cx, cy = x, y
+            w, h = width, height
+        elif self.ellipse_mode == 'radius':
+            cx, cy = x, y
+            w, h = width * 2, height * 2
+        elif self.ellipse_mode == 'corner':
+            cx, cy = x + width / 2, y + height / 2
+            w, h = width, height
+        elif self.ellipse_mode == 'corners':
+            cx, cy = (x + width) / 2, (y + height) / 2
+            w, h = abs(width - x), abs(height - y)
+
         self.ctx.save()
         self.ctx.beginPath()
-        self.ctx.translate(x, y)
-        self.ctx.scale(width/2, height/2)
-        self.ctx.arc(0, 0, 1, 0, 2 * 3.14159)
+        self.ctx.translate(cx, cy)
+        self.ctx.scale(w/2, h/2)
+        self.ctx.arc(0, 0, 1, 0, 2 * math.pi)
         self.ctx.restore()
-        
-        if not self.no_fill:
+
+        if not self.no_fill_flag:
             self.ctx.fillStyle = self.fill_color
             self.ctx.fill()
-            
-        if not self.no_stroke:
+
+        if not self.no_stroke_flag:
             self.ctx.strokeStyle = self.stroke_color
             self.ctx.lineWidth = self.stroke_width
             self.ctx.stroke()
             
-    def rect(self, x, y, width, height):
+    def rect(self, x, y, width, height=None):
         """四角形を描画"""
-        if not self.no_fill:
+        if height is None:
+            height = width
+
+        # rectModeに応じて座標を調整
+        if self.rect_mode == 'corner':
+            rx, ry = x, y
+            rw, rh = width, height
+        elif self.rect_mode == 'center':
+            rx, ry = x - width / 2, y - height / 2
+            rw, rh = width, height
+        elif self.rect_mode == 'radius':
+            rx, ry = x - width, y - height
+            rw, rh = width * 2, height * 2
+        elif self.rect_mode == 'corners':
+            rx, ry = x, y
+            rw, rh = width - x, height - y
+
+        if not self.no_fill_flag:
             self.ctx.fillStyle = self.fill_color
-            self.ctx.fillRect(x, y, width, height)
-            
-        if not self.no_stroke:
+            self.ctx.fillRect(rx, ry, rw, rh)
+
+        if not self.no_stroke_flag:
             self.ctx.strokeStyle = self.stroke_color
             self.ctx.lineWidth = self.stroke_width
-            self.ctx.strokeRect(x, y, width, height)
+            self.ctx.strokeRect(rx, ry, rw, rh)
             
     def line(self, x1, y1, x2, y2):
         """線を描画"""
@@ -134,12 +197,12 @@ class P5:
         self.ctx.lineTo(x2, y2)
         self.ctx.lineTo(x3, y3)
         self.ctx.closePath()
-        
-        if not self.no_fill:
+
+        if not self.no_fill_flag:
             self.ctx.fillStyle = self.fill_color
             self.ctx.fill()
-            
-        if not self.no_stroke:
+
+        if not self.no_stroke_flag:
             self.ctx.strokeStyle = self.stroke_color
             self.ctx.lineWidth = self.stroke_width
             self.ctx.stroke()
@@ -152,47 +215,45 @@ class P5:
         self.ctx.lineTo(x3, y3)
         self.ctx.lineTo(x4, y4)
         self.ctx.closePath()
-        
-        if not self.no_fill:
+
+        if not self.no_fill_flag:
             self.ctx.fillStyle = self.fill_color
             self.ctx.fill()
-            
-        if not self.no_stroke:
+
+        if not self.no_stroke_flag:
             self.ctx.strokeStyle = self.stroke_color
             self.ctx.lineWidth = self.stroke_width
             self.ctx.stroke()
             
     def arc(self, x, y, width, height, start_angle, end_angle):
         """弧を描画"""
-        import math
-        
         if self.angle_mode == 'degrees':
             start_angle = math.radians(start_angle)
             end_angle = math.radians(end_angle)
-            
+
         self.ctx.save()
         self.ctx.beginPath()
         self.ctx.translate(x, y)
         self.ctx.scale(width/2, height/2)
         self.ctx.arc(0, 0, 1, start_angle, end_angle)
         self.ctx.restore()
-        
-        if not self.no_fill:
+
+        if not self.no_fill_flag:
             self.ctx.fillStyle = self.fill_color
             self.ctx.fill()
-            
-        if not self.no_stroke:
+
+        if not self.no_stroke_flag:
             self.ctx.strokeStyle = self.stroke_color
             self.ctx.lineWidth = self.stroke_width
             self.ctx.stroke()
             
     def text(self, text_string, x, y):
         """テキストを描画"""
-        if not self.no_fill:
+        if not self.no_fill_flag:
             self.ctx.fillStyle = self.fill_color
             self.ctx.fillText(str(text_string), x, y)
-            
-        if not self.no_stroke:
+
+        if not self.no_stroke_flag:
             self.ctx.strokeStyle = self.stroke_color
             self.ctx.lineWidth = self.stroke_width
             self.ctx.strokeText(str(text_string), x, y)
@@ -225,6 +286,128 @@ class P5:
         if y is None:
             y = x
         self.ctx.scale(x, y)
+
+    # モード設定関数
+    def angle_mode(self, mode):
+        """角度モードを設定 ('radians' または 'degrees')"""
+        if mode in ['radians', 'degrees']:
+            self.angle_mode = mode
+
+    def rect_mode(self, mode):
+        """四角形描画モードを設定 ('corner', 'center', 'radius', 'corners')"""
+        if mode in ['corner', 'center', 'radius', 'corners']:
+            self.rect_mode = mode
+
+    def ellipse_mode(self, mode):
+        """楕円描画モードを設定 ('center', 'radius', 'corner', 'corners')"""
+        if mode in ['center', 'radius', 'corner', 'corners']:
+            self.ellipse_mode = mode
+
+    # カスタム形状描画
+    def begin_shape(self):
+        """カスタム形状の描画を開始"""
+        self.vertices = []
+        self.is_shape_open = True
+
+    def vertex(self, x, y):
+        """カスタム形状に頂点を追加"""
+        if self.is_shape_open:
+            self.vertices.append((x, y))
+
+    def end_shape(self, close=None):
+        """カスタム形状の描画を終了"""
+        if not self.is_shape_open or len(self.vertices) < 2:
+            return
+
+        self.ctx.beginPath()
+        self.ctx.moveTo(self.vertices[0][0], self.vertices[0][1])
+
+        for i in range(1, len(self.vertices)):
+            self.ctx.lineTo(self.vertices[i][0], self.vertices[i][1])
+
+        if close == 'CLOSE':
+            self.ctx.closePath()
+
+        if not self.no_fill_flag:
+            self.ctx.fillStyle = self.fill_color
+            self.ctx.fill()
+
+        if not self.no_stroke_flag:
+            self.ctx.strokeStyle = self.stroke_color
+            self.ctx.lineWidth = self.stroke_width
+            self.ctx.stroke()
+
+        self.vertices = []
+        self.is_shape_open = False
+
+    # 曲線描画
+    def bezier(self, x1, y1, x2, y2, x3, y3, x4, y4):
+        """ベジェ曲線を描画"""
+        self.ctx.beginPath()
+        self.ctx.moveTo(x1, y1)
+        self.ctx.bezierCurveTo(x2, y2, x3, y3, x4, y4)
+
+        if not self.no_stroke_flag:
+            self.ctx.strokeStyle = self.stroke_color
+            self.ctx.lineWidth = self.stroke_width
+            self.ctx.stroke()
+
+    def curve(self, x1, y1, x2, y2, x3, y3, x4, y4):
+        """カーディナルスプライン曲線を描画（簡易版）"""
+        # 簡易的なカーブ実装（実際のp5.jsとは異なる可能性あり）
+        self.ctx.beginPath()
+        self.ctx.moveTo(x2, y2)
+
+        # 制御点を使った曲線の近似
+        cp1x = x2 + (x3 - x1) / 6
+        cp1y = y2 + (y3 - y1) / 6
+        cp2x = x3 - (x4 - x2) / 6
+        cp2y = y3 - (y4 - y2) / 6
+
+        self.ctx.bezierCurveTo(cp1x, cp1y, cp2x, cp2y, x3, y3)
+
+        if not self.no_stroke_flag:
+            self.ctx.strokeStyle = self.stroke_color
+            self.ctx.lineWidth = self.stroke_width
+            self.ctx.stroke()
+
+# グローバルユーティリティ関数
+def random(low=None, high=None):
+    """乱数を生成"""
+    if low is None and high is None:
+        return _random.random()
+    elif high is None:
+        return _random.random() * low
+    else:
+        return low + _random.random() * (high - low)
+
+def map_value(value, start1, stop1, start2, stop2):
+    """値を範囲変換"""
+    return start2 + (stop2 - start2) * ((value - start1) / (stop1 - start1))
+
+def constrain(value, min_val, max_val):
+    """値を範囲内に制限"""
+    return max(min_val, min(max_val, value))
+
+def lerp(start, stop, amt):
+    """線形補間"""
+    return start + (stop - start) * amt
+
+def dist(x1, y1, x2, y2):
+    """2点間の距離を計算"""
+    return math.sqrt((x2 - x1) ** 2 + (y2 - y1) ** 2)
+
+def sq(n):
+    """平方を計算"""
+    return n * n
+
+def degrees(radians):
+    """ラジアンを度数法に変換"""
+    return math.degrees(radians)
+
+def radians(degrees):
+    """度数法をラジアンに変換"""
+    return math.radians(degrees)
 
 # グローバルなp5インスタンスを作成
 p5 = P5()

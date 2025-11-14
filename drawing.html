@@ -264,14 +264,32 @@
         <textarea id="code" style="display: none;"># p5.jsライクなPython描画コード
 # キャンバスサイズ: 400x400
 
+# 背景色を設定
+p5.background(240, 240, 240)
+
 # 円を描画
+p5.fill(255, 100, 100)
+p5.stroke(200, 50, 50)
+p5.stroke_weight(3)
 p5.circle(200, 200, 100)
 
 # 四角形を描画
-p5.rect(150, 150, 100, 50)
+p5.fill(100, 255, 100)
+p5.stroke(50, 200, 50)
+p5.rect(50, 50, 80, 80)
 
-# 線を描画
-p5.line(50, 50, 350, 350)
+# 三角形を描画
+p5.fill(100, 100, 255)
+p5.stroke(50, 50, 200)
+p5.triangle(300, 300, 250, 350, 350, 350)
+
+# カスタム形状を描画
+p5.fill(255, 200, 100, 200)  # 透明度付き
+p5.begin_shape()
+p5.vertex(100, 300)
+p5.vertex(150, 250)
+p5.vertex(200, 300)
+p5.end_shape('CLOSE')
 </textarea>
       </div>
       <div class="output-section">
@@ -285,6 +303,9 @@ p5.line(50, 50, 350, 350)
         <div class="example-code">p5.line(0, 0, 400, 400)  # 線を描画</div>
         <div class="example-code">p5.fill(255, 0, 0)  # 赤色で塗りつぶし</div>
         <div class="example-code">p5.stroke(0, 255, 0)  # 緑色の輪郭</div>
+        <div class="example-code">p5.bezier(50, 50, 100, 100, 300, 100, 350, 350)  # ベジェ曲線</div>
+        <div class="example-code">p5.begin_shape(); p5.vertex(100, 100); p5.vertex(200, 50); p5.vertex(300, 100); p5.end_shape('CLOSE')  # カスタム形状</div>
+        <div class="example-code">x = random(0, 400); y = random(0, 400); p5.circle(x, y, 30)  # ランダムな位置に円</div>
       </div>
     </div>
 
