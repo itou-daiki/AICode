@@ -636,52 +636,45 @@
         <div class="editor-container">
           <textarea id="code" style="display: none;"># p5.jsライクなPython描画コード
 # キャンバスサイズ: 400x400
-# setup()やdraw()関数なしで直接実行できます！
 
-# 背景色を設定
-p5.background(240, 240, 250)
+# 【2つのモード】
+# 1. 直接実行: setup/draw関数なしでコードを直接書く
+# 2. アニメーション: setup()とdraw()関数を定義する
 
-# 角丸四角形を描画
-p5.fill(255, 100, 100)
-p5.stroke(200, 50, 50)
-p5.stroke_weight(3)
-p5.rect(50, 50, 100, 80, 15, 15, 15, 15)
+# === 直接実行の例 ===
+# p5.background(240, 240, 250)
+# p5.fill(255, 100, 100)
+# p5.circle(200, 200, 100)
 
-# 正方形を描画
-p5.fill(100, 255, 100)
-p5.stroke(50, 200, 50)
-p5.square(250, 50, 80)
+# === アニメーションの例 ===
+# frameCount変数で現在のフレーム数にアクセス可能
 
-# 円を描画（ランダムな位置）
-random_seed(42)
-x = random(150, 250)
-y = random(150, 250)
-p5.fill(100, 100, 255)
-p5.circle(x, y, 80)
+def setup():
+    """初期化（1回だけ実行）"""
+    p5.background(240, 240, 250)
 
-# 三角形を描画
-p5.fill(255, 200, 100)
-angle = PI / 3
-cx, cy = 100, 320
-r = 40
-x1, y1 = cx, cy - r
-x2, y2 = cx + r * cos(angle), cy + r * sin(angle)
-x3, y3 = cx - r * cos(angle), cy + r * sin(angle)
-p5.triangle(x1, y1, x2, y2, x3, y3)
+def draw():
+    """繰り返し実行される描画ループ"""
+    # 半透明の背景で軌跡を残す
+    p5.fill(240, 240, 250, 30)
+    p5.no_stroke()
+    p5.rect(0, 0, 400, 400)
 
-# for文を使ってノイズ線を描画
-p5.stroke(150, 100, 200)
-p5.stroke_weight(2)
-for i in range(0, 400, 5):
-    n = noise(i * 0.01) * 100
-    p5.point(i, 350 + n)
+    # 円運動する円
+    x = 200 + 120 * cos(frameCount * 0.05)
+    y = 200 + 120 * sin(frameCount * 0.05)
+    p5.fill(100, 150, 255)
+    p5.circle(x, y, 30)
 
-# テキストを描画
-p5.fill(50, 50, 50)
-p5.no_stroke()
-p5.text_size(16)
-p5.text_align('center', 'middle')
-p5.text('直接実行できる!', 200, 20)
+    # 回転する四角形
+    p5.push()
+    p5.translate(200, 200)
+    p5.rotate(frameCount * 0.02)
+    p5.fill(255, 100, 100, 150)
+    p5.stroke(200, 50, 50)
+    p5.stroke_weight(2)
+    p5.rect(-20, -20, 40, 40)
+    p5.pop()
 </textarea>
         </div>
       </div>
@@ -736,6 +729,33 @@ p5.text('直接実行できる!', 200, 20)
           <div class="example-code">angle = map_value(100, 0, 400, 0, TWO_PI)  # 値の範囲変換</div>
           <div class="example-code">n = noise(0.1, 0.2) * 100  # ノイズ値を使用</div>
           <div class="example-code">val = lerp(0, 100, 0.5)  # 線形補間</div>
+
+          <h3>アニメーション (setup & draw)</h3>
+          <div class="example-code" style="white-space: pre-wrap;">def setup():
+    p5.background(240, 240, 250)
+
+def draw():
+    # 動く円を描画
+    x = 200 + 150 * cos(frameCount * 0.05)
+    y = 200 + 150 * sin(frameCount * 0.05)
+    p5.fill(100, 150, 255, 100)
+    p5.circle(x, y, 30)</div>
+          <div class="example-code" style="white-space: pre-wrap;">def setup():
+    p5.background(20, 20, 30)
+
+def draw():
+    # フレームごとに半透明の背景で軌跡を残す
+    p5.fill(20, 20, 30, 25)
+    p5.no_stroke()
+    p5.rect(0, 0, 400, 400)
+
+    # 回転する四角形
+    p5.push()
+    p5.translate(200, 200)
+    p5.rotate(frameCount * 0.02)
+    p5.fill(255, 100, 100)
+    p5.rect(-25, -25, 50, 50)
+    p5.pop()</div>
         </div>
       </div>
 
