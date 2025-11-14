@@ -251,43 +251,118 @@ export class CodeCompletionEngine {
       return this.getBasicCompletions(beforeCursor);
     }
 
-    const prompt = `Python code completion. Current context:
-CODE: ${fullCode.slice(-200)}
-LINE: "${beforeCursor}"
+    // コードのコンテキスト情報を抽出
+    const context = this.extractCodeContext(fullCode, lineNumber);
 
-Provide 3-5 short completions. Format: COMPLETION:code
-Examples:
-COMPLETION:print()
-COMPLETION:input()
+    // より詳細なプロンプトを生成（GitHub Copilot風）
+    const prompt = `You are an AI code completion assistant like GitHub Copilot. Complete the Python code based on context.
 
-Only output COMPLETION: lines.`;
+EXISTING CODE:
+\`\`\`python
+${context.precedingCode}
+\`\`\`
+
+CURRENT LINE (cursor at |): ${beforeCursor}|${afterCursor}
+
+CONTEXT INFO:
+- Imported modules: ${context.imports.join(', ') || 'none'}
+- Defined functions: ${context.functions.join(', ') || 'none'}
+- Variables in scope: ${context.variables.join(', ') || 'none'}
+- Current indentation level: ${context.indentLevel}
+
+TASK: Provide 1-5 intelligent code completions for the cursor position. Each completion should:
+1. Fit naturally into the current context
+2. Follow Python best practices
+3. Can be single-line OR multi-line (use \\n for line breaks)
+4. Maintain proper indentation (use spaces, indent level: ${context.indentLevel})
+
+OUTPUT FORMAT - One per line:
+COMPLETION:code here
+COMPLETION:another code
+
+For multi-line completions, use \\n:
+COMPLETION:if condition:\\n    statement
+
+Be concise and relevant. Output ONLY completion lines.`;
 
     try {
-      const response = await callGemini(prompt, 150);
-      
+      const response = await callGemini(prompt, 300); // Increased token limit for multi-line
+
       // レスポンスから補完候補を抽出
       const suggestions = [];
       const lines = response.split('\n');
-      
+
       for (const line of lines) {
         if (line.startsWith('COMPLETION:')) {
-          const completion = line.substring(11).trim();
+          let completion = line.substring(11).trim();
+
+          // \nエスケープシーケンスを実際の改行に変換
+          completion = completion.replace(/\\n/g, '\n');
+
           if (completion && suggestions.length < COMPLETION_CONFIG.MAX_SUGGESTIONS) {
             suggestions.push(completion);
           }
         }
       }
-      
+
       // フォールバック: 基本的なPython補完
       if (suggestions.length === 0) {
         suggestions.push(...this.getBasicCompletions(beforeCursor));
       }
-      
+
       return suggestions;
     } catch (error) {
       console.error('AI補完エラー:', error);
       return this.getBasicCompletions(beforeCursor);
     }
+  }
+
+  /**
+   * コードからコンテキスト情報を抽出
+   */
+  extractCodeContext(fullCode, currentLine) {
+    const lines = fullCode.split('\n');
+    const context = {
+      precedingCode: lines.slice(Math.max(0, currentLine - 10), currentLine + 1).join('\n'),
+      imports: [],
+      functions: [],
+      variables: [],
+      indentLevel: 0
+    };
+
+    // インポート文を抽出
+    const importRegex = /^(?:import|from)\s+(\w+)/gm;
+    let match;
+    while ((match = importRegex.exec(fullCode)) !== null) {
+      context.imports.push(match[1]);
+    }
+
+    // 関数定義を抽出
+    const funcRegex = /^def\s+(\w+)\s*\(/gm;
+    while ((match = funcRegex.exec(fullCode)) !== null) {
+      context.functions.push(match[1]);
+    }
+
+    // 変数定義を抽出（簡易版）
+    const varRegex = /^(\w+)\s*=/gm;
+    const vars = new Set();
+    while ((match = varRegex.exec(fullCode)) !== null) {
+      if (match[1] && !match[1].startsWith('_') && vars.size < 10) {
+        vars.add(match[1]);
+      }
+    }
+    context.variables = Array.from(vars);
+
+    // 現在の行のインデントレベルを計算
+    if (currentLine >= 0 && currentLine < lines.length) {
+      const currentLineText = lines[currentLine];
+      const indentMatch = currentLineText.match(/^(\s*)/);
+      if (indentMatch) {
+        context.indentLevel = Math.floor(indentMatch[1].length / 4);
+      }
+    }
+
+    return context;
   }
 
   getBasicCompletions(beforeCursor) {
@@ -441,24 +516,25 @@ Only output COMPLETION: lines.`;
   showInlineSuggestion(suggestion, cursor) {
     this.hidePopup(); // ポップアップを隠す
     this.hideInlineSuggestion(); // 既存のインライン補完を隠す
-    
+
     // カーソル位置前のテキストを取得
     const line = this.editor.getLine(cursor.line);
     const beforeCursor = line.substring(0, cursor.ch);
     const words = beforeCursor.split(/\s+/);
     const currentWord = words[words.length - 1] || '';
-    
+
+    // マルチライン補完かチェック
+    const isMultiLine = suggestion.includes('\n');
+
     // インライン表示する部分を計算
     let completionPart = '';
-    
+
     if (currentWord.length > 0) {
       if (suggestion.startsWith(currentWord)) {
         // 候補が現在の単語で始まる場合 -> 残りの部分を表示
         completionPart = suggestion.substring(currentWord.length);
       } else if (suggestion.includes(currentWord)) {
         // 候補に現在の単語が含まれる場合 -> 全体を表示
-        // この場合は、現在の単語を置換する必要があることを示すため、
-        // 特別な表示をする（例：全体を表示）
         completionPart = suggestion;
         // 現在の単語を保存して後で置換に使用
         this.wordToReplace = currentWord;
@@ -470,23 +546,33 @@ Only output COMPLETION: lines.`;
       // 現在の単語がない場合は全体を表示
       completionPart = suggestion;
     }
-    
+
     // 補完部分がない場合は表示しない
     if (!completionPart) {
       return;
     }
-    
+
     // 補完テキストを保存
     this.currentInlineSuggestion = completionPart;
     this.originalCursorPos = cursor;
     this.fullSuggestion = suggestion; // 完全な候補も保存
-    
+
+    if (isMultiLine) {
+      // マルチライン補完の場合、複数の行にウィジェットを配置
+      this.showMultilineInlineSuggestion(completionPart, cursor);
+    } else {
+      // 単一行補完の場合、従来の方法
+      this.showSingleLineInlineSuggestion(completionPart, cursor);
+    }
+  }
+
+  showSingleLineInlineSuggestion(completionPart, cursor) {
     // インライン補完要素を作成
     const inlineElement = document.createElement('span');
     inlineElement.textContent = completionPart;
     inlineElement.style.cssText = 'color: #999; opacity: 0.7; font-style: italic; pointer-events: none;';
     inlineElement.className = 'inline-suggestion-highlight';
-    
+
     // カーソル位置にウィジェットとして挿入
     this.inlineWidget = this.editor.setBookmark(cursor, {
       widget: inlineElement,
@@ -494,21 +580,72 @@ Only output COMPLETION: lines.`;
     });
   }
 
+  showMultilineInlineSuggestion(completionPart, cursor) {
+    // マルチライン補完用のウィジェットを配列で管理
+    this.inlineWidgets = [];
+
+    const lines = completionPart.split('\n');
+
+    // 各行に対してウィジェットを作成
+    lines.forEach((lineText, index) => {
+      if (index === 0) {
+        // 最初の行はカーソル位置に表示
+        const inlineElement = document.createElement('span');
+        inlineElement.textContent = lineText;
+        inlineElement.style.cssText = 'color: #999; opacity: 0.7; font-style: italic; pointer-events: none;';
+        inlineElement.className = 'inline-suggestion-highlight';
+
+        const widget = this.editor.setBookmark(cursor, {
+          widget: inlineElement,
+          insertLeft: false
+        });
+        this.inlineWidgets.push(widget);
+      } else {
+        // 2行目以降は行ウィジェットとして表示
+        const lineElement = document.createElement('div');
+        lineElement.textContent = lineText;
+        lineElement.style.cssText = 'color: #999; opacity: 0.7; font-style: italic; pointer-events: none; padding-left: 0;';
+        lineElement.className = 'inline-suggestion-line';
+
+        const widget = this.editor.addLineWidget(cursor.line + index, lineElement, {
+          above: false,
+          coverGutter: false,
+          noHScroll: true
+        });
+        this.inlineWidgets.push(widget);
+      }
+    });
+
+    // 互換性のため、最初のウィジェットをinlineWidgetにも設定
+    this.inlineWidget = this.inlineWidgets[0];
+  }
+
   hideInlineSuggestion() {
+    // 単一ウィジェットをクリア
     if (this.inlineWidget) {
       this.inlineWidget.clear();
       this.inlineWidget = null;
     }
+
+    // マルチラインウィジェットをクリア
+    if (this.inlineWidgets && this.inlineWidgets.length > 0) {
+      this.inlineWidgets.forEach(widget => {
+        if (widget && widget.clear) {
+          widget.clear();
+        }
+      });
+      this.inlineWidgets = [];
+    }
+
     this.currentInlineSuggestion = null;
     this.originalCursorPos = null;
   }
 
   acceptInlineSuggestion() {
-    if (this.currentInlineSuggestion && this.inlineWidget) {
+    if (this.currentInlineSuggestion) {
       // ウィジェットをクリア
-      this.inlineWidget.clear();
-      this.inlineWidget = null;
-      
+      this.hideInlineSuggestion();
+
       // 現在のカーソル位置と前後のテキストを取得
       const cursor = this.editor.getCursor();
       const line = this.editor.getLine(cursor.line);
@@ -516,15 +653,18 @@ Only output COMPLETION: lines.`;
       const afterCursor = line.substring(cursor.ch);
       const words = beforeCursor.split(/\s+/);
       const currentWord = words[words.length - 1] || '';
-      
+
       // 使用する候補を決定
       const suggestionToUse = this.fullSuggestion || (currentWord + this.currentInlineSuggestion);
-      
+
+      // マルチライン補完かチェック
+      const isMultiLine = suggestionToUse.includes('\n');
+
       // 置換範囲を決定
       let replaceFrom = cursor;
       let replaceTo = cursor;
       let textToInsert = this.currentInlineSuggestion;
-      
+
       if (this.wordToReplace || (currentWord.length > 0 && this.fullSuggestion && this.fullSuggestion.includes(currentWord))) {
         // 単語を置換する必要がある場合
         const wordStart = cursor.ch - currentWord.length;
@@ -532,20 +672,31 @@ Only output COMPLETION: lines.`;
         replaceTo = cursor;
         textToInsert = suggestionToUse;
       }
-      
-      // スペースが必要かどうかを判断
-      const needsSpace = this.needsSpaceAfter(suggestionToUse, beforeCursor, afterCursor);
-      if (needsSpace) {
-        textToInsert += ' ';
+
+      if (!isMultiLine) {
+        // 単一行の場合、スペースが必要かどうかを判断
+        const needsSpace = this.needsSpaceAfter(suggestionToUse, beforeCursor, afterCursor);
+        if (needsSpace) {
+          textToInsert += ' ';
+        }
       }
-      
+
       // テキストを置換/挿入
       this.editor.replaceRange(textToInsert, replaceFrom, replaceTo);
-      
+
       // カーソルを適切な位置に移動
-      const newCursor = { line: replaceFrom.line, ch: replaceFrom.ch + textToInsert.length };
-      this.editor.setCursor(newCursor);
-      
+      if (isMultiLine) {
+        // マルチラインの場合、最後の行の末尾にカーソルを移動
+        const lines = textToInsert.split('\n');
+        const lastLineIndex = replaceFrom.line + lines.length - 1;
+        const lastLineLength = lines[lines.length - 1].length;
+        this.editor.setCursor({ line: lastLineIndex, ch: lastLineLength });
+      } else {
+        // 単一行の場合、挿入されたテキストの末尾にカーソルを移動
+        const newCursor = { line: replaceFrom.line, ch: replaceFrom.ch + textToInsert.length };
+        this.editor.setCursor(newCursor);
+      }
+
       // クリーンアップ
       this.currentInlineSuggestion = null;
       this.fullSuggestion = null;

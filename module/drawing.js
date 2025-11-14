@@ -1,9 +1,12 @@
 // module/drawing.js - 描画モード用のメインモジュール
 
+import { CodeCompletionEngine } from './completion.js';
+
 let pyodide;
 let editor;
 let canvas;
 let ctx;
+let completionEngine; // コード補完エンジン
 
 /**
  * Pythonコードを自動フォーマット
@@ -517,14 +520,22 @@ async function initDrawingEditor() {
             'Shift-Tab': 'indentLess'
         }
     });
-    
+
+    // コード補完エンジンの初期化
+    try {
+        completionEngine = new CodeCompletionEngine(editor);
+        console.log('描画モード: コード補完エンジン初期化完了');
+    } catch (error) {
+        console.error('描画モード: コード補完エンジン初期化エラー:', error);
+    }
+
     // キャンバスの初期化
     canvas = document.getElementById('canvas');
     ctx = canvas.getContext('2d');
-    
+
     // イベントリスナーの設定
     setupEventListeners();
-    
+
     // UI の表示
     document.getElementById('loader').style.display = 'none';
     document.getElementById('run-btn').disabled = false;
