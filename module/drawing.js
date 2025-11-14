@@ -120,6 +120,23 @@ class P5:
         # カスタム形状用
         self.vertices = []
         self.is_shape_open = False
+
+        # テキスト設定
+        self.text_align_horizontal = 'left'  # left, center, right
+        self.text_align_vertical = 'baseline'  # top, bottom, middle, baseline
+        self.text_leading_value = 0  # 行間
+
+        # 線の設定
+        self.stroke_cap_style = 'butt'  # butt, round, square
+        self.stroke_join_style = 'miter'  # miter, bevel, round
+
+        # 色モード
+        self.color_mode = 'rgb'  # rgb or hsb
+        self.color_max_values = [255, 255, 255, 255]  # RGBA最大値
+
+        # フレーム数とタイマー
+        self.frame_count = 0
+        self.start_time = None
         
     def clear(self):
         """キャンバスをクリア"""
@@ -227,8 +244,8 @@ class P5:
             self.ctx.lineWidth = self.stroke_width
             self.ctx.stroke()
             
-    def rect(self, x, y, width, height=None):
-        """四角形を描画"""
+    def rect(self, x, y, width, height=None, tl=0, tr=0, br=0, bl=0):
+        """四角形を描画（角の丸みオプション付き）"""
         if height is None:
             height = width
 
@@ -246,14 +263,46 @@ class P5:
             rx, ry = x, y
             rw, rh = width - x, height - y
 
-        if not self.no_fill_flag:
-            self.ctx.fillStyle = self.fill_color
-            self.ctx.fillRect(rx, ry, rw, rh)
+        # 角丸がある場合
+        if tl > 0 or tr > 0 or br > 0 or bl > 0:
+            self.ctx.beginPath()
+            self.ctx.moveTo(rx + tl, ry)
+            self.ctx.lineTo(rx + rw - tr, ry)
+            if tr > 0:
+                self.ctx.arcTo(rx + rw, ry, rx + rw, ry + tr, tr)
+            self.ctx.lineTo(rx + rw, ry + rh - br)
+            if br > 0:
+                self.ctx.arcTo(rx + rw, ry + rh, rx + rw - br, ry + rh, br)
+            self.ctx.lineTo(rx + bl, ry + rh)
+            if bl > 0:
+                self.ctx.arcTo(rx, ry + rh, rx, ry + rh - bl, bl)
+            self.ctx.lineTo(rx, ry + tl)
+            if tl > 0:
+                self.ctx.arcTo(rx, ry, rx + tl, ry, tl)
+            self.ctx.closePath()
 
-        if not self.no_stroke_flag:
-            self.ctx.strokeStyle = self.stroke_color
-            self.ctx.lineWidth = self.stroke_width
-            self.ctx.strokeRect(rx, ry, rw, rh)
+            if not self.no_fill_flag:
+                self.ctx.fillStyle = self.fill_color
+                self.ctx.fill()
+
+            if not self.no_stroke_flag:
+                self.ctx.strokeStyle = self.stroke_color
+                self.ctx.lineWidth = self.stroke_width
+                self.ctx.stroke()
+        else:
+            # 通常の四角形
+            if not self.no_fill_flag:
+                self.ctx.fillStyle = self.fill_color
+                self.ctx.fillRect(rx, ry, rw, rh)
+
+            if not self.no_stroke_flag:
+                self.ctx.strokeStyle = self.stroke_color
+                self.ctx.lineWidth = self.stroke_width
+                self.ctx.strokeRect(rx, ry, rw, rh)
+
+    def square(self, x, y, size):
+        """正方形を描画"""
+        self.rect(x, y, size, size)
             
     def line(self, x1, y1, x2, y2):
         """線を描画"""
@@ -340,6 +389,60 @@ class P5:
     def text_size(self, size):
         """テキストサイズを設定"""
         self.ctx.font = f'{size}px Arial'
+
+    def text_align(self, horizontal, vertical='baseline'):
+        """テキストの配置を設定"""
+        self.text_align_horizontal = horizontal
+        self.text_align_vertical = vertical
+
+        # Canvas APIに適用
+        if horizontal == 'left':
+            self.ctx.textAlign = 'left'
+        elif horizontal == 'center':
+            self.ctx.textAlign = 'center'
+        elif horizontal == 'right':
+            self.ctx.textAlign = 'right'
+
+        if vertical == 'top':
+            self.ctx.textBaseline = 'top'
+        elif vertical == 'bottom':
+            self.ctx.textBaseline = 'bottom'
+        elif vertical == 'middle':
+            self.ctx.textBaseline = 'middle'
+        elif vertical == 'baseline':
+            self.ctx.textBaseline = 'alphabetic'
+
+    def text_width(self, text_string):
+        """テキストの幅を取得"""
+        metrics = self.ctx.measureText(str(text_string))
+        return metrics.width
+
+    def text_leading(self, leading):
+        """テキストの行間を設定"""
+        self.text_leading_value = leading
+
+    def stroke_cap(self, cap):
+        """線の端のスタイルを設定 ('butt', 'round', 'square')"""
+        if cap in ['butt', 'round', 'square']:
+            self.stroke_cap_style = cap
+            self.ctx.lineCap = cap
+
+    def stroke_join(self, join):
+        """線の接合部のスタイルを設定 ('miter', 'bevel', 'round')"""
+        if join in ['miter', 'bevel', 'round']:
+            self.stroke_join_style = join
+            self.ctx.lineJoin = join
+
+    def color_mode(self, mode, max1=255, max2=255, max3=255, max4=255):
+        """色モードを設定 ('rgb' or 'hsb')"""
+        if mode in ['rgb', 'hsb']:
+            self.color_mode = mode
+            self.color_max_values = [max1, max2, max3, max4]
+
+    def get_pixel(self, x, y):
+        """指定位置のピクセル色を取得 [r, g, b, a]"""
+        pixel_data = self.ctx.getImageData(x, y, 1, 1).data
+        return [pixel_data[0], pixel_data[1], pixel_data[2], pixel_data[3]]
         
     def push(self):
         """現在の描画設定を保存"""
@@ -450,7 +553,85 @@ class P5:
             self.ctx.lineWidth = self.stroke_width
             self.ctx.stroke()
 
+    def quadratic_vertex(self, cx, cy, x, y):
+        """二次ベジェ曲線の頂点を追加（begin_shape内で使用）"""
+        if self.is_shape_open:
+            # 直接Canvas APIを使用
+            if len(self.vertices) == 0:
+                self.ctx.moveTo(x, y)
+            else:
+                self.ctx.quadraticCurveTo(cx, cy, x, y)
+            self.vertices.append((x, y))
+
+    def bezier_vertex(self, x2, y2, x3, y3, x4, y4):
+        """三次ベジェ曲線の頂点を追加（begin_shape内で使用）"""
+        if self.is_shape_open:
+            # 直接Canvas APIを使用
+            self.ctx.bezierCurveTo(x2, y2, x3, y3, x4, y4)
+            self.vertices.append((x4, y4))
+
+    def curve_vertex(self, x, y):
+        """曲線の頂点を追加（begin_shape内で使用）"""
+        if self.is_shape_open:
+            self.vertices.append((x, y))
+
+    # 追加の図形描画
+    def polygon(self, *vertices):
+        """多角形を描画（可変長引数で座標を指定）"""
+        if len(vertices) < 3:
+            return
+
+        self.ctx.beginPath()
+        # 頂点は (x1, y1, x2, y2, ...) の形式
+        self.ctx.moveTo(vertices[0], vertices[1])
+        for i in range(2, len(vertices), 2):
+            self.ctx.lineTo(vertices[i], vertices[i+1])
+        self.ctx.closePath()
+
+        if not self.no_fill_flag:
+            self.ctx.fillStyle = self.fill_color
+            self.ctx.fill()
+
+        if not self.no_stroke_flag:
+            self.ctx.strokeStyle = self.stroke_color
+            self.ctx.lineWidth = self.stroke_width
+            self.ctx.stroke()
+
+    def erase(self, alpha=255):
+        """消しゴムモードを開始"""
+        self.ctx.globalCompositeOperation = 'destination-out'
+
+    def no_erase(self):
+        """消しゴムモードを終了"""
+        self.ctx.globalCompositeOperation = 'source-over'
+
+    def blend_mode(self, mode):
+        """ブレンドモードを設定"""
+        blend_modes = {
+            'blend': 'source-over',
+            'add': 'lighter',
+            'darkest': 'darken',
+            'lightest': 'lighten',
+            'difference': 'difference',
+            'exclusion': 'exclusion',
+            'multiply': 'multiply',
+            'screen': 'screen',
+            'overlay': 'overlay'
+        }
+        if mode in blend_modes:
+            self.ctx.globalCompositeOperation = blend_modes[mode]
+
+    def save_canvas(self, filename):
+        """キャンバスを画像として保存（ブラウザのダウンロード）"""
+        import js
+        link = js.document.createElement('a')
+        link.download = filename
+        link.href = self.canvas.toDataURL()
+        link.click()
+
 # グローバルユーティリティ関数
+
+# 乱数とノイズ
 def random(low=None, high=None):
     """乱数を生成"""
     if low is None and high is None:
@@ -460,6 +641,29 @@ def random(low=None, high=None):
     else:
         return low + _random.random() * (high - low)
 
+def random_seed(seed):
+    """乱数のシードを設定"""
+    _random.seed(seed)
+
+def random_gaussian(mean=0, std=1):
+    """ガウス分布に基づく乱数を生成"""
+    return _random.gauss(mean, std)
+
+# ノイズ関数（Perlin noise の簡易実装）
+_noise_seed = 0
+def noise(x, y=0, z=0):
+    """Perlin noise（簡易版）"""
+    # 簡易的なノイズ実装
+    import math
+    n = (math.sin(x * 12.9898 + y * 78.233 + z * 37.719) * 43758.5453) % 1.0
+    return abs(n)
+
+def noise_seed(seed):
+    """ノイズのシードを設定"""
+    global _noise_seed
+    _noise_seed = seed
+
+# 数学関数
 def map_value(value, start1, stop1, start2, stop2):
     """値を範囲変換"""
     return start2 + (stop2 - start2) * ((value - start1) / (stop1 - start1))
@@ -472,14 +676,93 @@ def lerp(start, stop, amt):
     """線形補間"""
     return start + (stop - start) * amt
 
-def dist(x1, y1, x2, y2):
+def norm(value, start, stop):
+    """値を0-1の範囲に正規化"""
+    return (value - start) / (stop - start)
+
+def dist(x1, y1, x2=None, y2=None, z1=None, z2=None):
     """2点間の距離を計算"""
-    return math.sqrt((x2 - x1) ** 2 + (y2 - y1) ** 2)
+    if z1 is None:
+        # 2D距離
+        return math.sqrt((x2 - x1) ** 2 + (y2 - y1) ** 2)
+    else:
+        # 3D距離
+        return math.sqrt((x2 - x1) ** 2 + (y2 - y1) ** 2 + (z2 - z1) ** 2)
 
 def sq(n):
     """平方を計算"""
     return n * n
 
+def sqrt(n):
+    """平方根を計算"""
+    return math.sqrt(n)
+
+def pow(n, e):
+    """べき乗を計算"""
+    return n ** e
+
+def exp(n):
+    """指数関数"""
+    return math.exp(n)
+
+def log(n):
+    """自然対数"""
+    return math.log(n)
+
+def abs(n):
+    """絶対値"""
+    return math.fabs(n)
+
+def ceil(n):
+    """切り上げ"""
+    return math.ceil(n)
+
+def floor(n):
+    """切り捨て"""
+    return math.floor(n)
+
+def round(n, decimals=0):
+    """四捨五入"""
+    return __builtins__.round(n, decimals)
+
+def min(*args):
+    """最小値"""
+    return __builtins__.min(*args)
+
+def max(*args):
+    """最大値"""
+    return __builtins__.max(*args)
+
+# 三角関数
+def sin(angle):
+    """サイン"""
+    return math.sin(angle)
+
+def cos(angle):
+    """コサイン"""
+    return math.cos(angle)
+
+def tan(angle):
+    """タンジェント"""
+    return math.tan(angle)
+
+def asin(value):
+    """アークサイン"""
+    return math.asin(value)
+
+def acos(value):
+    """アークコサイン"""
+    return math.acos(value)
+
+def atan(value):
+    """アークタンジェント"""
+    return math.atan(value)
+
+def atan2(y, x):
+    """2引数アークタンジェント"""
+    return math.atan2(y, x)
+
+# 角度変換
 def degrees(radians):
     """ラジアンを度数法に変換"""
     return math.degrees(radians)
@@ -487,6 +770,81 @@ def degrees(radians):
 def radians(degrees):
     """度数法をラジアンに変換"""
     return math.radians(degrees)
+
+# 色関連
+def color(r, g=None, b=None, a=255):
+    """色を作成（辞書として返す）"""
+    if g is None:
+        # グレースケール
+        return {'r': r, 'g': r, 'b': r, 'a': a}
+    else:
+        return {'r': r, 'g': g, 'b': b, 'a': a}
+
+def red(col):
+    """色から赤成分を取得"""
+    if isinstance(col, dict):
+        return col.get('r', 0)
+    return 0
+
+def green(col):
+    """色から緑成分を取得"""
+    if isinstance(col, dict):
+        return col.get('g', 0)
+    return 0
+
+def blue(col):
+    """色から青成分を取得"""
+    if isinstance(col, dict):
+        return col.get('b', 0)
+    return 0
+
+def alpha(col):
+    """色からアルファ成分を取得"""
+    if isinstance(col, dict):
+        return col.get('a', 255)
+    return 255
+
+def lerp_color(c1, c2, amt):
+    """2つの色を補間"""
+    if isinstance(c1, dict) and isinstance(c2, dict):
+        return {
+            'r': lerp(c1['r'], c2['r'], amt),
+            'g': lerp(c1['g'], c2['g'], amt),
+            'b': lerp(c1['b'], c2['b'], amt),
+            'a': lerp(c1.get('a', 255), c2.get('a', 255), amt)
+        }
+    return c1
+
+# 時間関連
+import datetime
+
+def millis():
+    """プログラム開始からのミリ秒"""
+    return int(datetime.datetime.now().timestamp() * 1000)
+
+def second():
+    """現在の秒"""
+    return datetime.datetime.now().second
+
+def minute():
+    """現在の分"""
+    return datetime.datetime.now().minute
+
+def hour():
+    """現在の時"""
+    return datetime.datetime.now().hour
+
+def day():
+    """現在の日"""
+    return datetime.datetime.now().day
+
+def month():
+    """現在の月"""
+    return datetime.datetime.now().month
+
+def year():
+    """現在の年"""
+    return datetime.datetime.now().year
 
 # グローバルなp5インスタンスを作成
 p5 = P5()
