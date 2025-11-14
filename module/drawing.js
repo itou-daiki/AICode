@@ -1,4 +1,6 @@
 // module/drawing.js - 描画モード用のメインモジュール
+import { appState } from './state.js';
+import { reviewCode as aiReviewCode, fixCode as aiFixCode, callGemini } from './ai.js';
 
 import { CodeCompletionEngine } from './completion.js';
 
@@ -539,6 +541,7 @@ async function initDrawingEditor() {
     // UI の表示
     document.getElementById('loader').style.display = 'none';
     document.getElementById('run-btn').disabled = false;
+    document.getElementById('ai-fix-code').disabled = false;
 }
 
 // イベントリスナーの設定
@@ -553,7 +556,19 @@ function setupEventListeners() {
 
     // クリアボタン
     document.getElementById('clear-btn').addEventListener('click', clearCanvas);
-    
+
+    // AIコードレビューボタン
+    const reviewBtn = document.getElementById('btn-review');
+    if (reviewBtn) {
+        reviewBtn.addEventListener('click', reviewDrawingCode);
+    }
+
+    // AIコード修正ボタン
+    const fixCodeBtn = document.getElementById('ai-fix-code');
+    if (fixCodeBtn) {
+        fixCodeBtn.addEventListener('click', fixDrawingCode);
+    }
+
     // サンプルコードの挿入
     document.querySelectorAll('.example-code').forEach(example => {
         example.addEventListener('click', () => {
@@ -614,10 +629,160 @@ function clearCanvas() {
     }
 }
 
+/**
+ * 描画コードのレビュー機能
+ */
+async function reviewDrawingCode() {
+    const reviewDiv = document.getElementById('review');
+    if (!reviewDiv) return;
+
+    reviewDiv.textContent = '生成中...';
+
+    try {
+        const code = editor.getValue();
+        if (!code.trim()) {
+            reviewDiv.textContent = 'レビューするコードを入力してください。';
+            return;
+        }
+
+        const prompt = `以下のPythonによる描画コード（p5.jsライクなライブラリを使用）をレビューしてください。
+
+コード:
+\`\`\`python
+${code}
+\`\`\`
+
+以下の観点でレビューしてください：
+1. **描画ロジック**: 図形の配置、色の使い方、構造が適切か
+2. **コードの品質**: Pythonらしい書き方、可読性、効率性
+3. **改善提案**: より良いビジュアル表現や実装方法の提案
+4. **学習ポイント**: 描画プログラミングで学べる点
+
+簡潔に3-4文でレビューしてください。`;
+
+        const response = await callGemini(prompt, 400);
+
+        // Markdownを簡易的にHTMLに変換
+        reviewDiv.innerHTML = markdownToHtml(response);
+    } catch (error) {
+        console.error('コードレビューエラー:', error);
+        reviewDiv.textContent = 'レビュー生成中にエラーが発生しました: ' + error.message;
+    }
+}
+
+/**
+ * 描画コードの修正機能
+ */
+async function fixDrawingCode() {
+    const button = document.getElementById('ai-fix-code');
+    if (!button) return;
+
+    const originalText = button.textContent;
+    button.textContent = '修正中...';
+    button.disabled = true;
+
+    try {
+        const code = editor.getValue();
+        if (!code.trim()) {
+            alert('修正するコードを入力してください。');
+            return;
+        }
+
+        const prompt = `以下のPythonによる描画コード（p5.jsライクなライブラリを使用）を改善してください。
+
+元のコード:
+\`\`\`python
+${code}
+\`\`\`
+
+以下の観点で改善してください：
+1. より視覚的に魅力的な描画に改善
+2. コードの可読性と構造を向上
+3. Pythonらしい書き方（Pythonic）に修正
+4. 色の組み合わせやレイアウトを改善
+5. コメントを追加して、各部分の説明を明確に
+
+改善されたコードのみを出力してください（説明は不要）。元のコードの意図を保ちながら、より良いバージョンを作成してください。`;
+
+        const response = await callGemini(prompt, 600);
+
+        // コードブロックから実際のコードを抽出
+        let cleanedCode = response;
+        const codeMatch = response.match(/```python\n([\s\S]*?)\n```/);
+        if (codeMatch) {
+            cleanedCode = codeMatch[1];
+        } else {
+            // ```で囲まれていない場合は、そのまま使用
+            cleanedCode = response.replace(/```/g, '').trim();
+        }
+
+        // エディタに修正されたコードを設定
+        editor.setValue(cleanedCode);
+
+        alert('コードが改善されました！実行して結果を確認してください。');
+
+    } catch (error) {
+        console.error('コード修正エラー:', error);
+        alert('コードの修正中にエラーが発生しました: ' + error.message);
+    } finally {
+        button.textContent = originalText;
+        button.disabled = false;
+    }
+}
+
+/**
+ * Markdownを簡易的にHTMLに変換
+ */
+function markdownToHtml(markdown) {
+    // まず、コードブロックを一時的に置換
+    const codeBlocks = [];
+    let processedMarkdown = markdown.replace(/```([\s\S]*?)```/g, (match, code) => {
+        codeBlocks.push(`<pre><code>${code.trim()}</code></pre>`);
+        return `__CODE_BLOCK_${codeBlocks.length - 1}__`;
+    });
+
+    // 通常の変換処理
+    processedMarkdown = processedMarkdown
+        .replace(/^# (.*$)/gm, '<h3>$1</h3>')
+        .replace(/^## (.*$)/gm, '<h4>$1</h4>')
+        .replace(/^### (.*$)/gm, '<h5>$1</h5>')
+        .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+        .replace(/\*(.*?)\*/g, '<em>$1</em>')
+        .replace(/`(.*?)`/g, '<code>$1</code>')
+        // リスト項目の処理
+        .replace(/^- (.*$)/gm, '<li>$1</li>')
+        .replace(/^\* (.*$)/gm, '<li>$1</li>')
+        .replace(/^\d+\. (.*$)/gm, '<li>$1</li>')
+        // 段落の処理
+        .replace(/\n\n+/g, '</p><p>')
+        .replace(/\n/g, '<br>');
+
+    // 段落タグで囲む
+    processedMarkdown = '<p>' + processedMarkdown + '</p>';
+
+    // リスト項目を<ul>で囲む
+    processedMarkdown = processedMarkdown.replace(/(<li>.*?<\/li>)(<br>)?/g, (match) => {
+        return match.replace(/<br>$/, '');
+    });
+    processedMarkdown = processedMarkdown.replace(/(<li>.*?<\/li>)+/g, (match) => {
+        return '<ul>' + match + '</ul>';
+    });
+
+    // コードブロックを元に戻す
+    codeBlocks.forEach((block, index) => {
+        processedMarkdown = processedMarkdown.replace(`__CODE_BLOCK_${index}__`, block);
+    });
+
+    // 空の段落を削除
+    processedMarkdown = processedMarkdown.replace(/<p><\/p>/g, '');
+
+    return processedMarkdown;
+}
+
 // DOM読み込み完了時の初期化
 document.addEventListener('DOMContentLoaded', () => {
     initDrawingEditor();
 });
 
 // エクスポート（必要に応じて他のモジュールから使用）
-export { initDrawingEditor, runDrawingCode, clearCanvas };
+export { initDrawingEditor, runDrawingCode, clearCanvas, reviewDrawingCode, fixDrawingCode };
