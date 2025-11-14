@@ -9,66 +9,79 @@ let editor;
 let canvas;
 let ctx;
 let completionEngine; // コード補完エンジン
+let animationId = null; // アニメーションループID
+let isAnimating = false; // アニメーション実行中フラグ
 
 /**
- * Pythonコードを自動フォーマット
+ * Pythonコードを生成AIでフォーマット
  * @param {CodeMirror} cm CodeMirrorインスタンス
  */
-function formatCode(cm) {
-  const code = cm.getValue();
-  const lines = code.split('\n');
-  const formattedLines = [];
-  let indentLevel = 0;
-  const indentUnit = cm.getOption('indentUnit') || 4;
-
-  for (let i = 0; i < lines.length; i++) {
-    const line = lines[i];
-    const trimmedLine = line.trim();
-
-    // 空行はそのまま
-    if (trimmedLine === '') {
-      formattedLines.push('');
-      continue;
-    }
-
-    // dedentが必要な行（else, elif, except, finally等）
-    const dedentKeywords = /^(else|elif|except|finally|case)/;
-    if (dedentKeywords.test(trimmedLine) && indentLevel > 0) {
-      indentLevel--;
-    }
-
-    // インデントを適用
-    const indent = ' '.repeat(indentLevel * indentUnit);
-    formattedLines.push(indent + trimmedLine);
-
-    // インデントを増やす必要がある行（コロンで終わる行）
-    if (trimmedLine.endsWith(':')) {
-      indentLevel++;
-    }
-
-    // returnやbreakなど、ブロックを終了するキーワード
-    // ただし、次の行がdedentキーワードでない場合のみ
-    const blockEndKeywords = /^(return|break|continue|pass|raise)\b/;
-    if (blockEndKeywords.test(trimmedLine)) {
-      // 次の行をチェック
-      if (i + 1 < lines.length) {
-        const nextLine = lines[i + 1].trim();
-        if (!dedentKeywords.test(nextLine) && nextLine !== '' && indentLevel > 0) {
-          // 次の行がdedentキーワードでもなく、空行でもない場合は何もしない
-        }
-      }
-    }
-
-    // dedentが必要な行の後処理
-    if (dedentKeywords.test(trimmedLine) && trimmedLine.endsWith(':')) {
-      indentLevel++;
-    }
+async function formatCode(cm) {
+  // APIキーの確認
+  const apiKey = localStorage.getItem('gemini_api_key');
+  if (!apiKey) {
+    alert('コードフォーマット機能を使用するには、Gemini APIキーを設定してください。');
+    return;
   }
 
-  // コードを置き換え
-  const cursor = cm.getCursor();
-  cm.setValue(formattedLines.join('\n'));
-  cm.setCursor(cursor);
+  const button = document.getElementById('format-btn');
+  if (!button) return;
+
+  const originalText = button.textContent;
+  button.textContent = 'フォーマット中...';
+  button.disabled = true;
+
+  try {
+    const code = cm.getValue();
+    if (!code.trim()) {
+      alert('フォーマットするコードを入力してください。');
+      return;
+    }
+
+    const prompt = `以下のPythonコード（p5.jsライクな描画ライブラリを使用）を適切にフォーマットしてください。
+
+元のコード:
+\`\`\`python
+${code}
+\`\`\`
+
+以下のルールに従ってフォーマットしてください：
+1. PEP 8スタイルに準拠
+2. 適切なインデント（スペース4つ）
+3. 適切な空行の挿入
+4. コメントの整理と改善
+5. コードの意図を保持
+
+フォーマットされたコードのみを出力してください（説明は不要）。`;
+
+    const response = await callGemini(prompt, 800);
+
+    // コードブロックから実際のコードを抽出
+    let formattedCode = response;
+    const codeMatch = response.match(/```python\n([\s\S]*?)\n```/);
+    if (codeMatch) {
+      formattedCode = codeMatch[1];
+    } else {
+      // ```で囲まれていない場合は、そのまま使用
+      formattedCode = response.replace(/```/g, '').trim();
+    }
+
+    // エディタに反映
+    const cursor = cm.getCursor();
+    cm.setValue(formattedCode);
+    // カーソル位置を復元（可能な範囲で）
+    const newLineCount = cm.lineCount();
+    if (cursor.line < newLineCount) {
+      cm.setCursor(cursor);
+    }
+
+  } catch (error) {
+    console.error('コードフォーマットエラー:', error);
+    alert('コードのフォーマット中にエラーが発生しました: ' + error.message);
+  } finally {
+    button.textContent = originalText;
+    button.disabled = false;
+  }
 }
 
 /**
@@ -137,6 +150,7 @@ class P5:
         # フレーム数とタイマー
         self.frame_count = 0
         self.start_time = None
+        self._last_time = None
         
     def clear(self):
         """キャンバスをクリア"""
@@ -848,6 +862,12 @@ def year():
 
 # グローバルなp5インスタンスを作成
 p5 = P5()
+
+# アニメーションループ用のグローバル変数
+_animation_running = False
+_animation_id = None
+frameCount = 0  # グローバルなフレームカウント
+deltaTime = 0   # 前フレームからの経過時間（ミリ秒）
 `;
 
 // エディタの初期化
@@ -869,13 +889,14 @@ async function initDrawingEditor() {
         tabSize: 4,
         smartIndent: true,
         electricChars: true,
+        styleSelectedText: true, // 選択テキストのスタイル適用を有効化
         extraKeys: {
             'Ctrl-/': 'toggleComment',
             'Cmd-/': 'toggleComment',
-            'Ctrl-Shift-F': formatCode,
-            'Cmd-Shift-F': formatCode,
-            'Ctrl-B': formatCode,
-            'Cmd-B': formatCode,
+            'Ctrl-Shift-F': (cm) => formatCode(cm),
+            'Cmd-Shift-F': (cm) => formatCode(cm),
+            'Ctrl-B': (cm) => formatCode(cm),
+            'Cmd-B': (cm) => formatCode(cm),
             'Tab': betterTab,
             'Shift-Tab': 'indentLess'
         }
@@ -908,8 +929,8 @@ function setupEventListeners() {
     document.getElementById('run-btn').addEventListener('click', runDrawingCode);
 
     // フォーマットボタン
-    document.getElementById('format-btn').addEventListener('click', () => {
-        formatCode(editor);
+    document.getElementById('format-btn').addEventListener('click', async () => {
+        await formatCode(editor);
     });
 
     // クリアボタン
@@ -946,11 +967,33 @@ async function runDrawingCode() {
     const code = editor.getValue();
 
     try {
+        // アニメーションが実行中の場合は停止
+        stopAnimation();
+
         // キャンバスをクリア
         clearCanvas();
 
-        // Python コードを実行用にラップ（インデントを保持）
-        const wrappedCode = `
+        // setup()とdraw()の存在を確認
+        const hasSetup = /def\s+setup\s*\(/.test(code);
+        const hasDraw = /def\s+draw\s*\(/.test(code);
+
+        if (hasSetup || hasDraw) {
+            // アニメーションモード: setup()とdraw()を使用
+            await runAnimationMode(code, outputEl);
+        } else {
+            // 通常モード: コードを直接実行
+            await runStaticMode(code, outputEl);
+        }
+
+    } catch (err) {
+        outputEl.textContent = 'エラー: ' + err.message;
+        console.error('描画エラー:', err);
+    }
+}
+
+// 通常モード（静的描画）
+async function runStaticMode(code, outputEl) {
+    const wrappedCode = `
 import sys, traceback
 from io import StringIO
 
@@ -969,15 +1012,154 @@ finally:
     sys.stdout, sys.stderr = _orig_stdout, _orig_stderr
 
 _out.getvalue() + _err.getvalue()
+    `;
+
+    const result = await pyodide.runPython(wrappedCode);
+    outputEl.textContent = result || '実行完了（出力なし）';
+}
+
+// アニメーションモード（setup & draw）
+async function runAnimationMode(code, outputEl) {
+    try {
+        // アニメーション開始メッセージ
+        outputEl.textContent = 'アニメーション実行中...\n';
+
+        // グローバル変数をリセット
+        await pyodide.runPython(`
+frameCount = 0
+deltaTime = 0
+p5.frame_count = 0
+import time
+p5.start_time = time.time()
+p5._last_time = time.time()
+        `);
+
+        // ユーザーコードを実行してsetup()とdraw()を定義
+        const setupCode = `
+import sys, traceback
+from io import StringIO
+
+_out = StringIO()
+_err = StringIO()
+_orig_stdout, _orig_stderr = sys.stdout, sys.stderr
+sys.stdout, sys.stderr = _out, _err
+
+try:
+    exec("""
+${code}
+""")
+
+    # setup()が定義されている場合は実行
+    if 'setup' in dir():
+        setup()
+
+except Exception:
+    traceback.print_exc(file=_err)
+finally:
+    sys.stdout, sys.stderr = _orig_stdout, _orig_stderr
+
+_out.getvalue() + _err.getvalue()
         `;
 
-        const result = await pyodide.runPython(wrappedCode);
-        outputEl.textContent = result || '実行完了（出力なし）';
+        const setupResult = await pyodide.runPython(setupCode);
+        if (setupResult) {
+            outputEl.textContent += setupResult + '\n';
+        }
+
+        // draw()が定義されているか確認
+        const hasDrawFunction = await pyodide.runPython(`'draw' in dir()`);
+
+        if (hasDrawFunction) {
+            // アニメーションループを開始
+            isAnimating = true;
+            startAnimationLoop(outputEl);
+            outputEl.textContent = 'アニメーション実行中... (再度実行ボタンを押すと停止します)\n';
+        } else {
+            outputEl.textContent += 'setup()のみ実行完了\n';
+        }
 
     } catch (err) {
-        outputEl.textContent = 'エラー: ' + err.message;
-        console.error('描画エラー:', err);
+        outputEl.textContent = 'アニメーション初期化エラー: ' + err.message;
+        console.error('アニメーションエラー:', err);
     }
+}
+
+// アニメーションループを開始
+function startAnimationLoop(outputEl) {
+    let lastTime = performance.now();
+
+    const loop = async () => {
+        if (!isAnimating) {
+            return;
+        }
+
+        try {
+            const currentTime = performance.now();
+            const deltaMs = currentTime - lastTime;
+            lastTime = currentTime;
+
+            // フレームカウントとdeltaTimeを更新
+            await pyodide.runPython(`
+import time
+frameCount = frameCount + 1 if 'frameCount' in dir() else 1
+deltaTime = ${deltaMs}
+p5.frame_count = frameCount
+current_time = time.time()
+if p5._last_time is not None:
+    deltaTime = (current_time - p5._last_time) * 1000
+p5._last_time = current_time
+            `);
+
+            // draw()関数を実行
+            const drawCode = `
+import sys, traceback
+from io import StringIO
+
+_err = StringIO()
+_orig_stderr = sys.stderr
+sys.stderr = _err
+
+try:
+    if 'draw' in dir():
+        draw()
+except Exception:
+    traceback.print_exc(file=_err)
+finally:
+    sys.stderr = _orig_stderr
+
+_err.getvalue()
+            `;
+
+            const drawResult = await pyodide.runPython(drawCode);
+
+            // エラーがあれば表示して停止
+            if (drawResult && drawResult.trim()) {
+                outputEl.textContent = 'アニメーションエラー:\n' + drawResult;
+                stopAnimation();
+                return;
+            }
+
+            // 次のフレームを要求
+            animationId = requestAnimationFrame(loop);
+
+        } catch (err) {
+            outputEl.textContent = 'アニメーション実行エラー: ' + err.message;
+            console.error('アニメーションループエラー:', err);
+            stopAnimation();
+        }
+    };
+
+    // 最初のフレームを開始
+    animationId = requestAnimationFrame(loop);
+}
+
+// アニメーションを停止
+function stopAnimation() {
+    if (animationId !== null) {
+        cancelAnimationFrame(animationId);
+        animationId = null;
+    }
+    isAnimating = false;
 }
 
 // キャンバスのクリア
