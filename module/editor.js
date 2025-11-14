@@ -13,6 +13,80 @@ let isWaitingForInput = false;
 let inputCallback = null;
 
 /**
+ * Pythonコードを自動フォーマット
+ * @param {CodeMirror} cm CodeMirrorインスタンス
+ */
+function formatCode(cm) {
+  const code = cm.getValue();
+  const lines = code.split('\n');
+  const formattedLines = [];
+  let indentLevel = 0;
+  const indentUnit = cm.getOption('indentUnit') || 4;
+
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    const trimmedLine = line.trim();
+
+    // 空行はそのまま
+    if (trimmedLine === '') {
+      formattedLines.push('');
+      continue;
+    }
+
+    // dedentが必要な行（else, elif, except, finally等）
+    const dedentKeywords = /^(else|elif|except|finally|case)/;
+    if (dedentKeywords.test(trimmedLine) && indentLevel > 0) {
+      indentLevel--;
+    }
+
+    // インデントを適用
+    const indent = ' '.repeat(indentLevel * indentUnit);
+    formattedLines.push(indent + trimmedLine);
+
+    // インデントを増やす必要がある行（コロンで終わる行）
+    if (trimmedLine.endsWith(':')) {
+      indentLevel++;
+    }
+
+    // returnやbreakなど、ブロックを終了するキーワード
+    // ただし、次の行がdedentキーワードでない場合のみ
+    const blockEndKeywords = /^(return|break|continue|pass|raise)\b/;
+    if (blockEndKeywords.test(trimmedLine)) {
+      // 次の行をチェック
+      if (i + 1 < lines.length) {
+        const nextLine = lines[i + 1].trim();
+        if (!dedentKeywords.test(nextLine) && nextLine !== '' && indentLevel > 0) {
+          // 次の行がdedentキーワードでもなく、空行でもない場合は何もしない
+        }
+      }
+    }
+
+    // dedentが必要な行の後処理
+    if (dedentKeywords.test(trimmedLine) && trimmedLine.endsWith(':')) {
+      indentLevel++;
+    }
+  }
+
+  // コードを置き換え
+  const cursor = cm.getCursor();
+  cm.setValue(formattedLines.join('\n'));
+  cm.setCursor(cursor);
+}
+
+/**
+ * タブキーの動作を改善
+ * 選択範囲がある場合はインデント、ない場合は通常のタブ
+ * @param {CodeMirror} cm CodeMirrorインスタンス
+ */
+function betterTab(cm) {
+  if (cm.somethingSelected()) {
+    cm.indentSelection('add');
+  } else {
+    cm.replaceSelection('    ', 'end');
+  }
+}
+
+/**
  * AIモジュールを遅延読み込み
  */
 async function loadAIModule() {
@@ -332,8 +406,18 @@ export async function initEditor() {
       indentUnit: EDITOR_CONFIG.INDENT_UNIT,
       tabSize: EDITOR_CONFIG.TAB_SIZE,
       lineWrapping: EDITOR_CONFIG.LINE_WRAPPING,
+      smartIndent: true,
+      electricChars: true,
       extraKeys: {
-        'Ctrl-Space': 'autocomplete'
+        'Ctrl-Space': 'autocomplete',
+        'Ctrl-/': 'toggleComment',
+        'Cmd-/': 'toggleComment',
+        'Ctrl-Shift-F': formatCode,
+        'Cmd-Shift-F': formatCode,
+        'Ctrl-B': formatCode,
+        'Cmd-B': formatCode,
+        'Tab': betterTab,
+        'Shift-Tab': 'indentLess'
       }
     });
     appState.setEditor(editor);
@@ -398,9 +482,15 @@ export async function initEditor() {
 
   if (problemFiles.length) await loadProblem(0);
 
-  const runBtn = document.getElementById('run'); 
+  const runBtn = document.getElementById('run');
   runBtn.disabled = false;
   runBtn.addEventListener('click', runCode);
+
+  // フォーマットボタンの初期化
+  const formatBtn = document.getElementById('format-code');
+  formatBtn.addEventListener('click', () => {
+    formatCode(appState.getEditor());
+  });
 
   // AIコード修正ボタンの初期化
   const aiFixBtn = document.getElementById('ai-fix-code');
