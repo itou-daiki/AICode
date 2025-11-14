@@ -8,7 +8,7 @@
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/codemirror@5.65.16/lib/codemirror.css" />
   <style>
     :root { --header-height: 64px; }
-    html, body { margin: 0; padding: 0; height: 100%; font-family: 'Segoe UI', Tahoma, sans-serif; overflow: hidden; }
+    html, body { margin: 0; padding: 0; height: 100%; font-family: 'Segoe UI', Tahoma, sans-serif; overflow: auto; }
     header {
       position: relative;
       display: flex;
@@ -71,19 +71,21 @@
     }
     .main-container {
       display: flex;
-      height: calc(100vh - var(--header-height));
+      min-height: calc(100vh - var(--header-height));
     }
     .editor-panel {
       width: 50%;
       display: flex;
       flex-direction: column;
       border-right: 1px solid #bdc3c7;
+      min-height: 0;
     }
     .canvas-panel {
       width: 50%;
       display: flex;
       flex-direction: column;
       background: #f8f9fa;
+      min-height: 0;
     }
     .panel-header {
       background: #34495e;
@@ -96,6 +98,8 @@
       flex: 1;
       display: flex;
       flex-direction: column;
+      overflow: hidden;
+      min-height: 0;
     }
     .canvas-container {
       flex: 1;
@@ -103,6 +107,8 @@
       justify-content: center;
       align-items: center;
       padding: 1em;
+      overflow: auto;
+      min-height: 0;
     }
     #canvas {
       border: 2px solid #bdc3c7;
@@ -115,6 +121,10 @@
       line-height: 1.5;
       background: #1e1e1e !important;
       color: #d4d4d4 !important;
+    }
+    .CodeMirror-scroll {
+      overflow-y: auto;
+      overflow-x: auto;
     }
     .CodeMirror-lines {
       background: #1e1e1e !important;
@@ -204,6 +214,8 @@
       padding: 1em;
       background: #ecf0f1;
       border-top: 1px solid #bdc3c7;
+      overflow-y: auto;
+      max-height: 200px;
     }
     .examples h3 {
       margin: 0 0 0.5em 0;
