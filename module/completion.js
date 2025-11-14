@@ -1,12 +1,16 @@
 // module/completion.js
 import { callGemini } from './ai.js';
+import { COMPLETION_CONFIG } from './config.js';
 
+/**
+ * コード補完エンジン
+ */
 export class CodeCompletionEngine {
   constructor(editor) {
     try {
       console.log('CodeCompletionEngine コンストラクタ呼び出し', editor);
       this.editor = editor;
-      this.completionMode = 'inline-only'; // デフォルトをインライン補完のみに変更
+      this.completionMode = COMPLETION_CONFIG.DEFAULT_MODE;
       this.debounceTimer = null;
       this.cache = new Map();
       this.popup = null;
@@ -15,10 +19,10 @@ export class CodeCompletionEngine {
       this.inlineWidget = null;
       this.currentInlineSuggestion = null;
       this.isShowingInline = false; // インライン表示中フラグ
-      
+
       this.initPopup();
       this.bindEvents();
-      
+
       console.log('CodeCompletionEngine 初期化完了');
     } catch (error) {
       console.error('CodeCompletionEngine 初期化エラー:', error);
@@ -169,7 +173,7 @@ export class CodeCompletionEngine {
     clearTimeout(this.debounceTimer);
     this.debounceTimer = setTimeout(() => {
       this.requestCompletion();
-    }, 500); // 500ms デバウンス（高速化のため短縮）
+    }, COMPLETION_CONFIG.DEBOUNCE_DELAY);
   }
 
   async requestCompletion(isManual = false) {
@@ -193,14 +197,14 @@ export class CodeCompletionEngine {
     // AIに補完を要求
     try {
       const suggestions = await this.generateCompletions(fullCode, beforeCursor, afterCursor, cursor.line);
-      
-      // キャッシュに保存（最大50件）
-      if (this.cache.size >= 50) {
+
+      // キャッシュに保存
+      if (this.cache.size >= COMPLETION_CONFIG.CACHE_SIZE) {
         const firstKey = this.cache.keys().next().value;
         this.cache.delete(firstKey);
       }
       this.cache.set(cacheKey, suggestions);
-      
+
       this.handleSuggestions(suggestions, cursor, isManual);
     } catch (error) {
       console.error('補完生成エラー:', error);
@@ -243,7 +247,7 @@ export class CodeCompletionEngine {
 
   async generateCompletions(fullCode, beforeCursor, afterCursor, lineNumber) {
     // 短すぎるコンテキストの場合は基本補完のみ
-    if (beforeCursor.trim().length < 2) {
+    if (beforeCursor.trim().length < COMPLETION_CONFIG.MIN_CONTEXT_LENGTH) {
       return this.getBasicCompletions(beforeCursor);
     }
 
@@ -268,7 +272,7 @@ Only output COMPLETION: lines.`;
       for (const line of lines) {
         if (line.startsWith('COMPLETION:')) {
           const completion = line.substring(11).trim();
-          if (completion && suggestions.length < 5) {
+          if (completion && suggestions.length < COMPLETION_CONFIG.MAX_SUGGESTIONS) {
             suggestions.push(completion);
           }
         }
@@ -339,7 +343,7 @@ Only output COMPLETION: lines.`;
     if (this.completionMode === 'inline-only') {
       return completions.slice(0, 1); // インライン用に1つだけ
     } else {
-      return completions.slice(0, 5); // 複数候補用に最大5つ
+      return completions.slice(0, COMPLETION_CONFIG.MAX_SUGGESTIONS);
     }
   }
 
