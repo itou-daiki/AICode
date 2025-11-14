@@ -61,9 +61,15 @@ async function loadProblem(idx) {
 
     document.getElementById('problem-content').innerHTML =
       `<h3>${data.title}</h3>
-       <p>${data.description}</p>
-       <h4>入力例</h4><pre>${data.input}</pre>
-       <h4>期待出力</h4><pre>${data.expected}</pre>`;
+       <div class="problem-layout">
+         <div class="problem-description">
+           <p>${data.description}</p>
+         </div>
+         <div class="problem-examples">
+           <h4>入力例</h4><pre>${data.input}</pre>
+           <h4>期待出力</h4><pre>${data.expected}</pre>
+         </div>
+       </div>`;
     appState.getEditor().setValue(data.template || '');
 
     // ナビゲーションボタンの状態を更新
