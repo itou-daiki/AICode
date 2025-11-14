@@ -71,7 +71,17 @@
     }
     .main-container {
       display: flex;
-      min-height: calc(100vh - var(--header-height));
+      flex-direction: column;
+      height: calc(100vh - var(--header-height));
+    }
+    .top-section {
+      height: 75%;
+      display: flex;
+      border-bottom: 1px solid #bdc3c7;
+    }
+    .bottom-section {
+      height: 25%;
+      display: flex;
     }
     .editor-panel {
       width: 50%;
@@ -81,6 +91,21 @@
       min-height: 0;
     }
     .canvas-panel {
+      width: 50%;
+      display: flex;
+      flex-direction: column;
+      background: #f8f9fa;
+      min-height: 0;
+    }
+    .samples-panel {
+      width: 50%;
+      display: flex;
+      flex-direction: column;
+      border-right: 1px solid #bdc3c7;
+      background: #ecf0f1;
+      min-height: 0;
+    }
+    .output-panel {
       width: 50%;
       display: flex;
       flex-direction: column;
@@ -187,10 +212,10 @@
       color: #ffd700 !important; /* 括弧 */
     }
     .output-section {
-      height: 150px;
-      border-top: 1px solid #bdc3c7;
+      flex: 1;
       display: flex;
       flex-direction: column;
+      overflow: hidden;
     }
     .output-header {
       background: #95a5a6;
@@ -212,11 +237,10 @@
       overflow-y: auto;
     }
     .examples {
+      flex: 1;
       padding: 1em;
       background: #ecf0f1;
-      border-top: 1px solid #bdc3c7;
       overflow-y: auto;
-      max-height: 200px;
     }
     .examples h3 {
       margin: 0 0 0.5em 0;
@@ -271,10 +295,11 @@
   </header>
 
   <div class="main-container">
-    <div class="editor-panel">
-      <div class="panel-header">Python コードエディタ</div>
-      <div class="editor-container">
-        <textarea id="code" style="display: none;"># p5.jsライクなPython描画コード
+    <div class="top-section">
+      <div class="editor-panel">
+        <div class="panel-header">Python コードエディタ</div>
+        <div class="editor-container">
+          <textarea id="code" style="display: none;"># p5.jsライクなPython描画コード
 # キャンバスサイズ: 400x400
 
 def setup():
@@ -312,28 +337,37 @@ def draw():
 setup()
 draw()
 </textarea>
+        </div>
       </div>
-      <div class="output-section">
-        <div class="output-header">実行結果</div>
-        <textarea id="output" readonly></textarea>
-      </div>
-      <div class="examples">
-        <h3>サンプルコード（クリックで挿入）</h3>
-        <div class="example-code">p5.circle(200, 200, 50)  # 円を描画</div>
-        <div class="example-code">p5.rect(100, 100, 80, 60)  # 四角形を描画</div>
-        <div class="example-code">p5.line(0, 0, 400, 400)  # 線を描画</div>
-        <div class="example-code">p5.fill(255, 0, 0)  # 赤色で塗りつぶし</div>
-        <div class="example-code">p5.stroke(0, 255, 0)  # 緑色の輪郭</div>
-        <div class="example-code">p5.bezier(50, 50, 100, 100, 300, 100, 350, 350)  # ベジェ曲線</div>
-        <div class="example-code">p5.begin_shape(); p5.vertex(100, 100); p5.vertex(200, 50); p5.vertex(300, 100); p5.end_shape('CLOSE')  # カスタム形状</div>
-        <div class="example-code">x = random(0, 400); y = random(0, 400); p5.circle(x, y, 30)  # ランダムな位置に円</div>
+
+      <div class="canvas-panel">
+        <div class="panel-header">描画キャンバス (400x400)</div>
+        <div class="canvas-container">
+          <canvas id="canvas" width="400" height="400"></canvas>
+        </div>
       </div>
     </div>
 
-    <div class="canvas-panel">
-      <div class="panel-header">描画キャンバス (400x400)</div>
-      <div class="canvas-container">
-        <canvas id="canvas" width="400" height="400"></canvas>
+    <div class="bottom-section">
+      <div class="samples-panel">
+        <div class="panel-header">サンプルコード（クリックで挿入）</div>
+        <div class="examples">
+          <div class="example-code">p5.circle(200, 200, 50)  # 円を描画</div>
+          <div class="example-code">p5.rect(100, 100, 80, 60)  # 四角形を描画</div>
+          <div class="example-code">p5.line(0, 0, 400, 400)  # 線を描画</div>
+          <div class="example-code">p5.fill(255, 0, 0)  # 赤色で塗りつぶし</div>
+          <div class="example-code">p5.stroke(0, 255, 0)  # 緑色の輪郭</div>
+          <div class="example-code">p5.bezier(50, 50, 100, 100, 300, 100, 350, 350)  # ベジェ曲線</div>
+          <div class="example-code">p5.begin_shape(); p5.vertex(100, 100); p5.vertex(200, 50); p5.vertex(300, 100); p5.end_shape('CLOSE')  # カスタム形状</div>
+          <div class="example-code">x = random(0, 400); y = random(0, 400); p5.circle(x, y, 30)  # ランダムな位置に円</div>
+        </div>
+      </div>
+
+      <div class="output-panel">
+        <div class="panel-header">実行結果</div>
+        <div class="output-section">
+          <textarea id="output" readonly></textarea>
+        </div>
       </div>
     </div>
   </div>
