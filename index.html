@@ -120,7 +120,7 @@
     @keyframes spin { to { transform: rotate(360deg); } }
     #container {
       display: flex;
-      min-height: calc(70vh - var(--header-height));
+      min-height: calc(80vh - var(--header-height));
       visibility: hidden;
     }
     aside {
@@ -166,7 +166,7 @@
       background: linear-gradient(135deg, #f7f9fa 0%, #e9ecef 100%);
       border-bottom: 2px solid #dfe6e9;
       overflow-y: auto;
-      max-height: 30vh;
+      max-height: 20vh;
       box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
     }
     #problem-area h2 {
@@ -197,8 +197,8 @@
       flex: 1;
       gap: 0;
       min-height: 400px;
-      height: calc(100vh - var(--header-height) - 30vh - 4em);
-      max-height: calc(100vh - var(--header-height) - 30vh - 4em);
+      height: calc(100vh - var(--header-height) - 20vh - 4em);
+      max-height: calc(100vh - var(--header-height) - 20vh - 4em);
     }
     #editor, #result {
       flex: 1 1 50%;
@@ -288,7 +288,7 @@
     /* レスポンシブ対応：小さな画面でのコンパクト表示 */
     @media (max-width: 768px) {
       #container {
-        min-height: calc(60vh - var(--header-height));
+        min-height: calc(70vh - var(--header-height));
       }
       main {
         flex-direction: column;
