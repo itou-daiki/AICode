@@ -873,6 +873,7 @@
           <textarea id="code"></textarea>
           <div class="button-group">
             <button id="run" disabled>▶ 実行する</button>
+            <button id="format-code">✨ フォーマット</button>
             <button id="ai-fix-code" disabled>🤖 AIコード修正</button>
           </div>
         </div>
@@ -978,7 +979,13 @@
             <strong style="color: #2c3e50;">Tab</strong> - インライン補完を受け入れ
           </div>
           <div>
-            <strong style="color: #2c3e50;">Ctrl + I</strong> - 複数候補を表示
+            <strong style="color: #2c3e50;">Ctrl + Space</strong> - コード補完
+          </div>
+          <div>
+            <strong style="color: #2c3e50;">Ctrl + /</strong> - コメント/アンコメント
+          </div>
+          <div>
+            <strong style="color: #2c3e50;">Ctrl + Shift + F</strong> - コードフォーマット
           </div>
           <div>
             <strong style="color: #2c3e50;">Esc</strong> - 補完をキャンセル
@@ -1000,6 +1007,7 @@
   <!-- JS Libraries -->
   <script src="https://cdn.jsdelivr.net/npm/codemirror@5.65.16/lib/codemirror.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/codemirror@5.65.16/mode/python/python.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/codemirror@5.65.16/addon/comment/comment.js"></script>
   <script src="https://cdn.jsdelivr.net/pyodide/v0.23.4/full/pyodide.js"></script>
   <!-- Module Scripts -->
   <script type="module" src="module/completion.js"></script>

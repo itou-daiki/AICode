@@ -5,6 +5,80 @@ let editor;
 let canvas;
 let ctx;
 
+/**
+ * Pythonコードを自動フォーマット
+ * @param {CodeMirror} cm CodeMirrorインスタンス
+ */
+function formatCode(cm) {
+  const code = cm.getValue();
+  const lines = code.split('\n');
+  const formattedLines = [];
+  let indentLevel = 0;
+  const indentUnit = cm.getOption('indentUnit') || 4;
+
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    const trimmedLine = line.trim();
+
+    // 空行はそのまま
+    if (trimmedLine === '') {
+      formattedLines.push('');
+      continue;
+    }
+
+    // dedentが必要な行（else, elif, except, finally等）
+    const dedentKeywords = /^(else|elif|except|finally|case)/;
+    if (dedentKeywords.test(trimmedLine) && indentLevel > 0) {
+      indentLevel--;
+    }
+
+    // インデントを適用
+    const indent = ' '.repeat(indentLevel * indentUnit);
+    formattedLines.push(indent + trimmedLine);
+
+    // インデントを増やす必要がある行（コロンで終わる行）
+    if (trimmedLine.endsWith(':')) {
+      indentLevel++;
+    }
+
+    // returnやbreakなど、ブロックを終了するキーワード
+    // ただし、次の行がdedentキーワードでない場合のみ
+    const blockEndKeywords = /^(return|break|continue|pass|raise)\b/;
+    if (blockEndKeywords.test(trimmedLine)) {
+      // 次の行をチェック
+      if (i + 1 < lines.length) {
+        const nextLine = lines[i + 1].trim();
+        if (!dedentKeywords.test(nextLine) && nextLine !== '' && indentLevel > 0) {
+          // 次の行がdedentキーワードでもなく、空行でもない場合は何もしない
+        }
+      }
+    }
+
+    // dedentが必要な行の後処理
+    if (dedentKeywords.test(trimmedLine) && trimmedLine.endsWith(':')) {
+      indentLevel++;
+    }
+  }
+
+  // コードを置き換え
+  const cursor = cm.getCursor();
+  cm.setValue(formattedLines.join('\n'));
+  cm.setCursor(cursor);
+}
+
+/**
+ * タブキーの動作を改善
+ * 選択範囲がある場合はインデント、ない場合は通常のタブ
+ * @param {CodeMirror} cm CodeMirrorインスタンス
+ */
+function betterTab(cm) {
+  if (cm.somethingSelected()) {
+    cm.indentSelection('add');
+  } else {
+    cm.replaceSelection('    ', 'end');
+  }
+}
+
 // p5.jsライクな描画ライブラリをPythonで実装
 const P5_PYTHON_LIBRARY = `
 import math
@@ -429,7 +503,19 @@ async function initDrawingEditor() {
         mode: 'python',
         lineNumbers: true,
         indentUnit: 4,
-        tabSize: 4
+        tabSize: 4,
+        smartIndent: true,
+        electricChars: true,
+        extraKeys: {
+            'Ctrl-/': 'toggleComment',
+            'Cmd-/': 'toggleComment',
+            'Ctrl-Shift-F': formatCode,
+            'Cmd-Shift-F': formatCode,
+            'Ctrl-B': formatCode,
+            'Cmd-B': formatCode,
+            'Tab': betterTab,
+            'Shift-Tab': 'indentLess'
+        }
     });
     
     // キャンバスの初期化
@@ -448,7 +534,12 @@ async function initDrawingEditor() {
 function setupEventListeners() {
     // 実行ボタン
     document.getElementById('run-btn').addEventListener('click', runDrawingCode);
-    
+
+    // フォーマットボタン
+    document.getElementById('format-btn').addEventListener('click', () => {
+        formatCode(editor);
+    });
+
     // クリアボタン
     document.getElementById('clear-btn').addEventListener('click', clearCanvas);
     
