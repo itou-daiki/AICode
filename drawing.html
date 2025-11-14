@@ -105,8 +105,9 @@
       flex: 1;
       display: flex;
       justify-content: center;
-      align-items: center;
-      padding: 1em;
+      align-items: flex-start;
+      padding: 1em 1em 1em 1em;
+      padding-top: 0.5em;
       overflow: auto;
       min-height: 0;
     }
@@ -276,32 +277,40 @@
         <textarea id="code" style="display: none;"># p5.jsライクなPython描画コード
 # キャンバスサイズ: 400x400
 
-# 背景色を設定
-p5.background(240, 240, 240)
+def setup():
+    """初期設定を行う関数"""
+    # 背景色を設定
+    p5.background(240, 240, 240)
 
-# 円を描画
-p5.fill(255, 100, 100)
-p5.stroke(200, 50, 50)
-p5.stroke_weight(3)
-p5.circle(200, 200, 100)
+def draw():
+    """描画を行う関数"""
+    # 円を描画
+    p5.fill(255, 100, 100)
+    p5.stroke(200, 50, 50)
+    p5.stroke_weight(3)
+    p5.circle(200, 200, 100)
 
-# 四角形を描画
-p5.fill(100, 255, 100)
-p5.stroke(50, 200, 50)
-p5.rect(50, 50, 80, 80)
+    # 四角形を描画
+    p5.fill(100, 255, 100)
+    p5.stroke(50, 200, 50)
+    p5.rect(50, 50, 80, 80)
 
-# 三角形を描画
-p5.fill(100, 100, 255)
-p5.stroke(50, 50, 200)
-p5.triangle(300, 300, 250, 350, 350, 350)
+    # 三角形を描画
+    p5.fill(100, 100, 255)
+    p5.stroke(50, 50, 200)
+    p5.triangle(300, 300, 250, 350, 350, 350)
 
-# カスタム形状を描画
-p5.fill(255, 200, 100, 200)  # 透明度付き
-p5.begin_shape()
-p5.vertex(100, 300)
-p5.vertex(150, 250)
-p5.vertex(200, 300)
-p5.end_shape('CLOSE')
+    # カスタム形状を描画
+    p5.fill(255, 200, 100, 200)  # 透明度付き
+    p5.begin_shape()
+    p5.vertex(100, 300)
+    p5.vertex(150, 250)
+    p5.vertex(200, 300)
+    p5.end_shape('CLOSE')
+
+# 関数を実行
+setup()
+draw()
 </textarea>
       </div>
       <div class="output-section">
