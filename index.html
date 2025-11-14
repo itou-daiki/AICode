@@ -197,18 +197,20 @@
       box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
       font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
     }
-    /* 上下レイアウト */
+    /* 左右2分割レイアウト */
     .problem-layout {
       display: flex;
-      flex-direction: column;
+      flex-direction: row;
       gap: 1.5em;
       margin-top: 1em;
     }
     .problem-description {
-      width: 100%;
+      flex: 1;
+      min-width: 0;
     }
     .problem-examples {
-      width: 100%;
+      flex: 1;
+      min-width: 0;
       background: #fff;
       padding: 1em;
       border: 1px solid #dfe6e9;
@@ -341,6 +343,14 @@
       .CodeMirror {
         min-height: 200px;
         height: 300px;
+      }
+      /* 小さな画面では問題レイアウトを縦に戻す */
+      .problem-layout {
+        flex-direction: column;
+      }
+      .problem-description,
+      .problem-examples {
+        width: 100%;
       }
     }
     .CodeMirror-linenumber {
