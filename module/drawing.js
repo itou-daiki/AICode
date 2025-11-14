@@ -457,7 +457,7 @@ function setupEventListeners() {
         example.addEventListener('click', () => {
             const code = example.textContent.split(' //')[0].trim(); // コメント部分を除去
             const cursor = editor.getCursor();
-            editor.replaceRange(code + '\\n', cursor);
+            editor.replaceRange(code + '\n', cursor);
             editor.focus();
         });
     });
@@ -466,7 +466,7 @@ function setupEventListeners() {
 // 描画コードの実行
 async function runDrawingCode() {
     const outputEl = document.getElementById('output');
-    outputEl.textContent = '実行中...\\n';
+    outputEl.textContent = '実行中...\n';
     
     const code = editor.getValue();
     
@@ -485,7 +485,7 @@ _orig_stdout, _orig_stderr = sys.stdout, sys.stderr
 sys.stdout, sys.stderr = _out, _err
 
 try:
-${code.split('\\n').map(l => l.trim() ? '    ' + l : '').join('\\n')}
+${code.split('\n').map(l => l.trim() ? '    ' + l : '').join('\n')}
 except Exception:
     traceback.print_exc(file=_err)
 finally:
