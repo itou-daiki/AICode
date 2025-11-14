@@ -40,14 +40,26 @@
       background: #3498db;
       color: #fff;
       border: none;
-      border-radius: 4px;
-      padding: 0.3em 0.6em;
+      border-radius: 6px;
+      padding: 0.4em 0.8em;
       cursor: pointer;
-      font-size: 0.8em;
+      font-size: 0.85em;
+      font-weight: 500;
+      transition: all 0.2s ease;
+      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    }
+    .problem-nav button:hover:not(:disabled) {
+      background: #2980b9;
+      transform: translateY(-1px);
+      box-shadow: 0 4px 6px rgba(0, 0, 0, 0.15);
+    }
+    .problem-nav button:active:not(:disabled) {
+      transform: translateY(0);
     }
     .problem-nav button:disabled {
       background: #95a5a6;
       cursor: not-allowed;
+      opacity: 0.6;
     }
     #current-problem-label {
       font-weight: bold;
@@ -66,12 +78,15 @@
       gap: 0.5em;
     }
     .mode-switch {
-      background: #8e44ad;
+      background: linear-gradient(135deg, #8e44ad, #9b59b6);
       color: #fff;
       border: none;
-      border-radius: 4px;
+      border-radius: 6px;
       padding: 0.5em 1em;
       cursor: pointer;
+      font-weight: 500;
+      transition: all 0.2s ease;
+      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
       text-decoration: none;
       font-size: 0.8em;
       display: flex;
@@ -147,59 +162,77 @@
       overflow: visible;
     }
     #problem-area {
-      padding: 1em;
-      background: #f7f9fa;
-      border-bottom: 1px solid #dfe6e9;
+      padding: 1.5em;
+      background: linear-gradient(135deg, #f7f9fa 0%, #e9ecef 100%);
+      border-bottom: 2px solid #dfe6e9;
       overflow-y: auto;
       max-height: 30vh;
+      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
     }
     #problem-area h2 {
-      margin: 0 0 0.5em;
+      margin: 0 0 1em;
+      font-size: 1.2em;
+      font-weight: 600;
+      color: #2c3e50;
+      padding-bottom: 0.5em;
+      border-bottom: 2px solid #3498db;
     }
     #problem-area h3 {
-      margin: 1em 0 0.2em;
-      font-size: 0.9em;
+      margin: 1.5em 0 0.5em;
+      font-size: 1em;
+      font-weight: 600;
       color: #34495e;
     }
     #problem-area pre {
       background: #fff;
-      padding: 0.5em;
+      padding: 1em;
       border: 1px solid #dfe6e9;
-      border-radius: 4px;
+      border-radius: 6px;
       overflow-x: auto;
+      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+      font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
     }
     main {
       display: flex;
       flex: 1;
-      min-height: 300px;
+      gap: 0;
+      min-height: 400px;
+      height: calc(100vh - var(--header-height) - 30vh - 4em);
+      max-height: calc(100vh - var(--header-height) - 30vh - 4em);
     }
     #editor, #result {
       flex: 1 1 50%;
       min-width: 0;
-      padding: 1em; box-sizing: border-box;
-      display: flex; flex-direction: column;
-      overflow: visible;
+      padding: 1.5em;
+      box-sizing: border-box;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
     }
     #editor {
-      background: #fff;
-      border-right: 1px solid #dfe6e9;
-      box-shadow: inset 0 0 5px rgba(0,0,0,0.03);
+      background: #f8f9fa;
+      border-right: 2px solid #e1e8ed;
+    }
+    #result {
+      background: #ffffff;
     }
     #editor h2, #result h2 {
-      margin: 0 0 0.5em;
-      font-size: 1em;
+      margin: 0 0 1em;
+      font-size: 1.1em;
+      font-weight: 600;
       color: #2c3e50;
+      padding-bottom: 0.5em;
+      border-bottom: 2px solid #3498db;
     }
     .CodeMirror {
       flex: 1;
       border: 1px solid #dfe6e9;
-      border-radius: 4px;
+      border-radius: 6px;
       background: #1e1e1e;
       font-size: 16px;
       font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
-      min-height: 250px;
-      max-height: 50vh;
-      height: auto;
+      height: 100%;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
     }
     .CodeMirror-scroll {
       background: #1e1e1e;
@@ -258,11 +291,25 @@
         min-height: calc(60vh - var(--header-height));
       }
       main {
+        flex-direction: column;
+        min-height: auto;
+        height: auto;
+        max-height: none;
+      }
+      #editor, #result {
+        flex: 1 1 auto;
+        border-right: none;
+        border-bottom: 2px solid #e1e8ed;
+      }
+      #editor {
+        min-height: 300px;
+      }
+      #result {
         min-height: 250px;
       }
       .CodeMirror {
         min-height: 200px;
-        max-height: 40vh;
+        height: 300px;
       }
     }
     .CodeMirror-linenumber {
@@ -300,31 +347,64 @@
     .cm-s-default .cm-bracket {
       color: #ffd700; /* 括弧 */
     }
+    /* ボタングループ */
+    .button-group {
+      display: flex;
+      gap: 0.75em;
+      margin-top: 1em;
+      width: 100%;
+    }
+
     #editor button, #result button {
-      align-self: flex-start;
       background: #3498db;
       color: #fff;
       border: none;
-      border-radius: 4px;
-      padding: 0.5em 1em;
+      border-radius: 6px;
+      padding: 0.7em 1.2em;
       cursor: pointer;
-      transition: background 0.2s;
-      height: 40px;
+      transition: all 0.2s ease;
+      height: 44px;
+      font-size: 15px;
+      font-weight: 500;
+      box-shadow: 0 2px 4px rgba(52, 152, 219, 0.2);
+    }
+    .button-group button {
       flex: 1;
     }
     #editor button:hover, #result button:hover {
       background: #2980b9;
+      transform: translateY(-1px);
+      box-shadow: 0 4px 8px rgba(52, 152, 219, 0.3);
+    }
+    #editor button:active, #result button:active {
+      transform: translateY(0);
+    }
+    #editor button:disabled, #result button:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+      transform: none;
     }
 
     /* AIコード修正ボタンのスタイル */
     #ai-fix-code {
       background: linear-gradient(135deg, #8e44ad, #9b59b6);
       font-weight: 500;
-      height: 40px;
-      flex: 1;
     }
     #ai-fix-code:hover {
       background: linear-gradient(135deg, #7d3c98, #8e44ad);
+    }
+
+    /* 正誤判定結果 */
+    #check-result {
+      margin-top: 1em;
+      padding: 1em;
+      background: #f7f9fa;
+      border-radius: 6px;
+      border-left: 4px solid #3498db;
+      display: none;
+      max-height: 200px;
+      overflow-y: auto;
+      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
     }
     
     /* モダンなAIボタンスタイル */
@@ -368,15 +448,19 @@
     }
     #output {
       flex: 1;
-      background: #fff;
+      background: #f8f9fa;
       border: 1px solid #dfe6e9;
-      border-radius: 4px;
+      border-radius: 6px;
       padding: 1em;
       white-space: pre;
       overflow-x: auto;
       overflow-y: auto;
-      box-shadow: inset 0 0 5px rgba(0,0,0,0.03);
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
       position: relative;
+      font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+      font-size: 14px;
+      line-height: 1.6;
+      min-height: 0;
     }
     
     /* チャット機能のスタイル */
@@ -599,29 +683,34 @@
     /* 実行時入力フォーム */
     #runtime-input-container {
       display: none;
-      position: absolute;
-      bottom: 1em;
-      right: 1em;
-      width: calc(40% - 2em);
-      background: #f7f9fa;
-      border: 1px solid #dfe6e9;
-      border-radius: 4px;
-      padding: 0.5em 1em;
-      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+      margin-top: 1em;
+      background: #fff;
+      border: 2px solid #3498db;
+      border-radius: 6px;
+      padding: 1em;
+      box-shadow: 0 2px 8px rgba(52, 152, 219, 0.2);
     }
     #runtime-input-container label {
       display: block;
-      margin-bottom: 0.3em;
-      font-size: 0.9em;
+      margin-bottom: 0.5em;
+      font-size: 0.95em;
+      font-weight: 600;
       color: #2c3e50;
     }
     #runtime-input {
       width: 100%;
       box-sizing: border-box;
-      padding: 0.3em;
+      padding: 0.6em;
       border: 1px solid #dfe6e9;
       border-radius: 4px;
-      margin-bottom: 0.3em;
+      margin-bottom: 0.5em;
+      font-size: 14px;
+      font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+    }
+    #runtime-input:focus {
+      outline: none;
+      border-color: #3498db;
+      box-shadow: 0 0 0 3px rgba(52, 152, 219, 0.1);
     }
     #runtime-input-submit {
       background: #3498db;
@@ -635,6 +724,8 @@
 
     /* フリーコーディングモードのレイアウト */
     body.free-coding-mode main {
+      height: calc(100vh - var(--header-height) - 2em);
+      max-height: calc(100vh - var(--header-height) - 2em);
       min-height: calc(100vh - var(--header-height) - 2em);
     }
     body.free-coding-mode #editor,
@@ -642,17 +733,16 @@
       display: flex;
       flex-direction: column;
       height: 100%;
+      overflow: hidden;
     }
     body.free-coding-mode .CodeMirror {
       flex: 1;
-      min-height: 400px;
-      max-height: calc(100vh - var(--header-height) - 8em);
       height: 100%;
+      min-height: 0;
     }
     body.free-coding-mode #output {
       flex: 1;
-      min-height: 400px;
-      max-height: calc(100vh - var(--header-height) - 8em);
+      min-height: 0;
     }
   </style>
 </head>
@@ -750,9 +840,9 @@
         <div id="editor">
           <h2>コードエディタ</h2>
           <textarea id="code"></textarea>
-          <div style="display: flex; gap: 0.5em; margin-top: 0.5em; width: 100%;">
-            <button id="run" disabled style="flex: 1;">▶ 実行する</button>
-            <button id="ai-fix-code" disabled style="flex: 1; background: linear-gradient(135deg, #8e44ad, #9b59b6); border: none; border-radius: 4px; padding: 0.5em 1em; color: white; cursor: pointer; font-weight: 500;">🤖 AIコード修正</button>
+          <div class="button-group">
+            <button id="run" disabled>▶ 実行する</button>
+            <button id="ai-fix-code" disabled>🤖 AIコード修正</button>
           </div>
         </div>
 
@@ -765,7 +855,7 @@
             <button id="runtime-input-submit">送信</button>
           </div>
           <button id="btn-check-answer">AI正誤判定</button>
-          <div id="check-result" style="margin-top: 1em; padding: 1em; background: #f7f9fa; border-radius: 4px; display: none; max-height: 200px; overflow-y: auto;"></div>
+          <div id="check-result"></div>
         </div>
       </main>
 
