@@ -336,31 +336,59 @@
     .CodeMirror-cursor {
       border-left: 1px solid #d4d4d4 !important;
     }
-    /* 行レベルの選択背景 */
+    /* 行レベルの選択背景 - より目立つように */
     .CodeMirror div.CodeMirror-selected {
-      background: rgba(52, 152, 219, 0.3) !important;
+      background: rgba(52, 152, 219, 0.5) !important;
+      box-shadow: inset 0 0 2px rgba(52, 152, 219, 0.8) !important;
     }
 
-    /* 文字レベルの選択（最も重要） */
+    /* 文字レベルの選択（最も重要） - 明るく目立つ色 */
     .CodeMirror .CodeMirror-selectedtext {
-      background: #3498db !important;
+      background: #4a9eff !important;
       color: #ffffff !important;
+      font-weight: 500;
+      text-shadow: 0 0 1px rgba(0, 0, 0, 0.3);
     }
 
-    /* より具体的な文字選択 */
+    /* より具体的な文字選択 - 強い視覚効果 */
     .CodeMirror-line .CodeMirror-selectedtext {
-      background: #3498db !important;
+      background: #4a9eff !important;
+      color: #ffffff !important;
+      font-weight: 500;
+      text-shadow: 0 0 1px rgba(0, 0, 0, 0.3);
+      box-shadow: 0 0 3px rgba(74, 158, 255, 0.6);
+    }
+
+    /* ドラッグ中の選択 - アニメーション効果で目立たせる */
+    .CodeMirror-selecting div.CodeMirror-selected {
+      background: rgba(52, 152, 219, 0.6) !important;
+      box-shadow: inset 0 0 3px rgba(52, 152, 219, 0.9) !important;
+      border: 1px solid rgba(52, 152, 219, 0.7);
+    }
+
+    /* 選択中の文字を強調 - より明るく */
+    .CodeMirror-selecting .CodeMirror-selectedtext {
+      background: #5cb3ff !important;
+      color: #ffffff !important;
+      font-weight: 600;
+      text-shadow: 0 0 2px rgba(0, 0, 0, 0.4);
+      box-shadow: 0 0 4px rgba(92, 179, 255, 0.8);
+    }
+
+    /* フォーカス時の選択を強調 */
+    .CodeMirror-focused div.CodeMirror-selected {
+      background: rgba(52, 152, 219, 0.6) !important;
+      border: 1px solid #3498db;
+    }
+
+    /* 選択範囲のカーソル */
+    .CodeMirror-line::selection {
+      background: #4a9eff !important;
       color: #ffffff !important;
     }
 
-    /* ドラッグ中の選択 */
-    .CodeMirror-selecting div.CodeMirror-selected {
-      background: rgba(52, 152, 219, 0.4) !important;
-    }
-
-    /* 選択中の文字を強調 */
-    .CodeMirror-selecting .CodeMirror-selectedtext {
-      background: #2980b9 !important;
+    .CodeMirror-line::-moz-selection {
+      background: #4a9eff !important;
       color: #ffffff !important;
     }
     .CodeMirror-gutters {
@@ -434,9 +462,15 @@
       overflow-y: auto;
     }
     .examples h3 {
-      margin: 0 0 0.5em 0;
+      margin: 1em 0 0.5em 0;
       color: #2c3e50;
       font-size: 0.9em;
+      font-weight: 600;
+      border-bottom: 2px solid #3498db;
+      padding-bottom: 0.3em;
+    }
+    .examples h3:first-child {
+      margin-top: 0;
     }
     .example-code {
       background: #fff;
@@ -603,37 +637,56 @@
         <div class="editor-container">
           <textarea id="code" style="display: none;"># p5.jsライクなPython描画コード
 # キャンバスサイズ: 400x400
+# 新機能: 角丸四角形、数学関数、ノイズ、色関数など
 
 def setup():
     """初期設定を行う関数"""
-    # 背景色を設定
-    p5.background(240, 240, 240)
+    # 背景色を設定（グラデーション風）
+    p5.background(240, 240, 250)
 
 def draw():
     """描画を行う関数"""
-    # 円を描画
+    # 角丸四角形を描画
     p5.fill(255, 100, 100)
     p5.stroke(200, 50, 50)
     p5.stroke_weight(3)
-    p5.circle(200, 200, 100)
+    p5.rect(50, 50, 100, 80, 15, 15, 15, 15)  # 角丸
 
-    # 四角形を描画
+    # 正方形を描画
     p5.fill(100, 255, 100)
     p5.stroke(50, 200, 50)
-    p5.rect(50, 50, 80, 80)
+    p5.square(250, 50, 80)
 
-    # 三角形を描画
+    # 円を描画（ランダムな位置を使用）
+    random_seed(42)  # 再現性のためシード設定
+    x = random(150, 250)
+    y = random(150, 250)
     p5.fill(100, 100, 255)
-    p5.stroke(50, 50, 200)
-    p5.triangle(300, 300, 250, 350, 350, 350)
+    p5.circle(x, y, 80)
 
-    # カスタム形状を描画
-    p5.fill(255, 200, 100, 200)  # 透明度付き
-    p5.begin_shape()
-    p5.vertex(100, 300)
-    p5.vertex(150, 250)
-    p5.vertex(200, 300)
-    p5.end_shape('CLOSE')
+    # 三角形を描画（数学関数を使用）
+    p5.fill(255, 200, 100)
+    angle = PI / 3
+    cx, cy = 100, 320
+    r = 40
+    x1, y1 = cx, cy - r
+    x2, y2 = cx + r * cos(angle), cy + r * sin(angle)
+    x3, y3 = cx - r * cos(angle), cy + r * sin(angle)
+    p5.triangle(x1, y1, x2, y2, x3, y3)
+
+    # ノイズを使った線描画
+    p5.stroke(150, 100, 200)
+    p5.stroke_weight(2)
+    for i in range(0, 400, 5):
+        n = noise(i * 0.01) * 100
+        p5.point(i, 350 + n)
+
+    # テキストを描画
+    p5.fill(50, 50, 50)
+    p5.no_stroke()
+    p5.text_size(16)
+    p5.text_align('center', 'middle')
+    p5.text('p5.js拡張版!', 200, 20)
 
 # 関数を実行
 setup()
@@ -654,14 +707,44 @@ draw()
       <div class="samples-panel">
         <div class="panel-header">サンプルコード（クリックで挿入）</div>
         <div class="examples">
+          <h3>基本図形</h3>
           <div class="example-code">p5.circle(200, 200, 50)  # 円を描画</div>
           <div class="example-code">p5.rect(100, 100, 80, 60)  # 四角形を描画</div>
+          <div class="example-code">p5.rect(100, 100, 80, 60, 10, 10, 10, 10)  # 角丸四角形</div>
+          <div class="example-code">p5.square(150, 150, 50)  # 正方形を描画</div>
+          <div class="example-code">p5.ellipse(200, 200, 100, 60)  # 楕円を描画</div>
+          <div class="example-code">p5.triangle(200, 100, 150, 200, 250, 200)  # 三角形</div>
           <div class="example-code">p5.line(0, 0, 400, 400)  # 線を描画</div>
+
+          <h3>色と線</h3>
           <div class="example-code">p5.fill(255, 0, 0)  # 赤色で塗りつぶし</div>
           <div class="example-code">p5.stroke(0, 255, 0)  # 緑色の輪郭</div>
+          <div class="example-code">p5.stroke_weight(5)  # 線の太さを設定</div>
+          <div class="example-code">p5.stroke_cap('round')  # 線の端を丸くする</div>
+          <div class="example-code">p5.no_fill()  # 塗りつぶしなし</div>
+          <div class="example-code">p5.no_stroke()  # 輪郭なし</div>
+
+          <h3>曲線</h3>
           <div class="example-code">p5.bezier(50, 50, 100, 100, 300, 100, 350, 350)  # ベジェ曲線</div>
-          <div class="example-code">p5.begin_shape(); p5.vertex(100, 100); p5.vertex(200, 50); p5.vertex(300, 100); p5.end_shape('CLOSE')  # カスタム形状</div>
-          <div class="example-code">x = random(0, 400); y = random(0, 400); p5.circle(x, y, 30)  # ランダムな位置に円</div>
+          <div class="example-code">p5.curve(50, 50, 100, 100, 300, 100, 350, 350)  # カーブ</div>
+          <div class="example-code">p5.arc(200, 200, 100, 100, 0, PI)  # 半円弧</div>
+
+          <h3>カスタム形状</h3>
+          <div class="example-code">p5.begin_shape(); p5.vertex(100, 100); p5.vertex(200, 50); p5.vertex(300, 100); p5.end_shape('CLOSE')  # 多角形</div>
+
+          <h3>変換</h3>
+          <div class="example-code">p5.push(); p5.translate(200, 200); p5.rotate(PI/4); p5.rect(0, 0, 50, 50); p5.pop()  # 回転</div>
+          <div class="example-code">p5.push(); p5.scale(2, 2); p5.circle(100, 100, 25); p5.pop()  # 拡大</div>
+
+          <h3>テキスト</h3>
+          <div class="example-code">p5.text_size(24); p5.text('Hello', 100, 100)  # テキスト表示</div>
+          <div class="example-code">p5.text_align('center', 'middle')  # テキスト配置</div>
+
+          <h3>数学・ランダム</h3>
+          <div class="example-code">x = random(0, 400); y = random(0, 400); p5.circle(x, y, 30)  # ランダムな位置</div>
+          <div class="example-code">angle = map_value(100, 0, 400, 0, TWO_PI)  # 値の範囲変換</div>
+          <div class="example-code">n = noise(0.1, 0.2) * 100  # ノイズ値を使用</div>
+          <div class="example-code">val = lerp(0, 100, 0.5)  # 線形補間</div>
         </div>
       </div>
 
