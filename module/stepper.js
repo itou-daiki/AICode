@@ -106,12 +106,16 @@ def _easycode_trace(source, inputs_json, max_steps, max_seconds=6.0):
     values = iter(json.loads(inputs_json))
     out = io.StringIO()
     steps = []
-    state = {'stopped': False, 'start': time.time()}
+    state = {'stopped': False, 'start': time.time(), 'missing_input': False}
 
     def fake_input(prompt=''):
         try:
             value = next(values)
         except StopIteration:
+            # 用意された値が足りない。空文字のまま黙って続けると
+            # 「なぜか変数がからっぽ」という一番わかりにくい形で現れるので、
+            # 足りなかったことを覚えておいて、あとで画面に出す。
+            state['missing_input'] = True
             value = ''
         out.write(str(prompt) + str(value) + '\\n')
         return value
@@ -169,7 +173,7 @@ def _easycode_trace(source, inputs_json, max_steps, max_seconds=6.0):
         'output': out.getvalue(),
     })
 
-    return json.dumps({'steps': steps, 'error': error, 'truncated': state['stopped']})
+    return json.dumps({'steps': steps, 'error': error, 'truncated': state['stopped'], 'missing_input': state['missing_input']})
 `;
 
 let tracerReady = false;

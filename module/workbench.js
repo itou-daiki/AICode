@@ -72,6 +72,8 @@ export function createWorkbench(options) {
   let stepLineHandle = null;
   // フローチャートの書き方（やさしい日本語 / コードのまま）
   let flowJapanese = localStorage.getItem('easycode_flow_japanese') !== '0';
+  // フローチャートを「全体が入る大きさ」にするか、「実物大」にするか
+  let flowFit = localStorage.getItem('easycode_flow_fit') !== '0';
 
   /* ---------- コードエディタ ---------- */
   const editor = CodeMirror.fromTextArea(document.getElementById(codeId), {
@@ -227,6 +229,7 @@ export function createWorkbench(options) {
     try {
       const { svg } = await mermaid.render(id, result.definition);
       container.innerHTML = svg;
+      fitFlowchart();
       if (result.message) {
         const note = document.createElement('div');
         note.className = 'empty-state';
@@ -246,9 +249,66 @@ export function createWorkbench(options) {
 
   /* ---------- 表示の調整 ---------- */
 
+  /**
+   * フローチャートをパネルの大きさに合わせる
+   *
+   * mermaid は横幅にだけ合わせるので、縦に長い図はパネルからはみ出して
+   * 下が見切れてしまう。縦も見て、全体が入る大きさに縮める。
+   * 「実物大」を選んでいるときは縮めず、スクロールで見てもらう。
+   */
+  function fitFlowchart() {
+    const container = document.getElementById(flowchartId);
+    const svg = container && container.querySelector('svg');
+    if (!svg) return;
+
+    const box = svg.viewBox && svg.viewBox.baseVal;
+    if (!box || !box.width || !box.height) return;
+
+    if (!flowFit) {
+      // 実物大。読みやすさを優先して、はみ出す分はスクロールで見る
+      svg.style.width = `${Math.round(box.width)}px`;
+      svg.style.height = `${Math.round(box.height)}px`;
+      svg.style.maxWidth = 'none';
+      return;
+    }
+
+    const host = container.parentElement || container;
+    const style = getComputedStyle(container);
+    const padX = parseFloat(style.paddingLeft) + parseFloat(style.paddingRight);
+    const padY = parseFloat(style.paddingTop) + parseFloat(style.paddingBottom);
+    const availableWidth = host.clientWidth - padX;
+    const availableHeight = host.clientHeight - padY;
+    if (availableWidth <= 0 || availableHeight <= 0) return;
+
+    // 大きくはしない（小さな図が引きのばされて字が太くなるのを避ける）。
+    // 小さくするのにも下限を置く。全体を無理に収めて字が読めなくなるくらいなら、
+    // 読める大きさを保って、残りは縦スクロールと「⛶ 拡大」で見てもらう。
+    // 横は必ず収める（横スクロールは読みながらたどりにくい）。
+    const MIN_SCALE = 0.8;
+    let scale = Math.min(availableWidth / box.width, availableHeight / box.height, 1);
+    if (scale < MIN_SCALE) {
+      scale = Math.min(MIN_SCALE, availableWidth / box.width);
+    }
+
+    svg.style.width = `${Math.round(box.width * scale)}px`;
+    svg.style.height = `${Math.round(box.height * scale)}px`;
+    svg.style.maxWidth = 'none';
+  }
+
+  // 隠れている間に整えようとしても、Blockly は大きさを測れず
+  // でたらめな位置になる。見えるようになったときにやり直す。
+  let blocksFitPending = false;
+
   /** ブロックを整列させ、画面に収める */
   function fitBlocks() {
     if (!workspace.getTopBlocks(false).length) return;
+
+    const host = document.getElementById(blocklyId);
+    if (!host || !host.offsetWidth || !host.offsetHeight) {
+      blocksFitPending = true;
+      return;
+    }
+    blocksFitPending = false;
     try {
       Blockly.Events.disable();
       workspace.cleanUp();
@@ -262,8 +322,20 @@ export function createWorkbench(options) {
       // 小さくなりすぎても大きくなりすぎても読みにくいので、ほどよい範囲に収める
       const scale = workspace.getScale();
       if (scale > 1) workspace.setScale(1);
-      else if (scale < 0.6) workspace.setScale(0.6);
-      workspace.scrollCenter();
+      else if (scale < 0.5) workspace.setScale(0.5);
+
+      const metrics = workspace.getMetricsManager();
+      const content = metrics.getContentMetrics(true);
+      const view = metrics.getViewMetrics(true);
+      const margin = 16;
+
+      if (content.width <= view.width && content.height <= view.height) {
+        workspace.scrollCenter();
+      } else {
+        // 入りきらないときに真ん中へ寄せると、左はし（ブロックの始まり）が
+        // 画面の外に出て切れてしまう。読む順に合わせて左上をそろえる。
+        workspace.scroll(margin - content.left, margin - content.top);
+      }
     } catch (e) {
       console.warn('ブロックの表示調整に失敗:', e);
     }
@@ -274,7 +346,16 @@ export function createWorkbench(options) {
     requestAnimationFrame(() => {
       editor.refresh();
       Blockly.svgResize(workspace);
+      fitFlowchart();
+      // 隠れていて整えられなかったブロックを、見えた今のタイミングで整える
+      if (blocksFitPending) fitBlocks();
     });
+  }
+
+  // パネルの大きさが変わったら（拡大・画面の分けかた・窓の大きさ）合わせ直す
+  const flowHost = document.getElementById(flowchartId)?.parentElement;
+  if (flowHost && typeof ResizeObserver !== 'undefined') {
+    new ResizeObserver(debounce(() => fitFlowchart(), 120)).observe(flowHost);
   }
 
   /* ---------- 整形 ---------- */
@@ -461,6 +542,14 @@ export function createWorkbench(options) {
     formatCode: () => applyTransform(formatCode),
     renderFlowchart,
     scheduleFlowchart,
+    fitFlowchart,
+    isFlowFit: () => flowFit,
+    /** 「全体が入る大きさ」と「実物大」を切り替える */
+    setFlowFit(on) {
+      flowFit = on;
+      localStorage.setItem('easycode_flow_fit', on ? '1' : '0');
+      fitFlowchart();
+    },
     fitBlocks,
     refreshLayout,
     highlightLine,

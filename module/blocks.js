@@ -224,6 +224,18 @@ async function startStepMode() {
   const inputs = $('step-input-values').value.split('\n');
   while (inputs.length && inputs[inputs.length - 1] === '') inputs.pop();
 
+  // ステップ実行は「先に最後まで走らせて記録する」しくみなので、
+  // 途中で入力を聞くことができない。input() の値はこの欄に先に書いてもらう。
+  // 書かずに始めると空文字で進んでしまい、いちばん分かりにくいつまずきになる。
+  const inputCount = (code.match(/\binput\(/g) || []).length;
+  if (inputCount > 0 && inputs.length === 0) {
+    updateStepInputs();
+    const box = $('step-input-values');
+    box.focus();
+    toast('input() が使われています。使う値を先にこの欄へ書いてから、もう一度押してください。');
+    return;
+  }
+
   button.disabled = true;
   output.textContent = '実行のようすを記録しています…';
   // ブロックの行番号タグを今のコードに合わせ直す（3つを同時に光らせるため）
@@ -241,6 +253,8 @@ async function startStepMode() {
     step.active = true;
     step.error = trace.error;
     step.truncated = trace.truncated;
+
+    step.missingInput = Boolean(trace.missing_input);
 
     // ステップ実行の間は2画面にする（終わったら元の分け方にもどす）
     maximize.reset();
@@ -312,6 +326,12 @@ function showStep(index) {
   $('step-next').disabled = isLast;
 
   let text = current.output || '（まだ出力はありません）';
+  // 値が足りないと、input() は空文字のまま進む。
+  // 「なぜか変数がからっぽ」に見えるので、理由を出力といっしょに見せる。
+  if (step.missingInput) {
+    text = '⚠ 入力の値が足りませんでした。足りない分は空文字で進んでいます。\n'
+      + '   左下の欄に値を書き足して、もう一度ステップ実行してください。\n\n' + text;
+  }
   if (isLast) {
     if (step.error) text += `\nエラー: ${step.error}`;
     if (step.truncated) text += '\n（ステップ数が上限に達したため、記録を途中で止めました）';
@@ -498,6 +518,14 @@ function setupControls() {
 
   $('flow-refresh').addEventListener('click', () => bench.renderFlowchart(true));
 
+  $('flow-fit').addEventListener('click', (e) => {
+    const fit = !bench.isFlowFit();
+    bench.setFlowFit(fit);
+    e.currentTarget.textContent = fit ? '🗜 見やすい大きさ' : '🔍 実物大';
+    e.currentTarget.classList.toggle('is-on', fit);
+    toast(fit ? 'パネルに合わせた大きさにしました' : '実物大にしました（スクロールで見られます）');
+  });
+
   $('flow-language').addEventListener('click', (e) => {
     const japanese = !bench.isFlowJapanese();
     bench.setFlowJapanese(japanese);
@@ -605,6 +633,11 @@ async function init() {
 
     setupControls();
     // フローチャートのラベル表示を、覚えている設定に合わせる
+    const fitButton = $('flow-fit');
+    if (!bench.isFlowFit()) {
+      fitButton.textContent = '🔍 実物大';
+      fitButton.classList.remove('is-on');
+    }
     const flowButton = $('flow-language');
     flowButton.textContent = bench.isFlowJapanese() ? '🈁 やさしい日本語' : '🔤 コードのまま';
     flowButton.classList.toggle('is-on', bench.isFlowJapanese());

@@ -466,6 +466,14 @@ function setupControls() {
 
   $('flow-refresh').addEventListener('click', () => bench.renderFlowchart(true));
 
+  $('flow-fit').addEventListener('click', (e) => {
+    const fit = !bench.isFlowFit();
+    bench.setFlowFit(fit);
+    e.currentTarget.textContent = fit ? '🗜 見やすい大きさ' : '🔍 実物大';
+    e.currentTarget.classList.toggle('is-on', fit);
+    toast(fit ? 'パネルに合わせた大きさにしました' : '実物大にしました（スクロールで見られます）');
+  });
+
   $('flow-language').addEventListener('click', (e) => {
     const japanese = !bench.isFlowJapanese();
     bench.setFlowJapanese(japanese);
@@ -539,6 +547,11 @@ async function init() {
 
     setupControls();
     // フローチャートのラベル表示を、覚えている設定に合わせる
+    const fitButton = $('flow-fit');
+    if (!bench.isFlowFit()) {
+      fitButton.textContent = '🔍 実物大';
+      fitButton.classList.remove('is-on');
+    }
     const flowButton = $('flow-language');
     flowButton.textContent = bench.isFlowJapanese() ? '🈁 やさしい日本語' : '🔤 コードのまま';
     flowButton.classList.toggle('is-on', bench.isFlowJapanese());
