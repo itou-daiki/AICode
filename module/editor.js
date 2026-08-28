@@ -378,9 +378,7 @@ export async function initEditor() {
     appState.setEditor(editor);
 
   // コード補完エンジンを初期化
-  console.log('エディタ初期化完了、CodeCompletionEngineを作成中...');
   completionEngine = new CodeCompletionEngine(editor);
-  console.log('CodeCompletionEngine作成完了:', completionEngine);
   
   // テスト用デバッグを無効化（パフォーマンス改善）
   /*

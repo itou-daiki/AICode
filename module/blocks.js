@@ -611,6 +611,16 @@ async function init() {
     const shared = await takeCodeFromUrl();
     bench.restore(shared);
     if (shared) toast('共有されたコードを読み込みました');
+
+    // すでにこのページを開いたまま共有リンクを開くと、
+    // ブラウザはページを読み直さない（# から後ろが変わるだけ）。
+    // その場合もコードを受け取れるように、変化を見張っておく。
+    window.addEventListener('hashchange', async () => {
+      const late = await takeCodeFromUrl();
+      if (!late) return;
+      bench.setCode(late);
+      toast('共有されたコードを読み込みました');
+    });
     bench.editor.on('change', updateStepInputs);
 
     initSidebar({
