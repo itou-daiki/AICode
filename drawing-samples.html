@@ -1,288 +1,43 @@
 <!DOCTYPE html>
 <html lang="ja">
 <head>
-    <meta charset="UTF-8">
-    <title>描画モード - サンプル集</title>
-    <style>
-        body { font-family: 'Segoe UI', Tahoma, sans-serif; margin: 2em; }
-        .sample { margin: 2em 0; padding: 1em; border: 1px solid #ddd; border-radius: 4px; }
-        .sample h3 { color: #2c3e50; margin-top: 0; }
-        .code { background: #f8f9fa; padding: 1em; border-radius: 4px; margin: 1em 0; }
-        pre { margin: 0; font-family: 'Courier New', monospace; }
-        .nav { margin-bottom: 2em; }
-        .nav a { color: #3498db; text-decoration: none; margin-right: 1em; }
-    </style>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>easyCode - 描画サンプルは描画モードへ</title>
+  <link rel="icon" type="image/svg+xml" href="favicon.svg">
+  <link rel="alternate icon" href="favicon.ico">
+  <link rel="stylesheet" href="css/theme.css">
+  <style>
+    :root { --c-accent: var(--c-drawing); }
+    .container { max-width: 640px; margin: 0 auto; padding: var(--sp-7) var(--sp-4); text-align: center; }
+    .card { padding: var(--sp-6); background: var(--c-surface); border: 1px solid var(--c-line);
+            border-radius: var(--r-lg); box-shadow: var(--sh-1); }
+  </style>
 </head>
 <body>
-    <div class="nav">
-        <a href="index.html">← 問題モードに戻る</a>
-        <a href="drawing.html">🎨 描画モードを開く</a>
+  <header class="topbar">
+    <a class="brand" href="index.html">
+      <span class="brand-mark">🎨</span>
+      <span>easyCode<small>描画サンプル</small></span>
+    </a>
+    <div class="topbar-tools"></div>
+    <div class="topbar-end">
+      <nav class="mode-switch" aria-label="モード切り替え">
+        <a href="index.html">🧩<span class="label">ブロック</span></a>
+        <a href="problems.html">📚<span class="label">問題</span></a>
+        <a href="drawing.html">🎨<span class="label">描画</span></a>
+        <a href="python-guide.html">📘<span class="label">ガイド</span></a>
+      </nav>
     </div>
+  </header>
 
-    <h1>描画モード - サンプルコード集</h1>
-    <p>p5.jsライクなPython描画機能のサンプルコードです。</p>
-
-    <div class="sample">
-        <h3>基本図形</h3>
-        <div class="code">
-            <pre># 円を描画
-p5.circle(200, 200, 100)
-
-# 四角形を描画
-p5.rect(150, 150, 100, 50)
-
-# 線を描画
-p5.line(50, 50, 350, 350)</pre>
-        </div>
+  <div class="container">
+    <div class="card">
+      <h1>サンプルは描画モードの中にあります</h1>
+      <p>描画モードの左側で「📚 サンプル」タブを選ぶと、使い方の説明つきのサンプルが並びます。
+         押すとそのままコードに追加されます。</p>
+      <a class="btn btn-accent" href="drawing.html">🎨 描画モードを開く</a>
     </div>
-
-    <div class="sample">
-        <h3>色の設定</h3>
-        <div class="code">
-            <pre># 赤色で塗りつぶし
-p5.fill(255, 0, 0)
-p5.circle(150, 150, 80)
-
-# 緑色の輪郭
-p5.stroke(0, 255, 0)
-p5.stroke_weight(3)
-p5.rect(250, 150, 80, 80)</pre>
-        </div>
-    </div>
-
-    <div class="sample">
-        <h3>複雑な図形</h3>
-        <div class="code">
-            <pre># 三角形
-p5.triangle(200, 100, 150, 200, 250, 200)
-
-# 楕円
-p5.ellipse(200, 300, 120, 80)
-
-# 弧
-import math
-p5.arc(200, 200, 100, 100, 0, math.pi)</pre>
-        </div>
-    </div>
-
-    <div class="sample">
-        <h3>アニメーション風の描画</h3>
-        <div class="code">
-            <pre># 背景をクリア
-p5.background(240, 240, 240)
-
-# 複数の円を描画
-for i in range(5):
-    x = 80 + i * 60
-    y = 200
-    p5.fill(255 - i * 50, i * 50, 100)
-    p5.circle(x, y, 40)</pre>
-        </div>
-    </div>
-
-    <div class="sample">
-        <h3>座標変換</h3>
-        <div class="code">
-            <pre># 座標系を保存
-p5.push()
-
-# 中心に移動して回転
-p5.translate(200, 200)
-p5.rotate(45)  # 45度回転（度数法）
-
-# 四角形を描画
-p5.rect(-25, -25, 50, 50)
-
-# 座標系を復元
-p5.pop()</pre>
-        </div>
-    </div>
-
-    <div class="sample">
-        <h3>テキスト描画</h3>
-        <div class="code">
-            <pre># テキストサイズを設定
-p5.text_size(24)
-
-# テキストを描画
-p5.fill(0, 0, 255)
-p5.text("Hello, Python!", 150, 200)</pre>
-        </div>
-    </div>
-
-    <div class="sample">
-        <h3>パターン描画</h3>
-        <div class="code">
-            <pre># グリッドパターン
-for x in range(0, 400, 40):
-    for y in range(0, 400, 40):
-        if (x + y) % 80 == 0:
-            p5.fill(200, 100, 100)
-        else:
-            p5.fill(100, 100, 200)
-        p5.rect(x, y, 40, 40)</pre>
-        </div>
-    </div>
-
-    <div class="sample">
-        <h3>数学的な図形</h3>
-        <div class="code">
-            <pre># スパイラル
-import math
-
-p5.stroke(100, 50, 200)
-p5.stroke_weight(2)
-p5.no_fill()
-
-for i in range(100):
-    angle = i * 0.2
-    radius = i * 2
-    x = 200 + radius * math.cos(angle)
-    y = 200 + radius * math.sin(angle)
-    p5.point(x, y)</pre>
-        </div>
-    </div>
-
-    <div class="sample">
-        <h3>ベジェ曲線</h3>
-        <div class="code">
-            <pre># ベジェ曲線で波形を描画
-p5.background(240, 240, 240)
-
-p5.stroke(255, 0, 0)
-p5.stroke_weight(3)
-p5.no_fill()
-
-# 複数のベジェ曲線を描画
-p5.bezier(50, 200, 100, 50, 300, 50, 350, 200)
-p5.bezier(50, 200, 100, 350, 300, 350, 350, 200)
-
-# 制御点を表示
-p5.fill(0, 0, 255)
-p5.no_stroke()
-p5.circle(100, 50, 8)
-p5.circle(300, 50, 8)
-p5.circle(100, 350, 8)
-p5.circle(300, 350, 8)</pre>
-        </div>
-    </div>
-
-    <div class="sample">
-        <h3>カスタム形状</h3>
-        <div class="code">
-            <pre># begin_shape/vertex/end_shapeでカスタム形状を描画
-p5.background(240, 240, 240)
-
-# 星形を描画
-p5.fill(255, 200, 0)
-p5.stroke(200, 150, 0)
-p5.stroke_weight(2)
-
-p5.begin_shape()
-# 星の頂点を追加
-p5.vertex(200, 100)
-p5.vertex(220, 160)
-p5.vertex(280, 170)
-p5.vertex(230, 210)
-p5.vertex(250, 270)
-p5.vertex(200, 240)
-p5.vertex(150, 270)
-p5.vertex(170, 210)
-p5.vertex(120, 170)
-p5.vertex(180, 160)
-p5.end_shape('CLOSE')</pre>
-        </div>
-    </div>
-
-    <div class="sample">
-        <h3>角度モード</h3>
-        <div class="code">
-            <pre># 角度モードを使用した描画
-p5.background(240, 240, 240)
-
-# 度数法を使用
-p5.angle_mode('degrees')
-
-# 扇形を描画
-p5.fill(255, 100, 100)
-p5.arc(150, 200, 100, 100, 0, 90)
-
-p5.fill(100, 255, 100)
-p5.arc(250, 200, 100, 100, 90, 180)
-
-p5.fill(100, 100, 255)
-p5.arc(200, 150, 100, 100, 180, 270)</pre>
-        </div>
-    </div>
-
-    <div class="sample">
-        <h3>ランダム関数</h3>
-        <div class="code">
-            <pre># random関数でランダムな図形を描画
-p5.background(240, 240, 240)
-
-# ランダムな円を20個描画
-for i in range(20):
-    x = random(0, 400)
-    y = random(0, 400)
-    diameter = random(10, 50)
-
-    r = random(0, 255)
-    g = random(0, 255)
-    b = random(0, 255)
-
-    p5.fill(r, g, b, 150)
-    p5.no_stroke()
-    p5.circle(x, y, diameter)</pre>
-        </div>
-    </div>
-
-    <div class="sample">
-        <h3>描画モードの変更</h3>
-        <div class="code">
-            <pre># rectMode/ellipseModeで描画モードを変更
-p5.background(240, 240, 240)
-
-# デフォルト（corner）
-p5.fill(255, 100, 100, 150)
-p5.rect_mode('corner')
-p5.rect(50, 50, 80, 80)
-
-# centerモード
-p5.fill(100, 255, 100, 150)
-p5.rect_mode('center')
-p5.rect(200, 90, 80, 80)
-
-# radiusモード
-p5.fill(100, 100, 255, 150)
-p5.ellipse_mode('radius')
-p5.ellipse(320, 90, 40, 40)
-
-# 元に戻す
-p5.rect_mode('corner')
-p5.ellipse_mode('center')</pre>
-        </div>
-    </div>
-
-    <div class="sample">
-        <h3>透明度とグラデーション</h3>
-        <div class="code">
-            <pre># 透明度を使った重ね合わせ
-p5.background(255, 255, 255)
-
-# 3つの円を重ねる
-p5.no_stroke()
-
-p5.fill(255, 0, 0, 128)
-p5.circle(150, 200, 150)
-
-p5.fill(0, 255, 0, 128)
-p5.circle(250, 200, 150)
-
-p5.fill(0, 0, 255, 128)
-p5.circle(200, 280, 150)</pre>
-        </div>
-    </div>
-
+  </div>
 </body>
 </html>

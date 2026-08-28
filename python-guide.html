@@ -4,276 +4,264 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Python プログラミングガイド | easyCode</title>
+  <link rel="icon" type="image/svg+xml" href="favicon.svg">
+  <link rel="alternate icon" href="favicon.ico">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/theme.css">
   <style>
-    * {
-      margin: 0;
-      padding: 0;
-      box-sizing: border-box;
-    }
+    /* ガイドのレイアウト（色や文字は css/theme.css のトークンを使う） */
+    :root { --c-accent: var(--c-guide); }
 
-    body {
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-      line-height: 1.6;
-      color: #2c3e50;
-      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-      min-height: 100vh;
-    }
-
-    .container {
-      max-width: 1200px;
-      margin: 0 auto;
-      padding: 2em;
-    }
-
-    header {
-      text-align: center;
-      background: rgba(255, 255, 255, 0.95);
-      padding: 3em 2em;
-      border-radius: 12px;
-      margin-bottom: 2em;
-      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
-    }
-
-    header h1 {
-      font-size: 3em;
-      margin-bottom: 0.5em;
-      background: linear-gradient(135deg, #667eea, #764ba2);
-      -webkit-background-clip: text;
-      -webkit-text-fill-color: transparent;
-      background-clip: text;
-    }
-
-    header p {
-      font-size: 1.3em;
-      color: #7f8c8d;
-      margin-bottom: 1em;
-    }
-
-    .nav-buttons {
-      display: flex;
-      justify-content: center;
-      gap: 1em;
-      flex-wrap: wrap;
-    }
-
-    .nav-btn {
-      background: linear-gradient(135deg, #3498db, #2980b9);
-      color: white;
-      padding: 0.8em 1.5em;
-      border: none;
-      border-radius: 25px;
-      text-decoration: none;
-      font-weight: 500;
-      transition: transform 0.2s, box-shadow 0.2s;
-      cursor: pointer;
-    }
-
-    .nav-btn:hover {
-      transform: translateY(-2px);
-      box-shadow: 0 4px 12px rgba(52, 152, 219, 0.3);
-    }
-
-    .back-btn {
-      background: linear-gradient(135deg, #95a5a6, #7f8c8d);
-    }
-
-    .content-grid {
+    #shell {
       display: grid;
-      gap: 2em;
-      margin-bottom: 2em;
+      grid-template-columns: 240px minmax(0, 1fr);
+      align-items: start;
+      gap: var(--sp-5);
+      max-width: 1180px;
+      margin: 0 auto;
+      padding: var(--sp-5) var(--sp-4) var(--sp-7);
     }
+
+    /* 目次（横に置いて、今どこを読んでいるか分かるようにする） */
+    #toc {
+      position: sticky;
+      top: var(--sp-4);
+      align-self: start;
+      max-height: calc(100vh - var(--topbar-h) - var(--sp-6));
+      overflow-y: auto;
+      padding: var(--sp-3);
+      background: var(--c-surface);
+      border: 1px solid var(--c-line);
+      border-radius: var(--r-lg);
+      box-shadow: var(--sh-1);
+    }
+    #toc h2 {
+      margin: 0 0 var(--sp-2);
+      font-size: var(--text-2xs);
+      font-weight: 700;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--c-ink-3);
+    }
+    #toc a {
+      display: block;
+      padding: 0.4em 0.6em;
+      border-radius: var(--r-sm);
+      color: var(--c-ink-2);
+      font-size: var(--text-sm);
+      font-weight: 600;
+      text-decoration: none;
+      transition: background var(--t-fast) var(--ease), color var(--t-fast) var(--ease);
+    }
+    #toc a:hover { background: var(--c-surface-2); color: var(--c-ink); }
+    #toc a.is-current { background: var(--c-brand-soft); color: var(--c-brand-ink); }
+
+    /* 見出し */
+    .page-intro {
+      margin-bottom: var(--sp-5);
+      padding: var(--sp-5);
+      background: var(--c-surface);
+      border: 1px solid var(--c-line);
+      border-left: 4px solid var(--c-accent);
+      border-radius: var(--r-lg);
+      box-shadow: var(--sh-1);
+    }
+    .page-intro h1 { font-size: var(--text-2xl); }
+    .page-intro p { margin: 0; color: var(--c-ink-2); }
+
+    .container { min-width: 0; }
+    .content-grid { display: flex; flex-direction: column; gap: var(--sp-4); }
 
     .section {
-      background: rgba(255, 255, 255, 0.95);
-      padding: 2.5em;
-      border-radius: 12px;
-      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+      padding: var(--sp-5);
+      background: var(--c-surface);
+      border: 1px solid var(--c-line);
+      border-radius: var(--r-lg);
+      box-shadow: var(--sh-1);
+      scroll-margin-top: var(--sp-4);
     }
-
     .section h2 {
-      font-size: 2.2em;
-      margin-bottom: 1em;
-      color: #2c3e50;
-      display: flex;
-      align-items: center;
-      gap: 0.5em;
+      margin-bottom: var(--sp-4);
+      padding-bottom: var(--sp-2);
+      border-bottom: 1px solid var(--c-line);
+      font-size: var(--text-xl);
     }
-
     .section h3 {
-      font-size: 1.5em;
-      margin: 1.5em 0 0.8em 0;
-      color: #34495e;
-      border-left: 4px solid #3498db;
-      padding-left: 1em;
+      margin: var(--sp-5) 0 var(--sp-2);
+      font-size: var(--text-lg);
+      color: var(--c-ink);
     }
+    .section h4 { margin-bottom: var(--sp-1); font-size: var(--text-md); }
+    .section p, .section li { font-size: var(--text-md); }
+
+    .feature-grid, .ref-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+      gap: var(--sp-3);
+      margin: var(--sp-4) 0;
+    }
+    .feature-card, .ref-item {
+      padding: var(--sp-3);
+      background: var(--c-surface-2);
+      border: 1px solid var(--c-line);
+      border-radius: var(--r-md);
+    }
+    .feature-card p, .ref-item p { margin: 0; color: var(--c-ink-2); font-size: var(--text-sm); }
+
+    /* コードのかたまり */
+    .code-wrap { position: relative; margin: var(--sp-3) 0; }
+    .code-actions {
+      position: absolute;
+      top: 6px;
+      right: 6px;
+      display: flex;
+      gap: 4px;
+      opacity: 0;
+      transition: opacity var(--t-fast) var(--ease);
+    }
+    .code-wrap:hover .code-actions,
+    .code-wrap:focus-within .code-actions { opacity: 1; }
+    .code-actions button {
+      padding: 0.2em 0.6em;
+      border: 1px solid var(--c-code-line);
+      border-radius: var(--r-sm);
+      background: var(--c-code-bg-2);
+      color: var(--c-code-ink);
+      font-family: inherit;
+      font-size: var(--text-2xs);
+      font-weight: 600;
+      cursor: pointer;
+    }
+    .code-actions button:hover { background: var(--c-brand); border-color: var(--c-brand); color: #fff; }
 
     .code-block {
-      background: #2c3e50;
-      color: #ecf0f1;
-      padding: 1.5em;
-      border-radius: 8px;
-      margin: 1em 0;
-      font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
-      font-size: 0.95em;
+      margin: 0;
+      padding: var(--sp-4);
+      background: var(--c-code-bg);
+      color: var(--c-code-ink);
+      border-radius: var(--r-md);
       overflow-x: auto;
-      position: relative;
-      white-space: pre-wrap;
-      line-height: 1.5;
-      word-wrap: break-word;
-      tab-size: 4;
-    }
-
-    .code-block::before {
-      content: 'Python';
-      position: absolute;
-      top: 0.5em;
-      right: 1em;
-      background: #3498db;
-      color: white;
-      padding: 0.2em 0.6em;
-      border-radius: 4px;
-      font-size: 0.7em;
-      font-weight: bold;
+      font-family: var(--font-mono);
+      font-size: var(--text-sm);
+      line-height: 1.65;
+      white-space: pre;
     }
 
     .output {
-      background: #27ae60;
-      color: white;
-      padding: 1em 1.5em;
-      border-radius: 8px;
-      margin: 0.5em 0;
-      font-family: monospace;
+      position: relative;
+      margin: var(--sp-2) 0 var(--sp-4);
+      padding: var(--sp-5) var(--sp-4) var(--sp-3);
+      background: var(--c-surface-2);
+      border-left: 3px solid var(--c-ok);
+      border-radius: var(--r-md);
+      font-family: var(--font-mono);
+      font-size: var(--text-sm);
       white-space: pre-wrap;
-      line-height: 1.4;
     }
-
     .output::before {
-      content: '出力: ';
-      font-weight: bold;
+      content: '出力';
+      position: absolute;
+      top: var(--sp-2);
+      left: var(--sp-4);
+      font-family: var(--font-sans);
+      font-size: var(--text-2xs);
+      font-weight: 700;
+      color: var(--c-ink-3);
     }
 
-    .tip {
-      background: linear-gradient(135deg, #f39c12, #e67e22);
-      color: white;
-      padding: 1.5em;
-      border-radius: 8px;
-      margin: 1.5em 0;
+    .tip, .warning, .quick-ref {
+      position: relative;
+      margin: var(--sp-4) 0;
+      padding: var(--sp-5) var(--sp-4) var(--sp-4);
+      border-left: 3px solid var(--c-brand);
+      border-radius: var(--r-md);
+      background: var(--c-brand-soft);
+      color: var(--c-brand-ink);
+      font-size: var(--text-md);
     }
-
-    .tip::before {
-      content: '💡 ';
-      font-size: 1.2em;
+    .tip { border-color: var(--c-ok); background: var(--c-ok-soft); color: #146c33; }
+    .warning { border-color: var(--c-warn); background: var(--c-warn-soft); color: #8a5300; }
+    .tip::before { content: '💡 ヒント'; }
+    .warning::before { content: '⚠️ 注意'; }
+    .tip::before, .warning::before {
+      position: absolute;
+      top: var(--sp-2);
+      left: var(--sp-4);
+      font-size: var(--text-2xs);
+      font-weight: 700;
     }
-
-    .warning {
-      background: linear-gradient(135deg, #e74c3c, #c0392b);
-      color: white;
-      padding: 1.5em;
-      border-radius: 8px;
-      margin: 1.5em 0;
-    }
-
-    .warning::before {
-      content: '⚠️ ';
-      font-size: 1.2em;
-    }
-
-    .feature-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-      gap: 1.5em;
-      margin: 2em 0;
-    }
-
-    .feature-card {
-      background: rgba(255, 255, 255, 0.1);
-      padding: 1.5em;
-      border-radius: 8px;
-      border: 1px solid rgba(255, 255, 255, 0.2);
-    }
+    .quick-ref h3 { margin-top: 0; color: inherit; }
 
     .comparison-table {
       width: 100%;
+      margin: var(--sp-3) 0;
       border-collapse: collapse;
-      margin: 1.5em 0;
+      font-size: var(--text-md);
     }
-
-    .comparison-table th,
-    .comparison-table td {
-      padding: 1em;
+    .comparison-table th, .comparison-table td {
+      padding: var(--sp-2) var(--sp-3);
+      border-bottom: 1px solid var(--c-line);
       text-align: left;
-      border-bottom: 1px solid #ddd;
     }
+    .comparison-table th { background: var(--c-surface-2); font-weight: 700; }
 
-    .comparison-table th {
-      background: #3498db;
-      color: white;
+    footer {
+      margin-top: var(--sp-5);
+      padding: var(--sp-5);
+      background: var(--c-surface);
+      border: 1px solid var(--c-line);
+      border-radius: var(--r-lg);
+      box-shadow: var(--sh-1);
+      text-align: center;
     }
-
-    .comparison-table tr:nth-child(even) {
-      background: #f8f9fa;
+    .nav-buttons { display: flex; flex-wrap: wrap; justify-content: center; gap: var(--sp-2); }
+    .nav-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.35em;
+      padding: 0.5em 1em;
+      border-radius: var(--r-md);
+      background: var(--c-brand);
+      color: #fff;
+      font-size: var(--text-md);
+      font-weight: 600;
+      text-decoration: none;
     }
+    .nav-btn:hover { background: var(--c-brand-2); }
 
-    .quick-ref {
-      background: linear-gradient(135deg, #9b59b6, #8e44ad);
-      color: white;
-      padding: 2em;
-      border-radius: 12px;
-      margin: 2em 0;
-    }
-
-    .quick-ref h3 {
-      color: white;
-      border-left-color: white;
-    }
-
-    .ref-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-      gap: 1em;
-      margin-top: 1em;
-    }
-
-    .ref-item {
-      background: rgba(255, 255, 255, 0.1);
-      padding: 1em;
-      border-radius: 6px;
-    }
-
-    @media (max-width: 768px) {
-      .container {
-        padding: 1em;
-      }
-      
-      header h1 {
-        font-size: 2em;
-      }
-      
-      .nav-buttons {
-        flex-direction: column;
-        align-items: center;
-      }
-      
-      .section {
-        padding: 1.5em;
-      }
+    @media (max-width: 900px) {
+      #shell { grid-template-columns: minmax(0, 1fr); padding: var(--sp-4) var(--sp-3) var(--sp-6); }
+      #toc { position: static; max-height: none; }
+      .section { padding: var(--sp-4) var(--sp-3); }
     }
   </style>
 </head>
 <body>
-  <div class="container">
-    <header>
+  <header class="topbar">
+    <a class="brand" href="index.html">
+      <span class="brand-mark">📘</span>
+      <span>easyCode<small>Python ガイド</small></span>
+    </a>
+    <div class="topbar-tools"></div>
+    <div class="topbar-end">
+      <nav class="mode-switch" aria-label="モード切り替え">
+        <a href="index.html">🧩<span class="label">ブロック</span></a>
+        <a href="problems.html">📚<span class="label">問題</span></a>
+        <a href="drawing.html">🎨<span class="label">描画</span></a>
+        <a href="python-guide.html" aria-current="page">📘<span class="label">ガイド</span></a>
+      </nav>
+    </div>
+  </header>
+
+  <div id="shell">
+    <nav id="toc" aria-label="目次"><h2>目次</h2><div id="toc-links"></div></nav>
+    <div class="container">
+    <div class="page-intro">
       <h1>🐍 Python プログラミングガイド</h1>
-      <p>初心者から上級者まで - 包括的なPython学習リソース</p>
-      <div class="nav-buttons">
-        <a href="index.html" class="nav-btn back-btn">← easyCode に戻る</a>
-        <a href="#basics" class="nav-btn">基礎文法</a>
-        <a href="#control" class="nav-btn">制御構文</a>
-        <a href="#data" class="nav-btn">データ構造</a>
-        <a href="#functions" class="nav-btn">関数・クラス</a>
-        <a href="#practice" class="nav-btn">実践例</a>
-      </div>
-    </header>
+      <p>読みながら手を動かせるリファレンスです。コードの右上に出る「▶ 試す」を押すと、そのコードがブロックモードで開きます。</p>
+    </div>
 
     <div class="content-grid">
       <!-- Python概要 -->
@@ -794,33 +782,21 @@ print("保存されたTODO:", loaded_todos)
       </section>
     </div>
 
-    <footer style="text-align: center; padding: 2em; background: rgba(255, 255, 255, 0.95); border-radius: 12px; margin-top: 2em;">
+    <footer>
       <h3>🎓 学習を続けよう！</h3>
       <p>このガイドはPythonの基礎をカバーしています。さらに学習を進めるには：</p>
       <div class="nav-buttons">
-        <a href="index.html" class="nav-btn">easyCodeで実践</a>
+        <a href="problems.html" class="nav-btn">easyCodeで実践</a>
+        <a href="index.html" class="nav-btn">ブロックモードを試す</a>
         <a href="drawing.html" class="nav-btn">描画モードを試す</a>
       </div>
-      <p style="margin-top: 1em; color: #7f8c8d;">
+      <p class="muted" style="margin-top: 1em;">
         ⚡ Created by Dit-Lab.(Daiki ITO) | 🐍 Python in Browser | 🎨 Creative Coding
       </p>
     </footer>
+    </div>
   </div>
 
-  <script>
-    // スムーズスクロール
-    document.querySelectorAll('a[href^="#"]').forEach(anchor => {
-      anchor.addEventListener('click', function (e) {
-        e.preventDefault();
-        const target = document.querySelector(this.getAttribute('href'));
-        if (target) {
-          target.scrollIntoView({
-            behavior: 'smooth',
-            block: 'start'
-          });
-        }
-      });
-    });
-  </script>
+  <script type="module" src="module/guide.js"></script>
 </body>
 </html>

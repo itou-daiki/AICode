@@ -1,6 +1,7 @@
 // module/ai.js
 import { appState } from './state.js';
 import { API_CONFIG, STORAGE_KEYS } from './config.js';
+import { sameOutput } from './grade.js';
 
 // APIキーの管理
 let apiKey = localStorage.getItem(STORAGE_KEYS.API_KEY) || '';
@@ -52,56 +53,18 @@ window.addEventListener('DOMContentLoaded', initApiKeyForm);
  * @param {number} maxTokens 最大トークン数
  * @returns {Promise<string>} APIレスポンス
  */
+export const NO_KEY_MESSAGE =
+  'AI を使うには Gemini の API キーが必要です。\n'
+  + 'サイドバーの「AI 設定」でキーを入れると使えるようになります。\n'
+  + '（キーが無くても、実行・ブロック・フローチャート・コード補完はすべて使えます）';
+
 export async function callGemini(prompt, maxTokens = 500) {
   try {
-    const currentProblem = appState.getCurrentProblem();
-
-    // APIキーがない場合はデモレスポンスを返す
+    // APIキーがないときは、それをそのまま伝える。
+    // 以前はもっともらしい作り話（デモ）を返していたが、
+    // 学習者が「AI が自分のコードを読んで言った」と受け取ってしまうため、やめた。
     if (!apiKey) {
-      const demoResponses = {
-        'explain': `# ${currentProblem?.title || '問題'} の解説
-
-この問題は${currentProblem?.description || 'プログラミング問題'}を解決します。
-
-**ポイント:**
-- 入力を正しく受け取る
-- 適切な処理を行う
-- 結果を出力する
-
-シンプルに考えて実装しましょう！`,
-        
-        'review': `# コードレビュー
-
-**良い点:**
-- 基本的な構造ができています
-
-**改善点:**
-- エラー処理を追加しましょう
-- コメントを追加すると良いでしょう
-
-頑張ってください！`,
-
-        'chat': 'わかりました。具体的にどの部分について質問がありますか？',
-
-        'problem': `{
-  "title": "数値の合計",
-  "description": "2つの整数を入力し、その合計を出力してください。",
-  "input": "3\\n5",
-  "expected": "8",
-  "template": "# 2つの数値を入力\\na = int(input())\\nb = int(input())\\n\\n# 合計を計算して出力\\n"
-}`
-      };
-
-      // デモレスポンスを返す
-      if (prompt.includes('解説')) {
-        return demoResponses.explain;
-      } else if (prompt.includes('レビュー')) {
-        return demoResponses.review;
-      } else if (prompt.includes('新しい問題')) {
-        return demoResponses.problem;
-      } else {
-        return demoResponses.chat;
-      }
+      return NO_KEY_MESSAGE;
     }
 
     // APIキーがある場合は実際にGemini APIを呼び出す
@@ -424,6 +387,8 @@ export async function generateNewProblem() {
       if (label) {
         label.textContent = 'AI生成問題';
       }
+    } else if (text === NO_KEY_MESSAGE) {
+      alert(NO_KEY_MESSAGE);
     } else {
       throw new Error('問題の生成に失敗しました');
     }
@@ -520,7 +485,10 @@ ${code}
 }
 
 /**
- * 正誤判定機能
+ * 正誤判定
+ *
+ * 期待される出力は問題ファイルに書いてあるので、AI を使わずに判定する。
+ * APIキーがあるときだけ、そのあとに一言コメントを足す。
  */
 export async function checkAnswer() {
   const resultDiv = document.getElementById('check-result');
@@ -533,39 +501,43 @@ export async function checkAnswer() {
   }
 
   resultDiv.style.display = 'block';
-  resultDiv.textContent = '判定中...';
+
+  const outputEl = document.getElementById('output');
+  const actualOutput = outputEl ? outputEl.textContent.trim() : '';
+  const expectedOutput = String(currentProblem.expected ?? '').trim();
+
+  if (!actualOutput) {
+    resultDiv.innerHTML = '<p>まず「▶ 実行」を押して、出力を出してから答え合わせをしましょう。</p>';
+    return;
+  }
+
+  const correct = sameOutput(actualOutput, expectedOutput);
+  const escape = (text) => String(text).replace(/[&<>]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c]));
+
+  resultDiv.innerHTML = correct
+    ? '<p><strong>✅ 正解です！</strong></p>'
+    : `<p><strong>❌ もう少しです</strong></p>
+       <p>期待される出力</p><pre>${escape(expectedOutput)}</pre>
+       <p>あなたの出力</p><pre>${escape(actualOutput)}</pre>`;
+
+  // ここから先は、あってもなくてもよい助言。キーが無ければ何も足さない。
+  if (!apiKey) return;
+
+  const note = document.createElement('div');
+  note.textContent = 'ひとことコメントをもらっています…';
+  resultDiv.appendChild(note);
 
   try {
-    // 実行結果を取得
-    const outputEl = document.getElementById('output');
-    const actualOutput = outputEl ? outputEl.textContent.trim() : '';
-    const expectedOutput = currentProblem.expected.trim();
-    const code = appState.getEditor().getValue();
-
-    const prompt = `次のPythonコードが問題の要求を満たしているか判定してください。
-
-問題: ${currentProblem.title}
-説明: ${currentProblem.description}
-期待される出力: ${expectedOutput}
-
-提出されたコード:
-${code}
-
-実際の出力:
-${actualOutput}
-
-以下の観点で評価してください：
-1. 出力が期待される結果と一致しているか
-2. コードが問題の要求を満たしているか
-3. 良い点と改善点
-
-簡潔に判定結果を出力してください。正解の場合は「✅ 正解です！」から始め、不正解の場合は「❌ 不正解です」から始めてください。`;
-
-    const text = await callGemini(prompt, 400);
-    resultDiv.innerHTML = markdownToHtml(text);
+    const text = await callGemini(
+      `Python を学びはじめた人へ、2文までの短い助言をください。説明は日本語で。\n`
+      + `問題: ${currentProblem.title}\n`
+      + `${correct ? '正解しています。次に試すとよいことを1つ。' : 'まだ正解ではありません。どこを見直すとよいかを1つ。'}\n\n`
+      + `提出されたコード:\n${appState.getEditor().getValue()}\n\n実際の出力:\n${actualOutput}`,
+      200,
+    );
+    note.innerHTML = markdownToHtml(text);
   } catch (error) {
-    console.error('正誤判定エラー:', error);
-    resultDiv.innerHTML = `<p style="color: red;">判定中にエラーが発生しました: ${error.message}</p>`;
+    note.remove();
   }
 }
 

@@ -1,1330 +1,565 @@
-// module/drawing.js - 描画モード用のメインモジュール
+// module/drawing.js - 描画モードの画面まわり
+//
+// コード ⇄ ブロック ⇄ フローチャートの同期は module/workbench.js が受け持つ。
+// このファイルは p5 の実行（1回だけ描く / アニメーション）と画面の切り替えを担当する。
+
+import { P5_PYTHON_LIBRARY } from './p5lib.js';
+import { createWorkbench } from './workbench.js';
+import { P5_CALL_BLOCKS, P5_NAME_BLOCKS } from './blockdefs.js';
+import {
+  confirmDialog, toast, initSidebar, initTabs, initMaximize,
+  takeCodeFromUrl, makeShareUrl, showShareDialog,
+} from './ui.js';
+import { callGemini, chatWithAI } from './ai.js';
 import { appState } from './state.js';
-import { reviewCode as aiReviewCode, fixCode as aiFixCode, callGemini } from './ai.js';
+import { PYODIDE_CONFIG } from './config.js';
+import { runUserCode, explainError } from './pyrun.js';
 
-import { CodeCompletionEngine } from './completion.js';
+const STORAGE_KEY = 'easycode_drawing_workspace_v2';
 
-let pyodide;
-let editor;
-let canvas;
-let ctx;
-let completionEngine; // コード補完エンジン
-let animationId = null; // アニメーションループID
-let isAnimating = false; // アニメーション実行中フラグ
+/** 最初に置いておくコード（説明はサンプルパネルにまとめてある） */
+const STARTER_CODE = `def setup():
+    background(245, 246, 250)
 
-/**
- * Pythonコードを生成AIでフォーマット
- * @param {CodeMirror} cm CodeMirrorインスタンス
- */
-async function formatCode(cm) {
-  // APIキーの確認
-  const apiKey = localStorage.getItem('gemini_api_key');
-  if (!apiKey) {
-    alert('コードフォーマット機能を使用するには、Gemini APIキーを設定してください。');
+def draw():
+    x = 200 + 130 * cos(frameCount * 0.05)
+    y = 200 + 130 * sin(frameCount * 0.05)
+    circle(x, y, 26)
+`;
+
+let bench = null;
+let pyodide = null;
+let animating = false;
+let animationId = null;
+
+const $ = (id) => document.getElementById(id);
+
+/* ============================================================
+ * 1. サンプルと使い方（もとはエディタのコメントに書いてあった内容）
+ * ========================================================== */
+
+const SAMPLES = [
+  {
+    group: '基本のかたち',
+    items: [
+      ['円', 'circle(200, 200, 100)', '中心x, 中心y, 直径'],
+      ['楕円', 'ellipse(200, 200, 160, 90)', '中心x, 中心y, 横の直径, 縦の直径'],
+      ['四角形', 'rect(120, 120, 160, 100)', '左上x, 左上y, 幅, 高さ'],
+      ['正方形', 'square(150, 150, 100)', '左上x, 左上y, 一辺'],
+      ['三角形', 'triangle(200, 100, 140, 260, 260, 260)', '3つの頂点の x, y'],
+      ['線', 'line(40, 40, 360, 360)', '始点x, 始点y, 終点x, 終点y'],
+      ['弧', 'arc(200, 200, 160, 160, 0, PI)', '中心x, 中心y, 横径, 縦径, 開始角, 終了角'],
+    ],
+  },
+  {
+    group: '色と線',
+    items: [
+      ['背景色', 'background(245, 246, 250)', '赤, 緑, 青（0〜255）'],
+      ['塗りつぶし', 'fill(255, 100, 100)', '赤, 緑, 青'],
+      ['塗りつぶしなし', 'no_fill()', '引数なし'],
+      ['線の色', 'stroke(40, 60, 120)', '赤, 緑, 青'],
+      ['線の太さ', 'stroke_weight(4)', '太さ（ピクセル）'],
+      ['輪郭なし', 'no_stroke()', '引数なし'],
+    ],
+  },
+  {
+    group: '文字',
+    items: [
+      ['文字を書く', "text_size(28)\ntext('Hello', 140, 200)", '文字サイズ／文字列, x, y'],
+      ['文字の位置', "text_align('center', 'middle')", '横（left/center/right）, 縦（top/middle/bottom）'],
+    ],
+  },
+  {
+    group: '位置を動かす',
+    items: [
+      ['回転させる',
+        "push()\ntranslate(200, 200)\nrotate(PI / 4)\nrect(-40, -40, 80, 80)\npop()",
+        'push と pop ではさむと元の状態に戻せます'],
+      ['大きくする',
+        "push()\nscale(2, 2)\ncircle(100, 100, 40)\npop()",
+        '横の倍率, 縦の倍率'],
+    ],
+  },
+  {
+    group: '数とランダム',
+    items: [
+      ['ランダムな位置', 'x = random(0, 400)\ny = random(0, 400)\ncircle(x, y, 30)', '最小値, 最大値'],
+      ['値の変換', 'angle = map_value(100, 0, 400, 0, TWO_PI)', '値, 元の最小, 元の最大, 後の最小, 後の最大'],
+      ['なめらかな乱数', 'n = noise(0.1, 0.2) * 100', 'x, y'],
+    ],
+  },
+  {
+    group: 'アニメーション',
+    items: [
+      ['円が回る', `def setup():
+    background(245, 246, 250)
+
+def draw():
+    x = 200 + 130 * cos(frameCount * 0.05)
+    y = 200 + 130 * sin(frameCount * 0.05)
+    circle(x, y, 26)`, 'setup() は1回、draw() はくり返し呼ばれます'],
+      ['四角が回転する', `def setup():
+    background(20, 22, 34)
+
+def draw():
+    push()
+    translate(200, 200)
+    rotate(frameCount * 0.02)
+    fill(255, 120, 120)
+    rect(-40, -40, 80, 80)
+    pop()`, 'frameCount を角度に使うと回り続けます'],
+    ],
+  },
+];
+
+/** サンプルパネルを組み立てる */
+function buildSamples() {
+  const container = $('samples-body');
+
+  const note = document.createElement('div');
+  note.className = 'note';
+  note.textContent =
+    'キャンバスは 400 × 400 です。左上が (0, 0)、右下が (400, 400)。'
+    + ' サンプルを押すと、コードの最後に追加されます。';
+  container.appendChild(note);
+
+  for (const section of SAMPLES) {
+    const heading = document.createElement('h3');
+    heading.textContent = section.group;
+    container.appendChild(heading);
+
+    for (const [name, code, hint] of section.items) {
+      const button = document.createElement('button');
+      button.type = 'button';
+      button.className = 'sample-item';
+      button.title = hint;
+
+      const label = document.createElement('span');
+      label.className = 'name';
+      label.textContent = `${name}（${hint}）`;
+
+      const sample = document.createElement('code');
+      sample.textContent = code;
+
+      button.append(label, sample);
+      button.addEventListener('click', () => insertSample(code));
+      container.appendChild(button);
+    }
+  }
+}
+
+/** サンプルをコードの最後に足す */
+function insertSample(code) {
+  const current = bench.getCode().replace(/\s*$/, '');
+  bench.setCode(current ? `${current}\n${code}\n` : `${code}\n`);
+  toast('コードに追加しました');
+}
+
+/* ============================================================
+ * 2. 実行
+ * ========================================================== */
+
+/** キャンバスの状態表示を更新する */
+function setCanvasState(text, live) {
+  const chip = $('canvas-state');
+  chip.textContent = text;
+  chip.className = live ? 'chip is-live' : 'chip';
+  $('stop-btn').disabled = !live;
+}
+
+/** キャンバスを白紙に戻す */
+function clearCanvas() {
+  const canvas = $('canvas');
+  const context = canvas.getContext('2d');
+  context.clearRect(0, 0, canvas.width, canvas.height);
+  context.fillStyle = '#ffffff';
+  context.fillRect(0, 0, canvas.width, canvas.height);
+}
+
+/** アニメーションを止める */
+function stopAnimation(message = '停止しました') {
+  if (animationId) cancelAnimationFrame(animationId);
+  animationId = null;
+  animating = false;
+  setCanvasState('停止中', false);
+  if (message) $('output').textContent += `\n${message}\n`;
+}
+
+/** コードを実行する */
+async function runCode() {
+  const output = $('output');
+  const code = bench.getCode();
+
+  stopAnimation(null);
+  clearCanvas();
+
+  if (!code.trim()) {
+    output.textContent = '実行するコードがありません。サンプルから選んでみましょう。';
     return;
   }
 
-  const button = document.getElementById('format-btn');
-  if (!button) return;
+  output.textContent = '実行中…\n';
+  // コードは Python の変数として渡す（""" を含むコードでも安全に実行できる）
+  pyodide.globals.set('_user_code', code);
+  // 前回の回転や拡大が残らないように、まっさらから始める
+  await pyodide.runPythonAsync('begin_frame()');
 
-  const originalText = button.textContent;
-  button.textContent = 'フォーマット中...';
+  try {
+    if (/def\s+(setup|draw)\s*\(/.test(code)) {
+      await runAnimation(code);
+    } else {
+      const result = await runUserCode(pyodide, code, { useGlobals: true });
+      output.textContent = result.error
+        ? explainError(result.error, code)
+        : (result.output || '描きました（出力はありません）');
+      setCanvasState(result.error ? '停止中' : '描画ずみ', false);
+    }
+  } catch (error) {
+    console.error('描画エラー:', error);
+    output.textContent = 'エラー: ' + error.message;
+    setCanvasState('停止中', false);
+  }
+}
+
+/**
+ * setup() / draw() を使うアニメーションを動かす
+ * @param {string} code 学習者が書いたコード
+ */
+async function runAnimation(code) {
+  const output = $('output');
+
+  await pyodide.runPythonAsync(`
+import time
+frameCount = 0
+deltaTime = 0
+p5.frame_count = 0
+p5.start_time = time.time()
+p5._last_time = time.time()
+`);
+
+  // 学習者のコードを読みこんで、setup() があれば一度だけ呼ぶ。
+  // 末尾に足しているだけなので、エラーの行番号はずれない。
+  const setupRun = await runUserCode(
+    pyodide,
+    code + "\nif 'setup' in globals():\n    setup()\n",
+    { useGlobals: true },
+  );
+
+  if (setupRun.error) {
+    output.textContent = explainError(setupRun.error, code);
+    setCanvasState('停止中', false);
+    return;
+  }
+  output.textContent = setupRun.output || '';
+
+  const hasDraw = await pyodide.runPythonAsync(`'draw' in globals()`);
+  if (!hasDraw) {
+    output.textContent += 'setup() だけ実行しました。\n';
+    setCanvasState('描画ずみ', false);
+    return;
+  }
+
+  animating = true;
+  setCanvasState('アニメーション中', true);
+  output.textContent += 'アニメーション実行中…（⏹ 停止 で止まります）\n';
+
+  const loop = async () => {
+    if (!animating) return;
+    try {
+      // 1コマぶんの下ごしらえ（座標系をもどし、frameCount を進める）
+      await pyodide.runPythonAsync(`
+import time
+
+# p5.js と同じく、毎フレーム座標系をもどしてから draw() を呼ぶ
+begin_frame()
+
+frameCount = frameCount + 1
+p5.frame_count = frameCount
+_now = time.time()
+deltaTime = (_now - p5._last_time) * 1000 if p5._last_time else 0
+p5._last_time = _now
+`);
+
+      const frame = await runUserCode(pyodide, 'draw()', { useGlobals: true, seconds: 3 });
+
+      if (frame.error) {
+        output.textContent = 'アニメーションでエラーが起きました\n' + explainError(frame.error, code);
+        stopAnimation(null);
+        return;
+      }
+      if (frame.output) output.textContent = frame.output;
+      animationId = requestAnimationFrame(loop);
+    } catch (e) {
+      console.error('アニメーションエラー:', e);
+      output.textContent = 'エラー: ' + e.message;
+      stopAnimation(null);
+    }
+  };
+
+  animationId = requestAnimationFrame(loop);
+}
+
+/* ============================================================
+ * 3. AI サポート（APIキーがあるときだけ使う）
+ * ========================================================== */
+
+/** コードレビューをもらう */
+async function reviewDrawing() {
+  const target = $('review');
+  const code = bench.getCode();
+  if (!code.trim()) { target.textContent = 'レビューするコードがありません。'; return; }
+
+  target.textContent = '生成中…';
+  try {
+    target.textContent = await callGemini(
+      '次の Python 描画コード（p5.js に似たライブラリ）を、初学者向けに3〜4文でレビューしてください。\n'
+      + 'よい点と、次に試すとよいことを書いてください。\n\n```python\n' + code + '\n```',
+      400
+    );
+  } catch (error) {
+    target.textContent = 'レビューを取得できませんでした: ' + error.message;
+  }
+}
+
+/** コードを改善してもらう */
+async function improveDrawing() {
+  const button = $('ai-fix-code');
+  const code = bench.getCode();
+  if (!code.trim()) { toast('改善するコードがありません'); return; }
+
+  const label = button.textContent;
+  button.textContent = '改善中…';
   button.disabled = true;
 
   try {
-    const code = cm.getValue();
-    if (!code.trim()) {
-      alert('フォーマットするコードを入力してください。');
-      return;
-    }
-
-    const prompt = `以下のPythonコード（p5.jsライクな描画ライブラリを使用）を適切にフォーマットしてください。
-
-元のコード:
-\`\`\`python
-${code}
-\`\`\`
-
-以下のルールに従ってフォーマットしてください：
-1. PEP 8スタイルに準拠
-2. 適切なインデント（スペース4つ）
-3. 適切な空行の挿入
-4. コメントの整理と改善
-5. コードの意図を保持
-
-フォーマットされたコードのみを出力してください（説明は不要）。`;
-
-    const response = await callGemini(prompt, 800);
-
-    // コードブロックから実際のコードを抽出
-    let formattedCode = response;
-    const codeMatch = response.match(/```python\n([\s\S]*?)\n```/);
-    if (codeMatch) {
-      formattedCode = codeMatch[1];
-    } else {
-      // ```で囲まれていない場合は、そのまま使用
-      formattedCode = response.replace(/```/g, '').trim();
-    }
-
-    // エディタに反映
-    const cursor = cm.getCursor();
-    cm.setValue(formattedCode);
-    // カーソル位置を復元（可能な範囲で）
-    const newLineCount = cm.lineCount();
-    if (cursor.line < newLineCount) {
-      cm.setCursor(cursor);
-    }
-
+    const response = await callGemini(
+      '次の Python 描画コード（p5.js に似たライブラリ）を、より見ばえがよくなるように書き直してください。\n'
+      + '説明は不要で、コードだけを出力してください。\n\n```python\n' + code + '\n```',
+      700
+    );
+    const match = response.match(/```(?:python)?\n([\s\S]*?)```/);
+    bench.setCode((match ? match[1] : response).trim() + '\n');
+    toast('AIがコードを書き直しました');
   } catch (error) {
-    console.error('コードフォーマットエラー:', error);
-    alert('コードのフォーマット中にエラーが発生しました: ' + error.message);
+    toast('改善できませんでした: ' + error.message);
   } finally {
-    button.textContent = originalText;
+    button.textContent = label;
     button.disabled = false;
   }
 }
 
-/**
- * タブキーの動作を改善
- * 選択範囲がある場合はインデント、ない場合は通常のタブ
- * @param {CodeMirror} cm CodeMirrorインスタンス
- */
-function betterTab(cm) {
-  if (cm.somethingSelected()) {
-    cm.indentSelection('add');
+/** サイドバーのチャット */
+function setupChat() {
+  const input = $('chat-input');
+  const messages = $('chat-messages');
+
+  const add = (text, who) => {
+    const bubble = document.createElement('div');
+    bubble.className = `chat-message ${who}-message`;
+    bubble.textContent = text;
+    messages.appendChild(bubble);
+    messages.scrollTop = messages.scrollHeight;
+    return bubble;
+  };
+
+  const send = async () => {
+    const message = input.value.trim();
+    if (!message) return;
+    add(message, 'user');
+    input.value = '';
+    const pending = add('考えています…', 'ai');
+    pending.textContent = await chatWithAI(message);
+    messages.scrollTop = messages.scrollHeight;
+  };
+
+  $('chat-send').addEventListener('click', send);
+  input.addEventListener('keypress', (e) => { if (e.key === 'Enter') send(); });
+}
+
+/* ============================================================
+ * 4. 初期化
+ * ========================================================== */
+
+/** 補完に足す p5 の候補（ブロックの表から作る） */
+function completionApi() {
+  const split = (name) => (name.includes('.') ? name.split('.') : [null, name]);
+
+  // 書き方は 2 とおりある。p5.js のリファレンスと同じ circle(...) と、
+  // これまでどおりの p5.circle(...)。どちらでも候補に出す。
+  const calls = P5_CALL_BLOCKS.flatMap(def => {
+    const [target, name] = split(def.call);
+    const args = def.args.map(a => a.name).join(', ') || '引数なし';
+    const entry = {
+      label: `${name}()`, insert: `${name}()`,
+      detail: `${def.tooltip}（${args}）`, moveBack: 1,
+    };
+    return target ? [{ ...entry, target: null }, { ...entry, target }] : [entry];
+  });
+
+  const names = P5_NAME_BLOCKS.map(def => {
+    const [target, name] = split(def.name);
+    return { target, label: name, insert: name, detail: def.tooltip };
+  });
+
+  const extras = [
+    { label: 'p5', insert: 'p5', detail: '描画のためのオブジェクト' },
+    { label: 'PI', insert: 'PI', detail: '円周率' },
+    { label: 'TWO_PI', insert: 'TWO_PI', detail: '円周率の2倍' },
+    { label: 'noise()', insert: 'noise()', detail: 'なめらかな乱数（x, y）', moveBack: 1 },
+    { label: 'lerp()', insert: 'lerp()', detail: '線形補間（開始, 終了, 割合）', moveBack: 1 },
+    { label: 'text_align()', insert: 'text_align()', detail: '文字の位置（横, 縦）', moveBack: 1 },
+    { label: 'begin_shape()', insert: 'begin_shape()', detail: '自由な形を描き始める', moveBack: 1 },
+    { label: 'vertex()', insert: 'vertex()', detail: '頂点を足す（x, y）', moveBack: 1 },
+    { label: 'end_shape()', insert: "end_shape('CLOSE')", detail: '形を閉じる', moveBack: 1 },
+    { label: 'bezier()', insert: 'bezier()', detail: 'ベジェ曲線（8つの座標）', moveBack: 1 },
+  ];
+
+  return [...calls, ...names, ...extras];
+}
+
+function setupControls() {
+  $('run-btn').addEventListener('click', runCode);
+  $('stop-btn').addEventListener('click', () => stopAnimation());
+
+  $('clear-btn').addEventListener('click', async () => {
+    const ok = await confirmDialog({
+      title: 'すべて消しますか？',
+      message: 'コード・ブロック・キャンバスがすべて消えます。この操作は元に戻せません。',
+      okLabel: 'すべて消す',
+    });
+    if (!ok) return;
+    stopAnimation(null);
+    clearCanvas();
+    bench.clearAll();
+    $('output').textContent = '';
+    setCanvasState('停止中', false);
+    toast('すべて消しました');
+  });
+
+  $('share-btn').addEventListener('click', async () => {
+    const code = bench.getCode();
+    if (!code.trim()) { toast('共有するコードがありません'); return; }
+    showShareDialog(await makeShareUrl('drawing.html', code));
+  });
+
+  $('save-png').addEventListener('click', () => {
+    const link = document.createElement('a');
+    link.download = 'easycode-drawing.png';
+    link.href = $('canvas').toDataURL('image/png');
+    link.click();
+    toast('画像を保存しました');
+  });
+
+  $('code-indent').addEventListener('click', () => {
+    toast(bench.autoIndent() ? '字下げをそろえました' : 'すでに字下げは整っています');
+  });
+  $('code-format').addEventListener('click', () => {
+    toast(bench.formatCode() ? 'コードを整えました' : 'すでに整っています');
+  });
+
+  $('blocks-undo').addEventListener('click', () => bench.workspace.undo(false));
+  $('blocks-redo').addEventListener('click', () => bench.workspace.undo(true));
+  $('blocks-tidy').addEventListener('click', () => {
+    bench.fitBlocks();
+    toast('ブロックを整列しました');
+  });
+
+  $('flow-refresh').addEventListener('click', () => bench.renderFlowchart(true));
+
+  $('flow-language').addEventListener('click', (e) => {
+    const japanese = !bench.isFlowJapanese();
+    bench.setFlowJapanese(japanese);
+    e.currentTarget.textContent = japanese ? '🈁 やさしい日本語' : '🔤 コードのまま';
+    e.currentTarget.classList.toggle('is-on', japanese);
+    toast(japanese ? 'やさしい日本語で書きます' : 'コードのまま書きます');
+  });
+  $('output-clear').addEventListener('click', () => { $('output').textContent = ''; });
+
+  $('btn-review').addEventListener('click', reviewDrawing);
+  $('ai-fix-code').addEventListener('click', improveDrawing);
+
+  window.addEventListener('resize', () => bench.refreshLayout());
+}
+
+/** 同期の状態をコードパネルのラベルに出す */
+function showSyncState({ rawCount }) {
+  const chip = $('sync-chip');
+  if (!chip) return;
+  if (rawCount < 0) {
+    chip.textContent = 'ブロックにできませんでした';
+    chip.className = 'chip is-warn';
+  } else if (rawCount > 0) {
+    chip.textContent = `同期中（${rawCount} か所は Python ブロック）`;
+    chip.className = 'chip is-warn';
   } else {
-    cm.replaceSelection('    ', 'end');
+    chip.textContent = 'ブロックと同期中';
+    chip.className = 'chip is-live';
   }
 }
 
-// p5.jsライクな描画ライブラリをPythonで実装
-const P5_PYTHON_LIBRARY = `
-import math
-import random as _random
-
-# p5.js定数
-PI = math.pi
-TWO_PI = math.pi * 2
-HALF_PI = math.pi / 2
-QUARTER_PI = math.pi / 4
-
-class P5:
-    def __init__(self, canvas_id='canvas'):
-        import js
-        self.canvas = js.document.getElementById(canvas_id)
-        self.ctx = self.canvas.getContext('2d')
-        self.width = self.canvas.width
-        self.height = self.canvas.height
-
-        # デフォルト設定
-        self.fill_color = 'black'
-        self.stroke_color = 'black'
-        self.stroke_width = 1
-        self.no_fill_flag = False
-        self.no_stroke_flag = False
-
-        # 角度モード（度数法/ラジアン）
-        self.angle_mode = 'radians'
-
-        # 描画モード
-        self.rect_mode = 'corner'  # corner, center, corners, radius
-        self.ellipse_mode = 'center'  # center, radius, corner, corners
-
-        # カスタム形状用
-        self.vertices = []
-        self.is_shape_open = False
-
-        # テキスト設定
-        self.text_align_horizontal = 'left'  # left, center, right
-        self.text_align_vertical = 'baseline'  # top, bottom, middle, baseline
-        self.text_leading_value = 0  # 行間
-
-        # 線の設定
-        self.stroke_cap_style = 'butt'  # butt, round, square
-        self.stroke_join_style = 'miter'  # miter, bevel, round
-
-        # 色モード
-        self.color_mode = 'rgb'  # rgb or hsb
-        self.color_max_values = [255, 255, 255, 255]  # RGBA最大値
-
-        # フレーム数とタイマー
-        self.frame_count = 0
-        self.start_time = None
-        self._last_time = None
-        
-    def clear(self):
-        """キャンバスをクリア"""
-        self.ctx.clearRect(0, 0, self.width, self.height)
-        
-    def background(self, r, g=None, b=None):
-        """背景色を設定"""
-        if g is None and b is None:
-            # グレースケール
-            color = f'rgb({r},{r},{r})'
-        else:
-            color = f'rgb({r},{g},{b})'
-        self.ctx.fillStyle = color
-        self.ctx.fillRect(0, 0, self.width, self.height)
-        
-    def fill(self, r, g=None, b=None, a=None):
-        """塗りつぶし色を設定"""
-        if g is None and b is None:
-            # グレースケール
-            if a is not None:
-                self.fill_color = f'rgba({r},{r},{r},{a/255})'
-            else:
-                self.fill_color = f'rgb({r},{r},{r})'
-        else:
-            if a is not None:
-                self.fill_color = f'rgba({r},{g},{b},{a/255})'
-            else:
-                self.fill_color = f'rgb({r},{g},{b})'
-        self.no_fill_flag = False
-
-    def no_fill(self):
-        """塗りつぶしを無効にする"""
-        self.no_fill_flag = True
-        
-    def stroke(self, r, g=None, b=None, a=None):
-        """輪郭色を設定"""
-        if g is None and b is None:
-            # グレースケール
-            if a is not None:
-                self.stroke_color = f'rgba({r},{r},{r},{a/255})'
-            else:
-                self.stroke_color = f'rgb({r},{r},{r})'
-        else:
-            if a is not None:
-                self.stroke_color = f'rgba({r},{g},{b},{a/255})'
-            else:
-                self.stroke_color = f'rgb({r},{g},{b})'
-        self.no_stroke_flag = False
-
-    def no_stroke(self):
-        """輪郭を無効にする"""
-        self.no_stroke_flag = True
-        
-    def stroke_weight(self, weight):
-        """輪郭の太さを設定"""
-        self.stroke_width = weight
-        
-    def circle(self, x, y, diameter):
-        """円を描画"""
-        radius = diameter / 2
-        self.ctx.beginPath()
-        self.ctx.arc(x, y, radius, 0, 2 * math.pi)
-
-        if not self.no_fill_flag:
-            self.ctx.fillStyle = self.fill_color
-            self.ctx.fill()
-
-        if not self.no_stroke_flag:
-            self.ctx.strokeStyle = self.stroke_color
-            self.ctx.lineWidth = self.stroke_width
-            self.ctx.stroke()
-            
-    def ellipse(self, x, y, width, height=None):
-        """楕円を描画"""
-        if height is None:
-            height = width
-
-        # ellipseModeに応じて座標を調整
-        if self.ellipse_mode == 'center':
-            cx, cy = x, y
-            w, h = width, height
-        elif self.ellipse_mode == 'radius':
-            cx, cy = x, y
-            w, h = width * 2, height * 2
-        elif self.ellipse_mode == 'corner':
-            cx, cy = x + width / 2, y + height / 2
-            w, h = width, height
-        elif self.ellipse_mode == 'corners':
-            cx, cy = (x + width) / 2, (y + height) / 2
-            w, h = abs(width - x), abs(height - y)
-
-        self.ctx.save()
-        self.ctx.beginPath()
-        self.ctx.translate(cx, cy)
-        self.ctx.scale(w/2, h/2)
-        self.ctx.arc(0, 0, 1, 0, 2 * math.pi)
-        self.ctx.restore()
-
-        if not self.no_fill_flag:
-            self.ctx.fillStyle = self.fill_color
-            self.ctx.fill()
-
-        if not self.no_stroke_flag:
-            self.ctx.strokeStyle = self.stroke_color
-            self.ctx.lineWidth = self.stroke_width
-            self.ctx.stroke()
-            
-    def rect(self, x, y, width, height=None, tl=0, tr=0, br=0, bl=0):
-        """四角形を描画（角の丸みオプション付き）"""
-        if height is None:
-            height = width
-
-        # rectModeに応じて座標を調整
-        if self.rect_mode == 'corner':
-            rx, ry = x, y
-            rw, rh = width, height
-        elif self.rect_mode == 'center':
-            rx, ry = x - width / 2, y - height / 2
-            rw, rh = width, height
-        elif self.rect_mode == 'radius':
-            rx, ry = x - width, y - height
-            rw, rh = width * 2, height * 2
-        elif self.rect_mode == 'corners':
-            rx, ry = x, y
-            rw, rh = width - x, height - y
-
-        # 角丸がある場合
-        if tl > 0 or tr > 0 or br > 0 or bl > 0:
-            self.ctx.beginPath()
-            self.ctx.moveTo(rx + tl, ry)
-            self.ctx.lineTo(rx + rw - tr, ry)
-            if tr > 0:
-                self.ctx.arcTo(rx + rw, ry, rx + rw, ry + tr, tr)
-            self.ctx.lineTo(rx + rw, ry + rh - br)
-            if br > 0:
-                self.ctx.arcTo(rx + rw, ry + rh, rx + rw - br, ry + rh, br)
-            self.ctx.lineTo(rx + bl, ry + rh)
-            if bl > 0:
-                self.ctx.arcTo(rx, ry + rh, rx, ry + rh - bl, bl)
-            self.ctx.lineTo(rx, ry + tl)
-            if tl > 0:
-                self.ctx.arcTo(rx, ry, rx + tl, ry, tl)
-            self.ctx.closePath()
-
-            if not self.no_fill_flag:
-                self.ctx.fillStyle = self.fill_color
-                self.ctx.fill()
-
-            if not self.no_stroke_flag:
-                self.ctx.strokeStyle = self.stroke_color
-                self.ctx.lineWidth = self.stroke_width
-                self.ctx.stroke()
-        else:
-            # 通常の四角形
-            if not self.no_fill_flag:
-                self.ctx.fillStyle = self.fill_color
-                self.ctx.fillRect(rx, ry, rw, rh)
-
-            if not self.no_stroke_flag:
-                self.ctx.strokeStyle = self.stroke_color
-                self.ctx.lineWidth = self.stroke_width
-                self.ctx.strokeRect(rx, ry, rw, rh)
-
-    def square(self, x, y, size):
-        """正方形を描画"""
-        self.rect(x, y, size, size)
-            
-    def line(self, x1, y1, x2, y2):
-        """線を描画"""
-        self.ctx.beginPath()
-        self.ctx.moveTo(x1, y1)
-        self.ctx.lineTo(x2, y2)
-        self.ctx.strokeStyle = self.stroke_color
-        self.ctx.lineWidth = self.stroke_width
-        self.ctx.stroke()
-        
-    def point(self, x, y):
-        """点を描画"""
-        self.ctx.fillStyle = self.stroke_color
-        self.ctx.fillRect(x, y, 1, 1)
-        
-    def triangle(self, x1, y1, x2, y2, x3, y3):
-        """三角形を描画"""
-        self.ctx.beginPath()
-        self.ctx.moveTo(x1, y1)
-        self.ctx.lineTo(x2, y2)
-        self.ctx.lineTo(x3, y3)
-        self.ctx.closePath()
-
-        if not self.no_fill_flag:
-            self.ctx.fillStyle = self.fill_color
-            self.ctx.fill()
-
-        if not self.no_stroke_flag:
-            self.ctx.strokeStyle = self.stroke_color
-            self.ctx.lineWidth = self.stroke_width
-            self.ctx.stroke()
-            
-    def quad(self, x1, y1, x2, y2, x3, y3, x4, y4):
-        """四角形（任意の4点）を描画"""
-        self.ctx.beginPath()
-        self.ctx.moveTo(x1, y1)
-        self.ctx.lineTo(x2, y2)
-        self.ctx.lineTo(x3, y3)
-        self.ctx.lineTo(x4, y4)
-        self.ctx.closePath()
-
-        if not self.no_fill_flag:
-            self.ctx.fillStyle = self.fill_color
-            self.ctx.fill()
-
-        if not self.no_stroke_flag:
-            self.ctx.strokeStyle = self.stroke_color
-            self.ctx.lineWidth = self.stroke_width
-            self.ctx.stroke()
-            
-    def arc(self, x, y, width, height, start_angle, end_angle):
-        """弧を描画"""
-        if self.angle_mode == 'degrees':
-            start_angle = math.radians(start_angle)
-            end_angle = math.radians(end_angle)
-
-        self.ctx.save()
-        self.ctx.beginPath()
-        self.ctx.translate(x, y)
-        self.ctx.scale(width/2, height/2)
-        self.ctx.arc(0, 0, 1, start_angle, end_angle)
-        self.ctx.restore()
-
-        if not self.no_fill_flag:
-            self.ctx.fillStyle = self.fill_color
-            self.ctx.fill()
-
-        if not self.no_stroke_flag:
-            self.ctx.strokeStyle = self.stroke_color
-            self.ctx.lineWidth = self.stroke_width
-            self.ctx.stroke()
-            
-    def text(self, text_string, x, y):
-        """テキストを描画"""
-        if not self.no_fill_flag:
-            self.ctx.fillStyle = self.fill_color
-            self.ctx.fillText(str(text_string), x, y)
-
-        if not self.no_stroke_flag:
-            self.ctx.strokeStyle = self.stroke_color
-            self.ctx.lineWidth = self.stroke_width
-            self.ctx.strokeText(str(text_string), x, y)
-            
-    def text_size(self, size):
-        """テキストサイズを設定"""
-        self.ctx.font = f'{size}px Arial'
-
-    def text_align(self, horizontal, vertical='baseline'):
-        """テキストの配置を設定"""
-        self.text_align_horizontal = horizontal
-        self.text_align_vertical = vertical
-
-        # Canvas APIに適用
-        if horizontal == 'left':
-            self.ctx.textAlign = 'left'
-        elif horizontal == 'center':
-            self.ctx.textAlign = 'center'
-        elif horizontal == 'right':
-            self.ctx.textAlign = 'right'
-
-        if vertical == 'top':
-            self.ctx.textBaseline = 'top'
-        elif vertical == 'bottom':
-            self.ctx.textBaseline = 'bottom'
-        elif vertical == 'middle':
-            self.ctx.textBaseline = 'middle'
-        elif vertical == 'baseline':
-            self.ctx.textBaseline = 'alphabetic'
-
-    def text_width(self, text_string):
-        """テキストの幅を取得"""
-        metrics = self.ctx.measureText(str(text_string))
-        return metrics.width
-
-    def text_leading(self, leading):
-        """テキストの行間を設定"""
-        self.text_leading_value = leading
-
-    def stroke_cap(self, cap):
-        """線の端のスタイルを設定 ('butt', 'round', 'square')"""
-        if cap in ['butt', 'round', 'square']:
-            self.stroke_cap_style = cap
-            self.ctx.lineCap = cap
-
-    def stroke_join(self, join):
-        """線の接合部のスタイルを設定 ('miter', 'bevel', 'round')"""
-        if join in ['miter', 'bevel', 'round']:
-            self.stroke_join_style = join
-            self.ctx.lineJoin = join
-
-    def color_mode(self, mode, max1=255, max2=255, max3=255, max4=255):
-        """色モードを設定 ('rgb' or 'hsb')"""
-        if mode in ['rgb', 'hsb']:
-            self.color_mode = mode
-            self.color_max_values = [max1, max2, max3, max4]
-
-    def get_pixel(self, x, y):
-        """指定位置のピクセル色を取得 [r, g, b, a]"""
-        pixel_data = self.ctx.getImageData(x, y, 1, 1).data
-        return [pixel_data[0], pixel_data[1], pixel_data[2], pixel_data[3]]
-        
-    def push(self):
-        """現在の描画設定を保存"""
-        self.ctx.save()
-        
-    def pop(self):
-        """保存された描画設定を復元"""
-        self.ctx.restore()
-        
-    def translate(self, x, y):
-        """座標系を移動"""
-        self.ctx.translate(x, y)
-        
-    def rotate(self, angle):
-        """座標系を回転"""
-        if self.angle_mode == 'degrees':
-            import math
-            angle = math.radians(angle)
-        self.ctx.rotate(angle)
-        
-    def scale(self, x, y=None):
-        """座標系をスケール"""
-        if y is None:
-            y = x
-        self.ctx.scale(x, y)
-
-    # モード設定関数
-    def angle_mode(self, mode):
-        """角度モードを設定 ('radians' または 'degrees')"""
-        if mode in ['radians', 'degrees']:
-            self.angle_mode = mode
-
-    def rect_mode(self, mode):
-        """四角形描画モードを設定 ('corner', 'center', 'radius', 'corners')"""
-        if mode in ['corner', 'center', 'radius', 'corners']:
-            self.rect_mode = mode
-
-    def ellipse_mode(self, mode):
-        """楕円描画モードを設定 ('center', 'radius', 'corner', 'corners')"""
-        if mode in ['center', 'radius', 'corner', 'corners']:
-            self.ellipse_mode = mode
-
-    # カスタム形状描画
-    def begin_shape(self):
-        """カスタム形状の描画を開始"""
-        self.vertices = []
-        self.is_shape_open = True
-
-    def vertex(self, x, y):
-        """カスタム形状に頂点を追加"""
-        if self.is_shape_open:
-            self.vertices.append((x, y))
-
-    def end_shape(self, close=None):
-        """カスタム形状の描画を終了"""
-        if not self.is_shape_open or len(self.vertices) < 2:
-            return
-
-        self.ctx.beginPath()
-        self.ctx.moveTo(self.vertices[0][0], self.vertices[0][1])
-
-        for i in range(1, len(self.vertices)):
-            self.ctx.lineTo(self.vertices[i][0], self.vertices[i][1])
-
-        if close == 'CLOSE':
-            self.ctx.closePath()
-
-        if not self.no_fill_flag:
-            self.ctx.fillStyle = self.fill_color
-            self.ctx.fill()
-
-        if not self.no_stroke_flag:
-            self.ctx.strokeStyle = self.stroke_color
-            self.ctx.lineWidth = self.stroke_width
-            self.ctx.stroke()
-
-        self.vertices = []
-        self.is_shape_open = False
-
-    # 曲線描画
-    def bezier(self, x1, y1, x2, y2, x3, y3, x4, y4):
-        """ベジェ曲線を描画"""
-        self.ctx.beginPath()
-        self.ctx.moveTo(x1, y1)
-        self.ctx.bezierCurveTo(x2, y2, x3, y3, x4, y4)
-
-        if not self.no_stroke_flag:
-            self.ctx.strokeStyle = self.stroke_color
-            self.ctx.lineWidth = self.stroke_width
-            self.ctx.stroke()
-
-    def curve(self, x1, y1, x2, y2, x3, y3, x4, y4):
-        """カーディナルスプライン曲線を描画（簡易版）"""
-        # 簡易的なカーブ実装（実際のp5.jsとは異なる可能性あり）
-        self.ctx.beginPath()
-        self.ctx.moveTo(x2, y2)
-
-        # 制御点を使った曲線の近似
-        cp1x = x2 + (x3 - x1) / 6
-        cp1y = y2 + (y3 - y1) / 6
-        cp2x = x3 - (x4 - x2) / 6
-        cp2y = y3 - (y4 - y2) / 6
-
-        self.ctx.bezierCurveTo(cp1x, cp1y, cp2x, cp2y, x3, y3)
-
-        if not self.no_stroke_flag:
-            self.ctx.strokeStyle = self.stroke_color
-            self.ctx.lineWidth = self.stroke_width
-            self.ctx.stroke()
-
-    def quadratic_vertex(self, cx, cy, x, y):
-        """二次ベジェ曲線の頂点を追加（begin_shape内で使用）"""
-        if self.is_shape_open:
-            # 直接Canvas APIを使用
-            if len(self.vertices) == 0:
-                self.ctx.moveTo(x, y)
-            else:
-                self.ctx.quadraticCurveTo(cx, cy, x, y)
-            self.vertices.append((x, y))
-
-    def bezier_vertex(self, x2, y2, x3, y3, x4, y4):
-        """三次ベジェ曲線の頂点を追加（begin_shape内で使用）"""
-        if self.is_shape_open:
-            # 直接Canvas APIを使用
-            self.ctx.bezierCurveTo(x2, y2, x3, y3, x4, y4)
-            self.vertices.append((x4, y4))
-
-    def curve_vertex(self, x, y):
-        """曲線の頂点を追加（begin_shape内で使用）"""
-        if self.is_shape_open:
-            self.vertices.append((x, y))
-
-    # 追加の図形描画
-    def polygon(self, *vertices):
-        """多角形を描画（可変長引数で座標を指定）"""
-        if len(vertices) < 3:
-            return
-
-        self.ctx.beginPath()
-        # 頂点は (x1, y1, x2, y2, ...) の形式
-        self.ctx.moveTo(vertices[0], vertices[1])
-        for i in range(2, len(vertices), 2):
-            self.ctx.lineTo(vertices[i], vertices[i+1])
-        self.ctx.closePath()
-
-        if not self.no_fill_flag:
-            self.ctx.fillStyle = self.fill_color
-            self.ctx.fill()
-
-        if not self.no_stroke_flag:
-            self.ctx.strokeStyle = self.stroke_color
-            self.ctx.lineWidth = self.stroke_width
-            self.ctx.stroke()
-
-    def erase(self, alpha=255):
-        """消しゴムモードを開始"""
-        self.ctx.globalCompositeOperation = 'destination-out'
-
-    def no_erase(self):
-        """消しゴムモードを終了"""
-        self.ctx.globalCompositeOperation = 'source-over'
-
-    def blend_mode(self, mode):
-        """ブレンドモードを設定"""
-        blend_modes = {
-            'blend': 'source-over',
-            'add': 'lighter',
-            'darkest': 'darken',
-            'lightest': 'lighten',
-            'difference': 'difference',
-            'exclusion': 'exclusion',
-            'multiply': 'multiply',
-            'screen': 'screen',
-            'overlay': 'overlay'
-        }
-        if mode in blend_modes:
-            self.ctx.globalCompositeOperation = blend_modes[mode]
-
-    def save_canvas(self, filename):
-        """キャンバスを画像として保存（ブラウザのダウンロード）"""
-        import js
-        link = js.document.createElement('a')
-        link.download = filename
-        link.href = self.canvas.toDataURL()
-        link.click()
-
-# グローバルユーティリティ関数
-
-# 乱数とノイズ
-def random(low=None, high=None):
-    """乱数を生成"""
-    if low is None and high is None:
-        return _random.random()
-    elif high is None:
-        return _random.random() * low
-    else:
-        return low + _random.random() * (high - low)
-
-def random_seed(seed):
-    """乱数のシードを設定"""
-    _random.seed(seed)
-
-def random_gaussian(mean=0, std=1):
-    """ガウス分布に基づく乱数を生成"""
-    return _random.gauss(mean, std)
-
-# ノイズ関数（Perlin noise の簡易実装）
-_noise_seed = 0
-def noise(x, y=0, z=0):
-    """Perlin noise（簡易版）"""
-    # 簡易的なノイズ実装
-    import math
-    n = (math.sin(x * 12.9898 + y * 78.233 + z * 37.719) * 43758.5453) % 1.0
-    return abs(n)
-
-def noise_seed(seed):
-    """ノイズのシードを設定"""
-    global _noise_seed
-    _noise_seed = seed
-
-# 数学関数
-def map_value(value, start1, stop1, start2, stop2):
-    """値を範囲変換"""
-    return start2 + (stop2 - start2) * ((value - start1) / (stop1 - start1))
-
-def constrain(value, min_val, max_val):
-    """値を範囲内に制限"""
-    return max(min_val, min(max_val, value))
-
-def lerp(start, stop, amt):
-    """線形補間"""
-    return start + (stop - start) * amt
-
-def norm(value, start, stop):
-    """値を0-1の範囲に正規化"""
-    return (value - start) / (stop - start)
-
-def dist(x1, y1, x2=None, y2=None, z1=None, z2=None):
-    """2点間の距離を計算"""
-    if z1 is None:
-        # 2D距離
-        return math.sqrt((x2 - x1) ** 2 + (y2 - y1) ** 2)
-    else:
-        # 3D距離
-        return math.sqrt((x2 - x1) ** 2 + (y2 - y1) ** 2 + (z2 - z1) ** 2)
-
-def sq(n):
-    """平方を計算"""
-    return n * n
-
-def sqrt(n):
-    """平方根を計算"""
-    return math.sqrt(n)
-
-def pow(n, e):
-    """べき乗を計算"""
-    return n ** e
-
-def exp(n):
-    """指数関数"""
-    return math.exp(n)
-
-def log(n):
-    """自然対数"""
-    return math.log(n)
-
-def abs(n):
-    """絶対値"""
-    return math.fabs(n)
-
-def ceil(n):
-    """切り上げ"""
-    return math.ceil(n)
-
-def floor(n):
-    """切り捨て"""
-    return math.floor(n)
-
-def round(n, decimals=0):
-    """四捨五入"""
-    return __builtins__.round(n, decimals)
-
-def min(*args):
-    """最小値"""
-    return __builtins__.min(*args)
-
-def max(*args):
-    """最大値"""
-    return __builtins__.max(*args)
-
-# 三角関数
-def sin(angle):
-    """サイン"""
-    return math.sin(angle)
-
-def cos(angle):
-    """コサイン"""
-    return math.cos(angle)
-
-def tan(angle):
-    """タンジェント"""
-    return math.tan(angle)
-
-def asin(value):
-    """アークサイン"""
-    return math.asin(value)
-
-def acos(value):
-    """アークコサイン"""
-    return math.acos(value)
-
-def atan(value):
-    """アークタンジェント"""
-    return math.atan(value)
-
-def atan2(y, x):
-    """2引数アークタンジェント"""
-    return math.atan2(y, x)
-
-# 角度変換
-def degrees(radians):
-    """ラジアンを度数法に変換"""
-    return math.degrees(radians)
-
-def radians(degrees):
-    """度数法をラジアンに変換"""
-    return math.radians(degrees)
-
-# 色関連
-def color(r, g=None, b=None, a=255):
-    """色を作成（辞書として返す）"""
-    if g is None:
-        # グレースケール
-        return {'r': r, 'g': r, 'b': r, 'a': a}
-    else:
-        return {'r': r, 'g': g, 'b': b, 'a': a}
-
-def red(col):
-    """色から赤成分を取得"""
-    if isinstance(col, dict):
-        return col.get('r', 0)
-    return 0
-
-def green(col):
-    """色から緑成分を取得"""
-    if isinstance(col, dict):
-        return col.get('g', 0)
-    return 0
-
-def blue(col):
-    """色から青成分を取得"""
-    if isinstance(col, dict):
-        return col.get('b', 0)
-    return 0
-
-def alpha(col):
-    """色からアルファ成分を取得"""
-    if isinstance(col, dict):
-        return col.get('a', 255)
-    return 255
-
-def lerp_color(c1, c2, amt):
-    """2つの色を補間"""
-    if isinstance(c1, dict) and isinstance(c2, dict):
-        return {
-            'r': lerp(c1['r'], c2['r'], amt),
-            'g': lerp(c1['g'], c2['g'], amt),
-            'b': lerp(c1['b'], c2['b'], amt),
-            'a': lerp(c1.get('a', 255), c2.get('a', 255), amt)
-        }
-    return c1
-
-# 時間関連
-import datetime
-
-def millis():
-    """プログラム開始からのミリ秒"""
-    return int(datetime.datetime.now().timestamp() * 1000)
-
-def second():
-    """現在の秒"""
-    return datetime.datetime.now().second
-
-def minute():
-    """現在の分"""
-    return datetime.datetime.now().minute
-
-def hour():
-    """現在の時"""
-    return datetime.datetime.now().hour
-
-def day():
-    """現在の日"""
-    return datetime.datetime.now().day
-
-def month():
-    """現在の月"""
-    return datetime.datetime.now().month
-
-def year():
-    """現在の年"""
-    return datetime.datetime.now().year
-
-# グローバルなp5インスタンスを作成
-p5 = P5()
-
-# アニメーションループ用のグローバル変数
-_animation_running = False
-_animation_id = None
-frameCount = 0  # グローバルなフレームカウント
-deltaTime = 0   # 前フレームからの経過時間（ミリ秒）
-`;
-
-// エディタの初期化
-async function initDrawingEditor() {
-    // Pyodide の初期化
-    pyodide = await loadPyodide({ indexURL: 'https://cdn.jsdelivr.net/pyodide/v0.23.4/full/' });
-    
-    // JavaScript オブジェクトへのアクセスを提供
-    pyodide.globals.set('js', window);
-    
-    // P5 Python ライブラリを読み込み
-    await pyodide.runPython(P5_PYTHON_LIBRARY);
-    
-    // CodeMirror エディタの初期化
-    editor = CodeMirror.fromTextArea(document.getElementById('code'), {
-        mode: 'python',
-        lineNumbers: true,
-        indentUnit: 4,
-        tabSize: 4,
-        smartIndent: true,
-        electricChars: true,
-        styleSelectedText: true, // 選択テキストのスタイル適用を有効化
-        extraKeys: {
-            'Ctrl-/': 'toggleComment',
-            'Cmd-/': 'toggleComment',
-            'Ctrl-Shift-F': (cm) => formatCode(cm),
-            'Cmd-Shift-F': (cm) => formatCode(cm),
-            'Ctrl-B': (cm) => formatCode(cm),
-            'Cmd-B': (cm) => formatCode(cm),
-            'Tab': betterTab,
-            'Shift-Tab': 'indentLess'
-        }
+async function init() {
+  const loader = $('loader');
+
+  try {
+    clearCanvas();
+    buildSamples();
+
+    bench = createWorkbench({
+      codeId: 'code',
+      blocklyId: 'blockly-area',
+      flowchartId: 'flowchart',
+      storageKey: STORAGE_KEY,
+      starterCode: STARTER_CODE,
+      drawing: true,
+      extraApi: completionApi(),
+      onStatus: showSyncState,
     });
+    appState.setEditor(bench.editor);
+    const shared = await takeCodeFromUrl();
+    bench.restore(shared);
+    if (shared) toast('共有されたコードを読み込みました');
 
-    // コード補完エンジンの初期化
-    try {
-        completionEngine = new CodeCompletionEngine(editor);
-        console.log('描画モード: コード補完エンジン初期化完了');
-    } catch (error) {
-        console.error('描画モード: コード補完エンジン初期化エラー:', error);
-    }
-
-    // キャンバスの初期化
-    canvas = document.getElementById('canvas');
-    ctx = canvas.getContext('2d');
-
-    // イベントリスナーの設定
-    setupEventListeners();
-
-    // UI の表示
-    document.getElementById('loader').style.display = 'none';
-    document.getElementById('run-btn').disabled = false;
-    document.getElementById('ai-fix-code').disabled = false;
-}
-
-// イベントリスナーの設定
-function setupEventListeners() {
-    // 実行ボタン
-    document.getElementById('run-btn').addEventListener('click', runDrawingCode);
-
-    // フォーマットボタン
-    document.getElementById('format-btn').addEventListener('click', async () => {
-        await formatCode(editor);
+    initSidebar({
+      sidebarId: 'sidebar',
+      toggleId: 'toggle-sidebar',
+      storageKey: 'easycode_drawing_sidebar',
+      onToggle: () => bench.refreshLayout(),
     });
-
-    // クリアボタン
-    document.getElementById('clear-btn').addEventListener('click', clearCanvas);
-
-    // AIコードレビューボタン
-    const reviewBtn = document.getElementById('btn-review');
-    if (reviewBtn) {
-        reviewBtn.addEventListener('click', reviewDrawingCode);
-    }
-
-    // AIコード修正ボタン
-    const fixCodeBtn = document.getElementById('ai-fix-code');
-    if (fixCodeBtn) {
-        fixCodeBtn.addEventListener('click', fixDrawingCode);
-    }
-
-    // サンプルコードの挿入
-    document.querySelectorAll('.example-code').forEach(example => {
-        example.addEventListener('click', () => {
-            const code = example.textContent.split(' //')[0].trim(); // コメント部分を除去
-            const cursor = editor.getCursor();
-            editor.replaceRange(code + '\n', cursor);
-            editor.focus();
+    initMaximize(() => bench.refreshLayout());
+    initTabs({
+      tabsId: 'stage-tabs',
+      initial: 'panel-code',
+      onChange: (stage) => {
+        document.querySelectorAll('.panel[data-stage]').forEach(panel => {
+          panel.classList.toggle('is-stage', panel.id === stage);
         });
-    });
-}
-
-// 描画コードの実行
-async function runDrawingCode() {
-    const outputEl = document.getElementById('output');
-    outputEl.textContent = '実行中...\n';
-
-    const code = editor.getValue();
-
-    try {
-        // アニメーションが実行中の場合は停止
-        stopAnimation();
-
-        // キャンバスをクリア
-        clearCanvas();
-
-        // setup()とdraw()の存在を確認
-        const hasSetup = /def\s+setup\s*\(/.test(code);
-        const hasDraw = /def\s+draw\s*\(/.test(code);
-
-        if (hasSetup || hasDraw) {
-            // アニメーションモード: setup()とdraw()を使用
-            await runAnimationMode(code, outputEl);
-        } else {
-            // 通常モード: コードを直接実行
-            await runStaticMode(code, outputEl);
-        }
-
-    } catch (err) {
-        outputEl.textContent = 'エラー: ' + err.message;
-        console.error('描画エラー:', err);
-    }
-}
-
-// 通常モード（静的描画）
-async function runStaticMode(code, outputEl) {
-    const wrappedCode = `
-import sys, traceback
-from io import StringIO
-
-_out = StringIO()
-_err = StringIO()
-_orig_stdout, _orig_stderr = sys.stdout, sys.stderr
-sys.stdout, sys.stderr = _out, _err
-
-try:
-    exec("""
-${code}
-""")
-except Exception:
-    traceback.print_exc(file=_err)
-finally:
-    sys.stdout, sys.stderr = _orig_stdout, _orig_stderr
-
-_out.getvalue() + _err.getvalue()
-    `;
-
-    const result = await pyodide.runPython(wrappedCode);
-    outputEl.textContent = result || '実行完了（出力なし）';
-}
-
-// アニメーションモード（setup & draw）
-async function runAnimationMode(code, outputEl) {
-    try {
-        // アニメーション開始メッセージ
-        outputEl.textContent = 'アニメーション実行中...\n';
-
-        // グローバル変数をリセット
-        await pyodide.runPython(`
-frameCount = 0
-deltaTime = 0
-p5.frame_count = 0
-import time
-p5.start_time = time.time()
-p5._last_time = time.time()
-        `);
-
-        // ユーザーコードを実行してsetup()とdraw()を定義
-        const setupCode = `
-import sys, traceback
-from io import StringIO
-
-_out = StringIO()
-_err = StringIO()
-_orig_stdout, _orig_stderr = sys.stdout, sys.stderr
-sys.stdout, sys.stderr = _out, _err
-
-try:
-    exec("""
-${code}
-""")
-
-    # setup()が定義されている場合は実行
-    if 'setup' in dir():
-        setup()
-
-except Exception:
-    traceback.print_exc(file=_err)
-finally:
-    sys.stdout, sys.stderr = _orig_stdout, _orig_stderr
-
-_out.getvalue() + _err.getvalue()
-        `;
-
-        const setupResult = await pyodide.runPython(setupCode);
-        if (setupResult) {
-            outputEl.textContent += setupResult + '\n';
-        }
-
-        // draw()が定義されているか確認
-        const hasDrawFunction = await pyodide.runPython(`'draw' in dir()`);
-
-        if (hasDrawFunction) {
-            // アニメーションループを開始
-            isAnimating = true;
-            startAnimationLoop(outputEl);
-            outputEl.textContent = 'アニメーション実行中... (再度実行ボタンを押すと停止します)\n';
-        } else {
-            outputEl.textContent += 'setup()のみ実行完了\n';
-        }
-
-    } catch (err) {
-        outputEl.textContent = 'アニメーション初期化エラー: ' + err.message;
-        console.error('アニメーションエラー:', err);
-    }
-}
-
-// アニメーションループを開始
-function startAnimationLoop(outputEl) {
-    let lastTime = performance.now();
-
-    const loop = async () => {
-        if (!isAnimating) {
-            return;
-        }
-
-        try {
-            const currentTime = performance.now();
-            const deltaMs = currentTime - lastTime;
-            lastTime = currentTime;
-
-            // フレームカウントとdeltaTimeを更新
-            await pyodide.runPython(`
-import time
-frameCount = frameCount + 1 if 'frameCount' in dir() else 1
-deltaTime = ${deltaMs}
-p5.frame_count = frameCount
-current_time = time.time()
-if p5._last_time is not None:
-    deltaTime = (current_time - p5._last_time) * 1000
-p5._last_time = current_time
-            `);
-
-            // draw()関数を実行
-            const drawCode = `
-import sys, traceback
-from io import StringIO
-
-_err = StringIO()
-_orig_stderr = sys.stderr
-sys.stderr = _err
-
-try:
-    if 'draw' in dir():
-        draw()
-except Exception:
-    traceback.print_exc(file=_err)
-finally:
-    sys.stderr = _orig_stderr
-
-_err.getvalue()
-            `;
-
-            const drawResult = await pyodide.runPython(drawCode);
-
-            // エラーがあれば表示して停止
-            if (drawResult && drawResult.trim()) {
-                outputEl.textContent = 'アニメーションエラー:\n' + drawResult;
-                stopAnimation();
-                return;
-            }
-
-            // 次のフレームを要求
-            animationId = requestAnimationFrame(loop);
-
-        } catch (err) {
-            outputEl.textContent = 'アニメーション実行エラー: ' + err.message;
-            console.error('アニメーションループエラー:', err);
-            stopAnimation();
-        }
-    };
-
-    // 最初のフレームを開始
-    animationId = requestAnimationFrame(loop);
-}
-
-// アニメーションを停止
-function stopAnimation() {
-    if (animationId !== null) {
-        cancelAnimationFrame(animationId);
-        animationId = null;
-    }
-    isAnimating = false;
-}
-
-// キャンバスのクリア
-function clearCanvas() {
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-    // Python側のキャンバスもクリア
-    if (pyodide) {
-        pyodide.runPython('p5.clear()');
-    }
-}
-
-/**
- * 描画コードのレビュー機能
- */
-async function reviewDrawingCode() {
-    const reviewDiv = document.getElementById('review');
-    if (!reviewDiv) return;
-
-    reviewDiv.textContent = '生成中...';
-
-    try {
-        const code = editor.getValue();
-        if (!code.trim()) {
-            reviewDiv.textContent = 'レビューするコードを入力してください。';
-            return;
-        }
-
-        const prompt = `以下のPythonによる描画コード（p5.jsライクなライブラリを使用）をレビューしてください。
-
-コード:
-\`\`\`python
-${code}
-\`\`\`
-
-以下の観点でレビューしてください：
-1. **描画ロジック**: 図形の配置、色の使い方、構造が適切か
-2. **コードの品質**: Pythonらしい書き方、可読性、効率性
-3. **改善提案**: より良いビジュアル表現や実装方法の提案
-4. **学習ポイント**: 描画プログラミングで学べる点
-
-簡潔に3-4文でレビューしてください。`;
-
-        const response = await callGemini(prompt, 400);
-
-        // Markdownを簡易的にHTMLに変換
-        reviewDiv.innerHTML = markdownToHtml(response);
-    } catch (error) {
-        console.error('コードレビューエラー:', error);
-        reviewDiv.textContent = 'レビュー生成中にエラーが発生しました: ' + error.message;
-    }
-}
-
-/**
- * 描画コードの修正機能
- */
-async function fixDrawingCode() {
-    const button = document.getElementById('ai-fix-code');
-    if (!button) return;
-
-    const originalText = button.textContent;
-    button.textContent = '修正中...';
-    button.disabled = true;
-
-    try {
-        const code = editor.getValue();
-        if (!code.trim()) {
-            alert('修正するコードを入力してください。');
-            return;
-        }
-
-        const prompt = `以下のPythonによる描画コード（p5.jsライクなライブラリを使用）を改善してください。
-
-元のコード:
-\`\`\`python
-${code}
-\`\`\`
-
-以下の観点で改善してください：
-1. より視覚的に魅力的な描画に改善
-2. コードの可読性と構造を向上
-3. Pythonらしい書き方（Pythonic）に修正
-4. 色の組み合わせやレイアウトを改善
-5. コメントを追加して、各部分の説明を明確に
-
-改善されたコードのみを出力してください（説明は不要）。元のコードの意図を保ちながら、より良いバージョンを作成してください。`;
-
-        const response = await callGemini(prompt, 600);
-
-        // コードブロックから実際のコードを抽出
-        let cleanedCode = response;
-        const codeMatch = response.match(/```python\n([\s\S]*?)\n```/);
-        if (codeMatch) {
-            cleanedCode = codeMatch[1];
-        } else {
-            // ```で囲まれていない場合は、そのまま使用
-            cleanedCode = response.replace(/```/g, '').trim();
-        }
-
-        // エディタに修正されたコードを設定
-        editor.setValue(cleanedCode);
-
-        alert('コードが改善されました！実行して結果を確認してください。');
-
-    } catch (error) {
-        console.error('コード修正エラー:', error);
-        alert('コードの修正中にエラーが発生しました: ' + error.message);
-    } finally {
-        button.textContent = originalText;
-        button.disabled = false;
-    }
-}
-
-/**
- * Markdownを簡易的にHTMLに変換
- */
-function markdownToHtml(markdown) {
-    // まず、コードブロックを一時的に置換
-    const codeBlocks = [];
-    let processedMarkdown = markdown.replace(/```([\s\S]*?)```/g, (match, code) => {
-        codeBlocks.push(`<pre><code>${code.trim()}</code></pre>`);
-        return `__CODE_BLOCK_${codeBlocks.length - 1}__`;
+        bench.refreshLayout();
+      },
     });
 
-    // 通常の変換処理
-    processedMarkdown = processedMarkdown
-        .replace(/^# (.*$)/gm, '<h3>$1</h3>')
-        .replace(/^## (.*$)/gm, '<h4>$1</h4>')
-        .replace(/^### (.*$)/gm, '<h5>$1</h5>')
-        .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
-        .replace(/\*(.*?)\*/g, '<em>$1</em>')
-        .replace(/`(.*?)`/g, '<code>$1</code>')
-        // リスト項目の処理
-        .replace(/^- (.*$)/gm, '<li>$1</li>')
-        .replace(/^\* (.*$)/gm, '<li>$1</li>')
-        .replace(/^\d+\. (.*$)/gm, '<li>$1</li>')
-        // 段落の処理
-        .replace(/\n\n+/g, '</p><p>')
-        .replace(/\n/g, '<br>');
+    setupControls();
+    // フローチャートのラベル表示を、覚えている設定に合わせる
+    const flowButton = $('flow-language');
+    flowButton.textContent = bench.isFlowJapanese() ? '🈁 やさしい日本語' : '🔤 コードのまま';
+    flowButton.classList.toggle('is-on', bench.isFlowJapanese());
+    setupChat();
 
-    // 段落タグで囲む
-    processedMarkdown = '<p>' + processedMarkdown + '</p>';
+    bench.fitBlocks();
+    bench.refreshLayout();
+    await bench.renderFlowchart(true);
 
-    // リスト項目を<ul>で囲む
-    processedMarkdown = processedMarkdown.replace(/(<li>.*?<\/li>)(<br>)?/g, (match) => {
-        return match.replace(/<br>$/, '');
-    });
-    processedMarkdown = processedMarkdown.replace(/(<li>.*?<\/li>)+/g, (match) => {
-        return '<ul>' + match + '</ul>';
-    });
+    pyodide = await loadPyodide({ indexURL: PYODIDE_CONFIG.INDEX_URL });
+    pyodide.globals.set('js', window);
+    await pyodide.runPythonAsync(P5_PYTHON_LIBRARY);
+    appState.setPyodide(pyodide);
 
-    // コードブロックを元に戻す
-    codeBlocks.forEach((block, index) => {
-        processedMarkdown = processedMarkdown.replace(`__CODE_BLOCK_${index}__`, block);
-    });
-
-    // 空の段落を削除
-    processedMarkdown = processedMarkdown.replace(/<p><\/p>/g, '');
-
-    return processedMarkdown;
+    $('run-btn').disabled = false;
+    loader.style.display = 'none';
+  } catch (error) {
+    console.error('描画モードの初期化に失敗:', error);
+    loader.innerHTML =
+      `<p style="color:var(--c-bad);">読み込みに失敗しました: ${error.message}<br>ページを再読み込みしてください。</p>`;
+  }
 }
 
-// DOM読み込み完了時の初期化
-document.addEventListener('DOMContentLoaded', () => {
-    initDrawingEditor();
-});
-
-// エクスポート（必要に応じて他のモジュールから使用）
-export { initDrawingEditor, runDrawingCode, clearCanvas, reviewDrawingCode, fixDrawingCode };
+window.addEventListener('DOMContentLoaded', init);

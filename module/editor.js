@@ -1,5 +1,9 @@
 // module/editor.js
 import { CodeCompletionEngine } from './completion.js';
+import { autoIndent, formatCode as formatPython } from './pyformat.js';
+import { initSidebar, toast } from './ui.js';
+import { chatWithAI } from './ai.js';
+import { runUserCode, explainError } from './pyrun.js';
 import { appState } from './state.js';
 import { PYODIDE_CONFIG, EDITOR_CONFIG, UI_CONFIG } from './config.js';
 
@@ -13,64 +17,36 @@ let isWaitingForInput = false;
 let inputCallback = null;
 
 /**
- * Pythonコードを自動フォーマット
+ * コードを整形してエディタに書き戻す
+ * @param {CodeMirror} cm CodeMirrorインスタンス
+ * @param {(code: string) => string} transform 整形する関数
+ */
+function applyFormat(cm, transform) {
+  const before = cm.getValue();
+  const after = transform(before);
+  if (before === after) return;
+
+  const cursor = cm.getCursor();
+  const scroll = cm.getScrollInfo();
+  cm.setValue(after);
+  cm.setCursor({ line: Math.min(cursor.line, cm.lineCount() - 1), ch: cursor.ch });
+  cm.scrollTo(scroll.left, scroll.top);
+}
+
+/**
+ * Pythonコードを整形する（字下げ・記号まわりの空白・空行）
  * @param {CodeMirror} cm CodeMirrorインスタンス
  */
 function formatCode(cm) {
-  const code = cm.getValue();
-  const lines = code.split('\n');
-  const formattedLines = [];
-  let indentLevel = 0;
-  const indentUnit = cm.getOption('indentUnit') || 4;
+  applyFormat(cm, formatPython);
+}
 
-  for (let i = 0; i < lines.length; i++) {
-    const line = lines[i];
-    const trimmedLine = line.trim();
-
-    // 空行はそのまま
-    if (trimmedLine === '') {
-      formattedLines.push('');
-      continue;
-    }
-
-    // dedentが必要な行（else, elif, except, finally等）
-    const dedentKeywords = /^(else|elif|except|finally|case)/;
-    if (dedentKeywords.test(trimmedLine) && indentLevel > 0) {
-      indentLevel--;
-    }
-
-    // インデントを適用
-    const indent = ' '.repeat(indentLevel * indentUnit);
-    formattedLines.push(indent + trimmedLine);
-
-    // インデントを増やす必要がある行（コロンで終わる行）
-    if (trimmedLine.endsWith(':')) {
-      indentLevel++;
-    }
-
-    // returnやbreakなど、ブロックを終了するキーワード
-    // ただし、次の行がdedentキーワードでない場合のみ
-    const blockEndKeywords = /^(return|break|continue|pass|raise)\b/;
-    if (blockEndKeywords.test(trimmedLine)) {
-      // 次の行をチェック
-      if (i + 1 < lines.length) {
-        const nextLine = lines[i + 1].trim();
-        if (!dedentKeywords.test(nextLine) && nextLine !== '' && indentLevel > 0) {
-          // 次の行がdedentキーワードでもなく、空行でもない場合は何もしない
-        }
-      }
-    }
-
-    // dedentが必要な行の後処理
-    if (dedentKeywords.test(trimmedLine) && trimmedLine.endsWith(':')) {
-      indentLevel++;
-    }
-  }
-
-  // コードを置き換え
-  const cursor = cm.getCursor();
-  cm.setValue(formattedLines.join('\n'));
-  cm.setCursor(cursor);
+/**
+ * 字下げだけをそろえる
+ * @param {CodeMirror} cm CodeMirrorインスタンス
+ */
+function indentCode(cm) {
+  applyFormat(cm, autoIndent);
 }
 
 /**
@@ -202,18 +178,22 @@ function setupRuntimeInput() {
   });
 }
 
-// カスタムinput関数
+// Python の input() を、ブラウザの入力欄に置きかえる
 function createCustomInput(outputEl) {
-  return function() {
+  // input("名前は？") の「名前は？」を、出力と入力欄の両方に出す。
+  // これが無いと、何を聞かれているのか分からないまま入力することになる。
+  return function (prompt = '') {
     return new Promise((resolve) => {
       isWaitingForInput = true;
       inputCallback = resolve;
-      
-      // 実行時入力フォームを表示
-      const container = document.getElementById('runtime-input-container');
-      const input = document.getElementById('runtime-input');
-      container.style.display = 'block';
-      input.focus();
+
+      const question = String(prompt ?? '');
+      if (question) outputEl.textContent += question;
+      const label = document.getElementById('runtime-input-label');
+      if (label) label.textContent = question || '値を入力';
+
+      document.getElementById('runtime-input-container').style.display = 'block';
+      document.getElementById('runtime-input').focus();
     });
   };
 }
@@ -223,7 +203,9 @@ function createCustomInput(outputEl) {
  */
 async function runCode() {
   const outputEl = document.getElementById('output');
-  outputEl.textContent = '実行中…\n';
+  const runBtn = document.getElementById('run');
+  if (runBtn.disabled) return;
+  runBtn.disabled = true;
   const code = appState.getEditor().getValue();
   const pyodide = appState.getPyodide();
   
@@ -233,76 +215,25 @@ async function runCode() {
   inputCallback = null;
 
   try {
-    // input()を使用しているかチェック
-    const usesInput = code.includes('input(');
-    
-    if (usesInput) {
-      // インタラクティブな入力が必要な場合
-      outputEl.textContent = '';
-      
-      // カスタムinput関数を設定
+    // input() はブラウザの入力欄で受けるので、await に置きかえて動かす。
+    // 行を増やさないので、エラーの行番号は学習者のコードと同じになる。
+    outputEl.textContent = '';
+    if (code.includes('input(')) {
       pyodide.globals.set('custom_input', createCustomInput(outputEl));
-      
-      // コードを修正してカスタムinput関数を使用
-      const modifiedCode = code.replace(/input\(/g, 'await custom_input(');
-      
-      const wrapped = `
-import sys, traceback
-from io import StringIO
-import asyncio
+    }
+    const source = code.replace(/\binput\(/g, 'await custom_input(');
 
-_out = StringIO()
-_orig_stdout = sys.stdout
-
-class OutputCapture:
-    def __init__(self, output_element):
-        self.output_element = output_element
-        
-    def write(self, text):
-        self.output_element.textContent += text
-        
-    def flush(self):
-        pass
-
-sys.stdout = OutputCapture(js.document.getElementById('output'))
-
-async def main():
-    try:
-${modifiedCode.split('\n').map(l => '        '+l).join('\n')}
-    except Exception:
-        import traceback
-        traceback.print_exc()
-
-await main()
-`;
-      
-      await pyodide.runPythonAsync(wrapped);
-      
-    } else {
-      // input()を使用していない場合
-      const wrapped = `
-import sys, traceback
-from io import StringIO
-
-_out = StringIO()
-_err = StringIO()
-_orig_stdout, _orig_stderr = sys.stdout, sys.stderr
-sys.stdout, sys.stderr = _out, _err
-
-try:
-${code.split('\n').map(l => '    '+l).join('\n')}
-except Exception:
-    traceback.print_exc(file=_err)
-finally:
-    sys.stdout, sys.stderr = _orig_stdout, _orig_stderr
-
-_out.getvalue() + _err.getvalue()
-`;
-      const result = await pyodide.runPythonAsync(wrapped);
-      outputEl.textContent = result || '(出力なし)';
+    const result = await runUserCode(pyodide, source, { element: outputEl });
+    if (result.error) {
+      if (outputEl.textContent) outputEl.textContent += '\n';
+      outputEl.textContent += explainError(result.error, code);
+    } else if (!outputEl.textContent) {
+      outputEl.textContent = '(出力なし)';
     }
   } catch (err) {
     outputEl.textContent += '\nエラー: ' + err;
+  } finally {
+    runBtn.disabled = false;
   }
 }
 
@@ -336,16 +267,10 @@ function enterFreeCodingMode() {
     template: ''
   });
 
-  // 正誤判定ボタンを非表示
-  const checkButton = document.getElementById('btn-check-answer');
-  if (checkButton) {
-    checkButton.style.display = 'none';
-  }
-
-  // 問題の解説ボタンを非表示
-  const explainButton = document.getElementById('btn-explain');
-  if (explainButton) {
-    explainButton.style.display = 'none';
+  // 問題がないので、正誤判定と解説は隠す
+  for (const id of ['btn-check-answer', 'btn-explain']) {
+    const button = document.getElementById(id);
+    if (button) button.style.display = 'none';
   }
 
   // CodeMirrorのサイズをリフレッシュ
@@ -366,16 +291,10 @@ async function exitFreeCodingMode() {
   // 問題エリアを表示
   document.getElementById('problem-area').style.display = 'block';
 
-  // 正誤判定ボタンを表示
-  const checkButton = document.getElementById('btn-check-answer');
-  if (checkButton) {
-    checkButton.style.display = 'block';
-  }
-
-  // 問題の解説ボタンを表示
-  const explainButton = document.getElementById('btn-explain');
-  if (explainButton) {
-    explainButton.style.display = 'block';
+  // 正誤判定と解説を表示に戻す
+  for (const id of ['btn-check-answer', 'btn-explain']) {
+    const button = document.getElementById(id);
+    if (button) button.style.display = '';
   }
 
   // 最初の問題に戻る
@@ -385,6 +304,35 @@ async function exitFreeCodingMode() {
   setTimeout(() => {
     appState.getEditor().refresh();
   }, UI_CONFIG.ANIMATION_DURATION);
+}
+
+/** サイドバーのAIチャット */
+function setupChat() {
+  const input = document.getElementById('chat-input');
+  const messages = document.getElementById('chat-messages');
+  if (!input || !messages) return;
+
+  const add = (text, who) => {
+    const bubble = document.createElement('div');
+    bubble.className = `chat-message ${who}-message`;
+    bubble.textContent = text;
+    messages.appendChild(bubble);
+    messages.scrollTop = messages.scrollHeight;
+    return bubble;
+  };
+
+  const send = async () => {
+    const message = input.value.trim();
+    if (!message) return;
+    add(message, 'user');
+    input.value = '';
+    const pending = add('考えています…', 'ai');
+    pending.textContent = await chatWithAI(message);
+    messages.scrollTop = messages.scrollHeight;
+  };
+
+  document.getElementById('chat-send').addEventListener('click', send);
+  input.addEventListener('keypress', (e) => { if (e.key === 'Enter') send(); });
 }
 
 /**
@@ -408,14 +356,21 @@ export async function initEditor() {
       lineWrapping: EDITOR_CONFIG.LINE_WRAPPING,
       smartIndent: true,
       electricChars: true,
+      indentWithTabs: false,
+      rulers: [4, 8, 12, 16, 20, 24, 28, 32].map(column => ({
+        column, className: 'cm-indent-guide', lineStyle: 'solid',
+      })),
       extraKeys: {
         'Ctrl-Space': 'autocomplete',
         'Ctrl-/': 'toggleComment',
         'Cmd-/': 'toggleComment',
-        'Ctrl-Shift-F': formatCode,
-        'Cmd-Shift-F': formatCode,
-        'Ctrl-B': formatCode,
-        'Cmd-B': formatCode,
+        // CodeMirror はキー名を Shift-Ctrl-… の順に正規化するので、その順で書く
+        'Shift-Ctrl-F': formatCode,
+        'Shift-Cmd-F': formatCode,
+        'Shift-Alt-F': formatCode,
+        'Shift-Ctrl-I': indentCode,
+        'Shift-Cmd-I': indentCode,
+        'Shift-Alt-I': indentCode,
         'Tab': betterTab,
         'Shift-Tab': 'indentLess'
       }
@@ -468,14 +423,14 @@ export async function initEditor() {
   const freeCodingBtn = document.getElementById('free-coding');
   if (freeCodingBtn) {
     freeCodingBtn.addEventListener('click', () => {
-      if (freeCodingBtn.textContent === 'フリーコーディング') {
+      if (!appState.getIsFreeCodingMode()) {
         enterFreeCodingMode();
-        freeCodingBtn.textContent = '問題に戻る';
-        freeCodingBtn.style.background = '#27ae60';
+        freeCodingBtn.textContent = '📚 問題に戻る';
+        freeCodingBtn.classList.add('btn-primary');
       } else {
         exitFreeCodingMode();
-        freeCodingBtn.textContent = 'フリーコーディング';
-        freeCodingBtn.style.background = '#e74c3c';
+        freeCodingBtn.textContent = '✏️ フリーコーディング';
+        freeCodingBtn.classList.remove('btn-primary');
       }
     });
   }
@@ -486,10 +441,14 @@ export async function initEditor() {
   runBtn.disabled = false;
   runBtn.addEventListener('click', runCode);
 
-  // フォーマットボタンの初期化
-  const formatBtn = document.getElementById('format-code');
-  formatBtn.addEventListener('click', () => {
+  // 整形ボタンの初期化
+  document.getElementById('format-code').addEventListener('click', () => {
     formatCode(appState.getEditor());
+    toast('コードを整えました');
+  });
+  document.getElementById('auto-indent').addEventListener('click', () => {
+    indentCode(appState.getEditor());
+    toast('字下げをそろえました');
   });
 
   // AIコード修正ボタンの初期化
@@ -528,6 +487,20 @@ export async function initEditor() {
   
   // 実行時入力フォームの設定
   setupRuntimeInput();
+
+  // サイドバー（既定は閉じた状態）
+  initSidebar({
+    sidebarId: 'sidebar',
+    toggleId: 'toggle-sidebar',
+    storageKey: 'easycode_problems_sidebar',
+    onToggle: () => setTimeout(() => appState.getEditor().refresh(), 220),
+  });
+  setupChat();
+
+  document.getElementById('output-clear').addEventListener('click', () => {
+    document.getElementById('output').textContent = '';
+    document.getElementById('check-result').textContent = '';
+  });
 
     document.getElementById('loader').style.display = 'none';
     document.getElementById('container').style.visibility = 'visible';

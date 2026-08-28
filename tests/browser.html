@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>easyCode 検査（ブラウザ）</title>
+  <link rel="stylesheet" href="../css/theme.css">
+  <style>
+    body { padding: var(--sp-4); }
+    #summary { position: sticky; top: 0; padding: var(--sp-3); background: var(--c-surface);
+               border: 1px solid var(--c-line); border-radius: var(--r-md); box-shadow: var(--sh-1);
+               font-weight: 700; z-index: 5; }
+    #log { margin-top: var(--sp-3); font-size: var(--text-sm); }
+    #log .group { margin-top: var(--sp-3); font-weight: 700; }
+    #log .fail { color: var(--c-bad); white-space: pre-wrap; font-family: var(--font-mono);
+                 font-size: var(--text-xs); }
+    /* 検査に使う道具は、じゃまにならないように隅へ置く */
+    .hidden-stage { position: fixed; left: -3000px; top: 0; width: 900px; height: 600px; }
+  </style>
+</head>
+<body>
+  <h1>easyCode 検査（ブラウザ）</h1>
+  <p class="muted">ブロック変換・ステップ実行・p5 ライブラリを、実際に動かして確かめます。</p>
+  <div id="summary">準備しています…</div>
+  <div id="log"></div>
+
+  <div class="hidden-stage">
+    <div id="blockly-area" style="width: 900px; height: 600px;"></div>
+    <canvas id="canvas" width="400" height="400"></canvas>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/blockly@11.2.1/blockly_compressed.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/blockly@11.2.1/blocks_compressed.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/blockly@11.2.1/python_compressed.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/blockly@11.2.1/msg/ja.js"></script>
+  <script src="https://cdn.jsdelivr.net/pyodide/v0.23.4/full/pyodide.js"></script>
+  <script type="module" src="run-browser.js"></script>
+</body>
+</html>

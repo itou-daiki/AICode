@@ -1,803 +1,353 @@
 <!DOCTYPE html>
 <html lang="ja">
 <head>
-  <link rel="icon" type="image/x-icon" href="/favicon.ico">
   <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>easyCode - 描画モード</title>
-  <!-- CodeMirror CSS -->
+  <link rel="icon" type="image/svg+xml" href="favicon.svg">
+  <link rel="alternate icon" href="favicon.ico">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/codemirror@5.65.16/lib/codemirror.css" />
+  <link rel="stylesheet" href="css/theme.css">
   <style>
-    :root { --header-height: 64px; }
-    html, body { margin: 0; padding: 0; height: 100%; font-family: 'Segoe UI', Tahoma, sans-serif; overflow: auto; }
-    header {
-      position: relative;
+    /* 描画モードのレイアウト（色や文字は css/theme.css のトークンを使う） */
+    :root { --c-accent: var(--c-drawing); }
+    html, body { height: 100%; overflow: hidden; }
+
+    #shell { display: flex; height: calc(100vh - var(--topbar-h)); overflow: hidden; }
+
+    #workbench {
+      flex: 1 1 auto;
       display: flex;
-      align-items: center;
-      justify-content: space-between;
-      height: var(--header-height);
-      background: #2c3e50;
-      color: #ecf0f1;
-      padding: 0 1em;
-      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+      gap: var(--sp-2);
+      padding: var(--sp-2);
+      min-width: 0;
     }
-    .header-left {
+
+    /* 左側: タブで切り替えるステージ */
+    .stage-column {
+      flex: 1 1 55%;
       display: flex;
-      align-items: center;
-      gap: 1em;
+      flex-direction: column;
+      gap: var(--sp-2);
+      min-width: 0;
     }
-    .logo {
-      font-size: 1.5em;
-      font-weight: bold;
-      color: #3498db;
-    }
-    #toggle-sidebar {
-      background: none;
-      border: none;
-      color: #ecf0f1;
-      font-size: 1.5em;
-      cursor: pointer;
-      padding: 0.2em 0.5em;
-      line-height: 1;
-    }
-    #toggle-sidebar:hover {
-      background: rgba(255, 255, 255, 0.1);
-      border-radius: 4px;
-    }
-    .nav-button {
-      background: #3498db;
-      color: #fff;
-      border: none;
-      border-radius: 4px;
-      padding: 0.5em 1em;
-      cursor: pointer;
-      text-decoration: none;
-      font-size: 0.9em;
-    }
-    .nav-button:hover {
-      background: #2980b9;
-    }
-    .controls {
+    #stage-tabs { display: flex; align-items: center; gap: var(--sp-2); flex-wrap: wrap; }
+    .stage-holder { position: relative; flex: 1 1 auto; min-height: 0; }
+    .stage-holder .panel { position: absolute; inset: 0; }
+    .stage-holder .panel:not(.is-stage) { display: none; }
+
+    /* 右側: キャンバスと実行結果 */
+    .side-column {
+      flex: 0 1 440px;
       display: flex;
-      gap: 0.5em;
+      flex-direction: column;
+      gap: var(--sp-2);
+      min-width: 300px;
     }
-    .controls button {
-      background: #27ae60;
-      color: #fff;
-      border: none;
-      border-radius: 4px;
-      padding: 0.5em 1em;
-      cursor: pointer;
-      font-size: 0.9em;
+    #panel-canvas { flex: 0 0 auto; }
+    #panel-output { flex: 1 1 auto; min-height: 150px; }
+
+    /* パネルの拡大
+       （:has() は古いブラウザで使えないので、拡大中の列に付くクラスで判定する） */
+    body.has-max .stage-holder .panel:not(.is-max) { display: none; }
+    body.has-max .stage-holder .panel.is-max { display: flex; }
+    body.has-max #stage-tabs { display: none; }
+    body.has-max .side-column .panel:not(.is-max) { display: none; }
+    body.has-max .stage-column:not(.holds-max),
+    body.has-max .side-column:not(.holds-max) { display: none; }
+    body.has-max .stage-column, body.has-max .side-column { flex: 1 1 auto; }
+
+    /* 中身 */
+    #panel-code .CodeMirror { position: absolute; inset: 0; }
+    #blockly-area { position: absolute; inset: 0; }
+
+    #flow-body { overflow: auto; background: var(--c-surface-2); }
+    #flowchart {
+      display: flex; align-items: flex-start; justify-content: center;
+      padding: var(--sp-3); min-height: 100%;
     }
-    .controls button:hover {
-      background: #229954;
+    #flowchart svg { max-width: 100%; height: auto; }
+
+    /* サンプル（もとはエディタのコメントに書かれていた説明を、ここにまとめた） */
+    #samples-body { overflow-y: auto; padding: var(--sp-3); background: var(--c-surface); }
+    #samples-body h3 {
+      margin: var(--sp-4) 0 var(--sp-2);
+      font-size: var(--text-2xs);
+      font-weight: 700;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--c-ink-3);
     }
-    .controls button:disabled {
-      background: #95a5a6;
-      cursor: not-allowed;
-    }
-    #clear-btn {
-      background: #e74c3c;
-    }
-    #clear-btn:hover {
-      background: #c0392b;
-    }
-    #ai-fix-code {
-      background: #9b59b6;
-    }
-    #ai-fix-code:hover {
-      background: #8e44ad;
-    }
-    #container {
-      display: flex;
-      height: calc(100vh - var(--header-height));
-      overflow: hidden;
-    }
-    aside {
-      width: 280px;
-      background: #ecf0f1;
-      overflow-y: auto;
-      padding: 0.5em;
-      border-right: 2px solid #bdc3c7;
-      transition: all 0.3s ease;
-      position: relative;
-    }
-    aside:not(.open) {
-      width: 0;
-      padding: 0;
-      overflow: hidden;
-    }
-    aside h2 {
-      margin-top: 0;
-      color: #2c3e50;
-      font-size: 1em;
-    }
-    .section {
-      background: #fff;
-      border-radius: 4px;
-      padding: 0.5em;
-      margin-bottom: 0.5em;
-      box-shadow: 0 1px 3px rgba(0,0,0,0.1);
-    }
-    .section button {
+    #samples-body h3:first-child { margin-top: 0; }
+    #samples-body .note { margin-bottom: var(--sp-3); }
+    .sample-item {
+      display: block;
       width: 100%;
-      padding: 0.6em;
-      background: #3498db;
-      color: #fff;
-      border: none;
-      border-radius: 4px;
+      margin-bottom: var(--sp-1);
+      padding: var(--sp-2) var(--sp-3);
+      border: 1px solid var(--c-line);
+      border-radius: var(--r-md);
+      background: var(--c-surface-2);
+      color: var(--c-ink);
+      font-family: inherit;
+      text-align: left;
       cursor: pointer;
-      font-size: 0.9em;
+      transition: background var(--t-fast) var(--ease), border-color var(--t-fast) var(--ease);
     }
-    .section button:hover {
-      background: #2980b9;
-    }
-    #api-key-form {
-      display: flex;
-      flex-direction: column;
-      gap: 0.5em;
-      margin-bottom: 0.5em;
-    }
-    #api-key-form label {
-      font-size: 0.9em;
-      color: #2c3e50;
-    }
-    #api-key-form input {
-      padding: 0.5em;
-      border: 1px solid #bdc3c7;
-      border-radius: 4px;
-      font-size: 0.9em;
-    }
-    #api-key-form button {
-      padding: 0.5em;
-      background: #27ae60;
-      color: #fff;
-      border: none;
-      border-radius: 4px;
-      cursor: pointer;
-      font-size: 0.9em;
-    }
-    #api-key-form button:hover {
-      background: #229954;
-    }
-    #api-key-status {
-      font-size: 0.85em;
-      margin-top: 0.5em;
-    }
-    #review {
-      font-size: 0.85em;
-      color: #2c3e50;
-      line-height: 1.5;
-    }
-    #chat-container {
-      display: flex;
-      flex-direction: column;
-      height: 300px;
-    }
-    #chat-messages {
-      flex: 1;
-      overflow-y: auto;
-      margin-bottom: 0.5em;
-      padding: 0.5em;
-      background: #f8f9fa;
-      border-radius: 4px;
-      min-height: 0;
-    }
-    .chat-message {
-      margin-bottom: 0.8em;
-      padding: 0.5em;
-      border-radius: 4px;
-      font-size: 0.85em;
-      line-height: 1.4;
+    .sample-item:hover { background: var(--c-brand-soft); border-color: var(--c-brand); }
+    .sample-item .name { display: block; font-size: var(--text-sm); font-weight: 700; }
+    .sample-item code {
+      display: block;
+      margin-top: 0.25em;
+      color: var(--c-ink-2);
+      font-size: var(--text-2xs);
       white-space: pre-wrap;
     }
-    .user-message {
-      background: #3498db;
-      color: #fff;
-      margin-left: 1em;
-    }
-    .ai-message {
-      background: #fff;
-      color: #2c3e50;
-      border: 1px solid #dfe6e9;
-      margin-right: 1em;
-    }
-    .loading-message {
-      font-style: italic;
-      opacity: 0.7;
-    }
-    #chat-input-container {
-      display: flex;
-      gap: 0.5em;
-    }
-    #chat-input {
-      flex: 1;
-      padding: 0.5em;
-      border: 1px solid #bdc3c7;
-      border-radius: 4px;
-      font-size: 0.85em;
-    }
-    #chat-send {
-      padding: 0.5em 1em;
-      background: #3498db;
-      color: #fff;
-      border: none;
-      border-radius: 4px;
-      cursor: pointer;
-      font-size: 0.85em;
-    }
-    #chat-send:hover {
-      background: #2980b9;
-    }
-    #sidebar-resize-handle {
-      position: absolute;
-      right: 0;
-      top: 0;
-      width: 5px;
-      height: 100%;
-      cursor: ew-resize;
-      background: transparent;
-    }
-    #sidebar-resize-handle:hover {
-      background: rgba(52, 152, 219, 0.5);
-    }
-    .main-container {
-      flex: 1;
-      display: flex;
-      flex-direction: column;
-      overflow: hidden;
-    }
-    .top-section {
-      height: 75%;
-      display: flex;
-      border-bottom: 1px solid #bdc3c7;
-    }
-    .bottom-section {
-      height: 25%;
-      display: flex;
-    }
-    .editor-panel {
-      width: 50%;
-      display: flex;
-      flex-direction: column;
-      border-right: 1px solid #bdc3c7;
-      min-height: 0;
-    }
-    .canvas-panel {
-      width: 50%;
-      display: flex;
-      flex-direction: column;
-      background: #f8f9fa;
-      min-height: 0;
-    }
-    .samples-panel {
-      width: 50%;
-      display: flex;
-      flex-direction: column;
-      border-right: 1px solid #bdc3c7;
-      background: #ecf0f1;
-      min-height: 0;
-    }
-    .output-panel {
-      width: 50%;
-      display: flex;
-      flex-direction: column;
-      background: #f8f9fa;
-      min-height: 0;
-    }
-    .panel-header {
-      background: #34495e;
-      color: #ecf0f1;
-      padding: 0.3em 0.5em;
-      font-weight: bold;
-      font-size: 0.85em;
-    }
-    .editor-container {
-      flex: 1;
-      display: flex;
-      flex-direction: column;
-      overflow: hidden;
-      min-height: 0;
-    }
-    .canvas-container {
-      flex: 1;
-      display: flex;
-      justify-content: center;
-      align-items: flex-start;
-      padding: 0.5em;
-      overflow: auto;
-      min-height: 0;
+
+    /* キャンバス */
+    #canvas-body {
+      display: flex; align-items: center; justify-content: center;
+      padding: var(--sp-3); background: var(--c-surface-3); overflow: auto;
     }
     #canvas {
-      border: 2px solid #bdc3c7;
       background: #fff;
-    }
-    .CodeMirror {
-      height: 450px;
-      font-size: 14px;
-      font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
-      line-height: 1.5;
-      background: #1e1e1e !important;
-      color: #d4d4d4 !important;
-    }
-    .CodeMirror-scroll {
-      overflow-y: auto;
-      overflow-x: auto;
-    }
-    .CodeMirror-lines {
-      background: #1e1e1e !important;
-      color: #d4d4d4 !important;
-    }
-    .CodeMirror-line {
-      color: #d4d4d4 !important;
-    }
-    /* 選択されていない行のみ背景色を適用 */
-    .CodeMirror-line:not(.CodeMirror-selectedtext) {
-      background: #1e1e1e;
-    }
-    .CodeMirror-cursor {
-      border-left: 1px solid #d4d4d4 !important;
-    }
-    /* 行レベルの選択背景 - より目立つように */
-    .CodeMirror div.CodeMirror-selected {
-      background: rgba(52, 152, 219, 0.5) !important;
-      box-shadow: inset 0 0 2px rgba(52, 152, 219, 0.8) !important;
+      border: 1px solid var(--c-line-2);
+      border-radius: var(--r-md);
+      box-shadow: var(--sh-2);
+      max-width: 100%;
     }
 
-    /* 文字レベルの選択（最も重要） - 明るく目立つ色 */
-    .CodeMirror .CodeMirror-selectedtext {
-      background: #4a9eff !important;
-      color: #ffffff !important;
-      font-weight: 500;
-      text-shadow: 0 0 1px rgba(0, 0, 0, 0.3);
-      position: relative;
-      z-index: 10;
-    }
+    #output { flex: 1 1 auto; }
 
-    /* より具体的な文字選択 - 強い視覚効果 */
-    .CodeMirror-line .CodeMirror-selectedtext {
-      background: #4a9eff !important;
-      color: #ffffff !important;
-      font-weight: 500;
-      text-shadow: 0 0 1px rgba(0, 0, 0, 0.3);
-      box-shadow: 0 0 3px rgba(74, 158, 255, 0.6);
-      position: relative;
-      z-index: 10;
-    }
-
-    /* 選択された行の背景を明示的に設定 */
-    .CodeMirror-line.CodeMirror-selected {
-      background: rgba(52, 152, 219, 0.3) !important;
-    }
-
-    /* ドラッグ中の選択 - アニメーション効果で目立たせる */
-    .CodeMirror-selecting div.CodeMirror-selected {
-      background: rgba(52, 152, 219, 0.6) !important;
-      box-shadow: inset 0 0 3px rgba(52, 152, 219, 0.9) !important;
-      border: 1px solid rgba(52, 152, 219, 0.7);
-    }
-
-    /* 選択中の文字を強調 - より明るく */
-    .CodeMirror-selecting .CodeMirror-selectedtext {
-      background: #5cb3ff !important;
-      color: #ffffff !important;
-      font-weight: 600;
-      text-shadow: 0 0 2px rgba(0, 0, 0, 0.4);
-      box-shadow: 0 0 4px rgba(92, 179, 255, 0.8);
-      position: relative;
-      z-index: 10;
-    }
-
-    /* ドラッグ中の行背景 */
-    .CodeMirror-selecting .CodeMirror-line {
-      background: transparent !important;
-    }
-
-    /* フォーカス時の選択を強調 */
-    .CodeMirror-focused div.CodeMirror-selected {
-      background: rgba(52, 152, 219, 0.6) !important;
-      border: 1px solid #3498db;
-    }
-
-    /* 選択範囲のカーソル */
-    .CodeMirror-line::selection {
-      background: #4a9eff !important;
-      color: #ffffff !important;
-    }
-
-    .CodeMirror-line::-moz-selection {
-      background: #4a9eff !important;
-      color: #ffffff !important;
-    }
-    .CodeMirror-gutters {
-      background: #252526 !important;
-      border-right: 1px solid #3e3e42 !important;
-    }
-    .CodeMirror-linenumber {
-      color: #858585 !important;
-    }
-    .CodeMirror-activeline-background {
-      background: #2a2a2a !important;
-    }
-
-    /* Python シンタックスハイライト - ダークモード */
-    .cm-s-default .cm-keyword {
-      color: #569cd6 !important; /* def, if, for, import など */
-    }
-    .cm-s-default .cm-string {
-      color: #ce9178 !important; /* 文字列 */
-    }
-    .cm-s-default .cm-comment {
-      color: #6a9955 !important; /* コメント */
-    }
-    .cm-s-default .cm-number {
-      color: #b5cea8 !important; /* 数値 */
-    }
-    .cm-s-default .cm-builtin {
-      color: #4ec9b0 !important; /* print, len など */
-    }
-    .cm-s-default .cm-variable {
-      color: #9cdcfe !important; /* 変数名 */
-    }
-    .cm-s-default .cm-def {
-      color: #dcdcaa !important; /* 関数定義 */
-    }
-    .cm-s-default .cm-operator {
-      color: #d4d4d4 !important; /* 演算子 */
-    }
-    .cm-s-default .cm-bracket {
-      color: #ffd700 !important; /* 括弧 */
-    }
-    .output-section {
-      flex: 1;
-      display: flex;
-      flex-direction: column;
-      overflow: hidden;
-    }
-    .output-header {
-      background: #95a5a6;
-      color: #fff;
-      padding: 0.2em 0.5em;
-      font-size: 0.75em;
-      font-weight: bold;
-    }
-    #output {
-      flex: 1;
-      padding: 0.5em;
-      font-family: 'Courier New', monospace;
-      font-size: 12px;
-      background: #2c3e50;
-      color: #ecf0f1;
-      border: none;
-      resize: none;
-      white-space: pre-wrap;
-      overflow-y: auto;
-    }
-    .examples {
-      flex: 1;
-      padding: 0.5em;
-      background: #ecf0f1;
-      overflow-y: auto;
-    }
-    .examples h3 {
-      margin: 0.5em 0 0.3em 0;
-      color: #2c3e50;
-      font-size: 0.85em;
-      font-weight: 600;
-      border-bottom: 2px solid #3498db;
-      padding-bottom: 0.2em;
-    }
-    .examples h3:first-child {
-      margin-top: 0;
-    }
-    .example-code {
-      background: #fff;
-      border: 1px solid #bdc3c7;
-      border-radius: 4px;
-      padding: 0.3em;
-      margin: 0.2em 0;
-      font-family: 'Courier New', monospace;
-      font-size: 11px;
-      cursor: pointer;
-      color: #2c3e50;
-    }
-    .example-code:hover {
-      background: #f8f9fa;
-    }
-    .loader {
-      position: fixed;
-      top: 0;
-      left: 0;
-      width: 100%;
-      height: 100%;
-      background: rgba(52, 73, 94, 0.9);
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      color: #ecf0f1;
-      font-size: 1.2em;
-      z-index: 1000;
-    }
-
-    /* コード補完ポップアップのスタイル */
-    .code-completion-popup {
-      position: absolute;
-      background: white;
-      border: 1px solid #ddd;
-      border-radius: 4px;
-      box-shadow: 0 4px 8px rgba(0,0,0,0.1);
-      max-width: 400px;
-      max-height: 200px;
-      overflow-y: auto;
-      z-index: 1000;
-      display: none;
-    }
-    .completion-item {
-      padding: 8px 12px;
-      cursor: pointer;
-      border-bottom: 1px solid #f0f0f0;
-      font-family: 'Courier New', monospace;
-      font-size: 0.9em;
-    }
-    .completion-item:hover {
-      background-color: #e3f2fd;
-    }
-    .completion-item.selected {
-      background-color: #2196f3;
-      color: white;
-    }
-    .completion-item:last-child {
-      border-bottom: none;
-    }
-
-    /* インライン補完のスタイル */
-    .inline-completion {
-      position: relative;
-      display: inline;
-    }
-    .inline-completion-text {
-      color: #999 !important;
-      background: transparent !important;
-      position: relative;
-      pointer-events: none;
-      font-style: italic;
-    }
-    .CodeMirror-line .inline-suggestion {
-      color: #666 !important;
-      font-style: italic;
-      opacity: 0.8;
-    }
-    .inline-suggestion-highlight {
-      background: transparent !important;
-      color: #999 !important;
-      opacity: 0.7 !important;
-      font-style: italic !important;
-    }
-    .inline-suggestion-line {
-      background: transparent !important;
-      color: #999 !important;
-      opacity: 0.7 !important;
-      font-style: italic !important;
-      font-family: 'Courier New', monospace;
+    @media (max-width: 1080px) {
+      html, body { overflow: auto; }
+      #shell { height: auto; flex-direction: column; }
+      .sidebar { flex-basis: auto; width: auto; border-right: none; border-bottom: 1px solid var(--c-line); }
+      #workbench { flex-direction: column; }
+      .stage-column { min-height: 460px; }
+      .side-column { flex: 1 1 auto; }
     }
   </style>
 </head>
 <body>
   <div id="loader" class="loader">
-    描画モードを読み込み中...
+    <div class="spinner"></div>
+    <p>描画モードを読み込んでいます…</p>
   </div>
 
-  <header>
-    <div class="header-left">
-      <button id="toggle-sidebar">☰</button>
-      <div class="logo">easyCode</div>
-      <span>描画モード</span>
-      <div style="margin-left: 2em; display: flex; align-items: center; gap: 0.5em;">
-        <label for="drawing-completion-mode" style="font-size: 0.85em; color: #ecf0f1;">AI補完:</label>
-        <select id="completion-mode-select" style="padding: 0.3em; border-radius: 4px; border: 1px solid #bdc3c7; font-size: 0.85em;">
-          <option value="inline-only">インライン</option>
-          <option value="popup-only">複数候補</option>
-          <option value="both">両方</option>
-          <option value="none">無効</option>
-        </select>
-      </div>
+  <header class="topbar">
+    <a class="brand" href="index.html">
+      <span class="brand-mark">🎨</span>
+      <span>easyCode<small>描画モード</small></span>
+    </a>
+
+    <button id="toggle-sidebar" class="icon-btn" aria-expanded="false" title="ヒントとAIサポートを開く">📖</button>
+    <span class="topbar-divider"></span>
+
+    <div class="topbar-tools">
+      <button id="run-btn" class="btn btn-run" disabled>▶ 実行</button>
+      <button id="stop-btn" class="btn" disabled>⏹ 停止</button>
+      <span class="topbar-divider"></span>
+      <button id="share-btn" class="btn" title="今のコードが入ったリンクを作ります">🔗 共有</button>
+      <button id="clear-btn" class="btn">🗑 全消去</button>
+      <button id="save-png" class="btn">💾 画像で保存</button>
     </div>
-    <div class="controls">
-      <a href="index.html" class="nav-button">← 問題モードに戻る</a>
-      <button id="run-btn" disabled>▶ 実行する</button>
-      <button id="format-btn">✨ フォーマット</button>
-      <button id="ai-fix-code" disabled>🤖 AIコード修正</button>
-      <button id="clear-btn">🗑 クリア</button>
+
+    <div class="topbar-end">
+      <nav class="mode-switch" aria-label="モード切り替え">
+        <a href="index.html">🧩<span class="label">ブロック</span></a>
+        <a href="problems.html">📚<span class="label">問題</span></a>
+        <a href="drawing.html" aria-current="page">🎨<span class="label">描画</span></a>
+        <a href="python-guide.html">📘<span class="label">ガイド</span></a>
+      </nav>
     </div>
   </header>
 
-  <div id="container">
-    <aside id="sidebar">
-      <h2>AIサポート</h2>
-      <div class="section">
-        <p>AIと描画プログラミングを学ぼう！</p>
-        <div style="margin-bottom: 0.5em;">
-          <a href="https://aistudio.google.com/app/apikey" target="_blank" style="color: #3498db; text-decoration: none; font-size: 0.9em;">
-            🔑 Gemini APIキーを取得する →
-          </a>
-        </div>
-        <div id="api-key-form">
-          <label for="api-key">APIキー:</label>
-          <input type="password" id="api-key" placeholder="Gemini APIキー">
-          <button id="save-api-key">保存</button>
-        </div>
-        <div id="api-key-status"></div>
-      </div>
+  <div id="shell">
+    <aside id="sidebar" class="sidebar">
+      <p class="sidebar-title">ヒント</p>
 
-      <div class="section">
-        <button id="btn-review">コードレビューを生成する</button>
-      </div>
-      <div class="section">
-        <div id="review"></div>
-      </div>
+      <details class="expander" open>
+        <summary>🎨 描画モードの使い方</summary>
+        <div class="expander-body stack">
+          <p>キャンバスは <strong>400 × 400</strong>。左上が <code>(0, 0)</code>、右下が <code>(400, 400)</code> です。</p>
+          <p><strong>そのまま描く</strong>：<code>circle(200, 200, 100)</code> などを並べると、その順に1回だけ描かれます。</p>
+          <p>書き方は <strong>p5.js のリファレンスと同じ</strong>です。<code>strokeWeight(4)</code> のような英語のつづりも、<code>stroke_weight(4)</code> のような Python らしいつづりも、どちらでも動きます。</p>
+          <p><strong>動かす</strong>：<code>setup()</code> と <code>draw()</code> を作ると <code>draw()</code> がくり返し呼ばれ、アニメーションになります。<code>frameCount</code> で今が何コマ目かが分かります。</p>
+        </div>
+      </details>
 
-      <h2>AIチャット</h2>
-      <div class="section">
-        <div id="chat-container">
-          <div id="chat-messages"></div>
-          <div id="chat-input-container">
-            <input type="text" id="chat-input" placeholder="描画について質問...">
-            <button id="chat-send">送信</button>
+      <details class="expander">
+        <summary>⌨️ キーボード操作</summary>
+        <div class="expander-body keylist">
+          <div><span class="keys"><kbd>Tab</kbd></span><span>字下げ（スペース4つ）／補完の確定</span></div>
+          <div><span class="keys"><kbd>Shift</kbd><kbd>Tab</kbd></span><span>字下げを1段もどす</span></div>
+          <div><span class="keys"><kbd>Ctrl</kbd><kbd>Space</kbd></span><span>補完の候補一覧（描画の命令も出ます）</span></div>
+          <div><span class="keys"><kbd>Ctrl</kbd><kbd>/</kbd></span><span>コメントの切り替え</span></div>
+          <div><span class="keys"><kbd>Ctrl</kbd><kbd>⇧</kbd><kbd>F</kbd></span><span>コード整形（<kbd>Shift</kbd><kbd>Alt</kbd><kbd>F</kbd> でも同じ）</span></div>
+          <div><span class="keys"><kbd>Esc</kbd></span><span>補完を取り消す／拡大を戻す</span></div>
+        </div>
+      </details>
+
+      <details class="expander">
+        <summary>💡 コード補完について</summary>
+        <div class="expander-body stack">
+          <p>APIキーが無くても動きます。<code>p5.</code> と打つと、描ける形や色の関数が候補に出ます。</p>
+          <div class="field">
+            <label for="completion-mode-select">補完のしかた</label>
+            <select id="completion-mode-select">
+              <option value="both">薄い文字＋候補一覧</option>
+              <option value="inline-only">薄い文字だけ</option>
+              <option value="popup-only">候補一覧だけ</option>
+              <option value="none">使わない</option>
+            </select>
+          </div>
+          <p class="muted" style="font-size:var(--text-xs);margin:0;">
+            <span id="completion-status"></span> / <span id="completion-description"></span>
+          </p>
+        </div>
+      </details>
+
+      <p class="sidebar-title">AIサポート</p>
+
+      <details class="expander">
+        <summary>🤖 AIにきく</summary>
+        <div class="expander-body stack">
+          <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noopener">🔑 Gemini APIキーを取得する →</a>
+          <div id="api-key-form" class="field">
+            <label for="api-key">APIキー</label>
+            <input type="password" id="api-key" placeholder="Gemini APIキー">
+            <button id="save-api-key" class="btn btn-primary btn-sm btn-block">保存</button>
+          </div>
+          <div id="api-key-status" class="muted" style="font-size:var(--text-xs);"></div>
+          <button id="btn-review" class="btn btn-sm btn-block">コードレビューをもらう</button>
+          <button id="ai-fix-code" class="btn btn-sm btn-block">コードを改善してもらう</button>
+          <div id="review" style="font-size:var(--text-sm); white-space:pre-wrap;"></div>
+        </div>
+      </details>
+
+      <details class="expander">
+        <summary>💬 AIチャット</summary>
+        <div class="expander-body">
+          <div id="chat-container">
+            <div id="chat-messages" style="display:flex;flex-direction:column;max-height:280px;overflow-y:auto;margin-bottom:var(--sp-2);"></div>
+            <div id="chat-input-container" style="display:flex;gap:var(--sp-1);">
+              <input type="text" id="chat-input" placeholder="描画について質問…">
+              <button id="chat-send" class="btn btn-primary btn-sm">送信</button>
+            </div>
           </div>
         </div>
-      </div>
+      </details>
     </aside>
 
-    <div class="main-container">
-    <div class="top-section">
-      <div class="editor-panel">
-        <div class="panel-header">Python コードエディタ</div>
-        <div class="editor-container">
-          <textarea id="code" style="display: none;"># p5.jsライクなPython描画コード
-# キャンバスサイズ: 400x400
+    <div id="workbench">
+      <!-- 左: コード / ブロック / フローチャート / サンプル -->
+      <div class="stage-column">
+        <div id="stage-tabs">
+          <span class="tabs-label">表示するもの</span>
+          <div class="tabs" role="tablist">
+            <button type="button" data-stage="panel-code" role="tab" aria-selected="true">🐍 コード</button>
+            <button type="button" data-stage="panel-blocks" role="tab" aria-selected="false">🧩 ブロック</button>
+            <button type="button" data-stage="panel-flow" role="tab" aria-selected="false">🔀 フローチャート</button>
+            <button type="button" data-stage="panel-samples" role="tab" aria-selected="false">📚 サンプル</button>
+          </div>
+        </div>
 
-# 【2つのモード】
-# 1. 直接実行: setup/draw関数なしでコードを直接書く
-# 2. アニメーション: setup()とdraw()関数を定義する
+        <div class="stage-holder">
+          <section class="panel" id="panel-code" data-stage>
+            <div class="panel-head">
+              <span class="panel-title">🐍 Python コード <span class="chip is-live" id="sync-chip">ブロックと同期中</span></span>
+              <span class="panel-tools">
+                <button class="tool-btn" id="code-indent" title="字下げをそろえます">⇥ 自動インデント</button>
+                <button class="tool-btn" id="code-format" title="記号まわりの空白や空行も整えます">✨ コード整形</button>
+                <button class="tool-btn panel-max" data-panel="panel-code" title="このパネルを大きく表示">⛶</button>
+              </span>
+            </div>
+            <div class="panel-body"><textarea id="code"></textarea></div>
+          </section>
 
-# === 直接実行の例 ===
-# p5.background(240, 240, 250)
-# p5.fill(255, 100, 100)
-# p5.circle(200, 200, 100)
+          <section class="panel" id="panel-blocks" data-stage>
+            <div class="panel-head">
+              <span class="panel-title">🧩 ブロックエディタ</span>
+              <span class="panel-tools">
+                <button class="tool-btn" id="blocks-undo" title="元に戻す">↶</button>
+                <button class="tool-btn" id="blocks-redo" title="やり直す">↷</button>
+                <button class="tool-btn" id="blocks-tidy" title="ブロックを整列して画面に収めます">📐 整列</button>
+                <button class="tool-btn panel-max" data-panel="panel-blocks" title="このパネルを大きく表示">⛶</button>
+              </span>
+            </div>
+            <div class="panel-body"><div id="blockly-area"></div></div>
+          </section>
 
-# === アニメーションの例 ===
-# frameCount変数で現在のフレーム数にアクセス可能
+          <section class="panel" id="panel-flow" data-stage>
+            <div class="panel-head">
+              <span class="panel-title">🔀 フローチャート</span>
+              <span class="panel-tools">
+                <button class="tool-btn is-on" id="flow-language" title="ラベルの書き方を切り替えます">🈁 やさしい日本語</button>
+          <button class="tool-btn" id="flow-refresh" title="描き直します">🔄 更新</button>
+                <button class="tool-btn panel-max" data-panel="panel-flow" title="このパネルを大きく表示">⛶</button>
+              </span>
+            </div>
+            <div class="panel-body" id="flow-body">
+              <div id="flowchart"><div class="empty-state"><span class="big">🔀</span>コードを書くと流れが図になります</div></div>
+            </div>
+          </section>
 
-def setup():
-    """初期化（1回だけ実行）"""
-    p5.background(240, 240, 250)
-
-def draw():
-    """繰り返し実行される描画ループ"""
-    # 半透明の背景で軌跡を残す
-    p5.fill(240, 240, 250, 30)
-    p5.no_stroke()
-    p5.rect(0, 0, 400, 400)
-
-    # 円運動する円
-    x = 200 + 120 * cos(frameCount * 0.05)
-    y = 200 + 120 * sin(frameCount * 0.05)
-    p5.fill(100, 150, 255)
-    p5.circle(x, y, 30)
-
-    # 回転する四角形
-    p5.push()
-    p5.translate(200, 200)
-    p5.rotate(frameCount * 0.02)
-    p5.fill(255, 100, 100, 150)
-    p5.stroke(200, 50, 50)
-    p5.stroke_weight(2)
-    p5.rect(-20, -20, 40, 40)
-    p5.pop()
-</textarea>
+          <section class="panel" id="panel-samples" data-stage>
+            <div class="panel-head">
+              <span class="panel-title">📚 サンプルと使い方 <span class="chip">クリックでコードに追加</span></span>
+              <span class="panel-tools">
+                <button class="tool-btn panel-max" data-panel="panel-samples" title="このパネルを大きく表示">⛶</button>
+              </span>
+            </div>
+            <div class="panel-body" id="samples-body"></div>
+          </section>
         </div>
       </div>
 
-      <div class="canvas-panel">
-        <div class="panel-header">描画キャンバス (400x400)</div>
-        <div class="canvas-container">
-          <canvas id="canvas" width="400" height="400"></canvas>
-        </div>
+      <!-- 右: キャンバスと実行結果 -->
+      <div class="side-column">
+        <section class="panel" id="panel-canvas">
+          <div class="panel-head">
+            <span class="panel-title">🖼 キャンバス <span class="chip" id="canvas-state">停止中</span></span>
+            <span class="panel-tools">
+              <button class="tool-btn panel-max" data-panel="panel-canvas" title="このパネルを大きく表示">⛶</button>
+            </span>
+          </div>
+          <div class="panel-body" id="canvas-body">
+            <canvas id="canvas" width="400" height="400"></canvas>
+          </div>
+        </section>
+
+        <section class="panel" id="panel-output">
+          <div class="panel-head">
+            <span class="panel-title">▶ 実行結果</span>
+            <span class="panel-tools">
+              <button class="tool-btn" id="output-clear" title="実行結果を消す">🧹 消去</button>
+              <button class="tool-btn panel-max" data-panel="panel-output" title="このパネルを大きく表示">⛶</button>
+            </span>
+          </div>
+          <div class="panel-body" style="display:flex;flex-direction:column;">
+            <pre id="output" class="console">「▶ 実行」で描き始めます</pre>
+          </div>
+        </section>
       </div>
-    </div>
-
-    <div class="bottom-section">
-      <div class="samples-panel">
-        <div class="panel-header">サンプルコード（クリックで挿入）</div>
-        <div class="examples">
-          <h3>基本図形</h3>
-          <div class="example-code">p5.circle(200, 200, 50)  # 円を描画</div>
-          <div class="example-code">p5.rect(100, 100, 80, 60)  # 四角形を描画</div>
-          <div class="example-code">p5.rect(100, 100, 80, 60, 10, 10, 10, 10)  # 角丸四角形</div>
-          <div class="example-code">p5.square(150, 150, 50)  # 正方形を描画</div>
-          <div class="example-code">p5.ellipse(200, 200, 100, 60)  # 楕円を描画</div>
-          <div class="example-code">p5.triangle(200, 100, 150, 200, 250, 200)  # 三角形</div>
-          <div class="example-code">p5.line(0, 0, 400, 400)  # 線を描画</div>
-
-          <h3>色と線</h3>
-          <div class="example-code">p5.fill(255, 0, 0)  # 赤色で塗りつぶし</div>
-          <div class="example-code">p5.stroke(0, 255, 0)  # 緑色の輪郭</div>
-          <div class="example-code">p5.stroke_weight(5)  # 線の太さを設定</div>
-          <div class="example-code">p5.stroke_cap('round')  # 線の端を丸くする</div>
-          <div class="example-code">p5.no_fill()  # 塗りつぶしなし</div>
-          <div class="example-code">p5.no_stroke()  # 輪郭なし</div>
-
-          <h3>曲線</h3>
-          <div class="example-code">p5.bezier(50, 50, 100, 100, 300, 100, 350, 350)  # ベジェ曲線</div>
-          <div class="example-code">p5.curve(50, 50, 100, 100, 300, 100, 350, 350)  # カーブ</div>
-          <div class="example-code">p5.arc(200, 200, 100, 100, 0, PI)  # 半円弧</div>
-
-          <h3>カスタム形状</h3>
-          <div class="example-code">p5.begin_shape(); p5.vertex(100, 100); p5.vertex(200, 50); p5.vertex(300, 100); p5.end_shape('CLOSE')  # 多角形</div>
-
-          <h3>変換</h3>
-          <div class="example-code">p5.push(); p5.translate(200, 200); p5.rotate(PI/4); p5.rect(0, 0, 50, 50); p5.pop()  # 回転</div>
-          <div class="example-code">p5.push(); p5.scale(2, 2); p5.circle(100, 100, 25); p5.pop()  # 拡大</div>
-
-          <h3>テキスト</h3>
-          <div class="example-code">p5.text_size(24); p5.text('Hello', 100, 100)  # テキスト表示</div>
-          <div class="example-code">p5.text_align('center', 'middle')  # テキスト配置</div>
-
-          <h3>数学・ランダム</h3>
-          <div class="example-code">x = random(0, 400); y = random(0, 400); p5.circle(x, y, 30)  # ランダムな位置</div>
-          <div class="example-code">angle = map_value(100, 0, 400, 0, TWO_PI)  # 値の範囲変換</div>
-          <div class="example-code">n = noise(0.1, 0.2) * 100  # ノイズ値を使用</div>
-          <div class="example-code">val = lerp(0, 100, 0.5)  # 線形補間</div>
-
-          <h3>アニメーション (setup & draw)</h3>
-          <div class="example-code" style="white-space: pre-wrap;">def setup():
-    p5.background(240, 240, 250)
-
-def draw():
-    # 動く円を描画
-    x = 200 + 150 * cos(frameCount * 0.05)
-    y = 200 + 150 * sin(frameCount * 0.05)
-    p5.fill(100, 150, 255, 100)
-    p5.circle(x, y, 30)</div>
-          <div class="example-code" style="white-space: pre-wrap;">def setup():
-    p5.background(20, 20, 30)
-
-def draw():
-    # フレームごとに半透明の背景で軌跡を残す
-    p5.fill(20, 20, 30, 25)
-    p5.no_stroke()
-    p5.rect(0, 0, 400, 400)
-
-    # 回転する四角形
-    p5.push()
-    p5.translate(200, 200)
-    p5.rotate(frameCount * 0.02)
-    p5.fill(255, 100, 100)
-    p5.rect(-25, -25, 50, 50)
-    p5.pop()</div>
-        </div>
-      </div>
-
-      <div class="output-panel">
-        <div class="panel-header">実行結果</div>
-        <div class="output-section">
-          <textarea id="output" readonly></textarea>
-        </div>
-      </div>
-    </div>
     </div>
   </div>
 
-  <!-- Pyodide -->
-  <script src="https://cdn.jsdelivr.net/pyodide/v0.23.4/full/pyodide.js"></script>
-  <!-- CodeMirror JS -->
   <script src="https://cdn.jsdelivr.net/npm/codemirror@5.65.16/lib/codemirror.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/codemirror@5.65.16/mode/python/python.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/codemirror@5.65.16/addon/comment/comment.js"></script>
-  <script type="module" src="module/state.js"></script>
-  <script type="module" src="module/config.js"></script>
-  <script type="module" src="module/ai.js"></script>
-  <script type="module" src="module/sidebar.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/codemirror@5.65.16/addon/display/rulers.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/blockly@11.2.1/blockly_compressed.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/blockly@11.2.1/blocks_compressed.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/blockly@11.2.1/python_compressed.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/blockly@11.2.1/msg/ja.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/mermaid@10.9.1/dist/mermaid.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/pyodide/v0.23.4/full/pyodide.js"></script>
   <script type="module" src="module/drawing.js"></script>
 </body>
 </html>

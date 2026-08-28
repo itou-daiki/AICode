@@ -38,3 +38,7 @@ build/
 *secret*
 *credential*
 api-key*.txt
+
+# ツールの作業用ディレクトリ
+.omc/
+.playwright-mcp/

@@ -1,1028 +1,453 @@
 <!DOCTYPE html>
 <html lang="ja">
 <head>
-  <link rel="icon" type="image/x-icon" href="/favicon.ico">
   <meta charset="UTF-8">
-  <title>easyCode</title>
-  <!-- CodeMirror CSS -->
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>easyCode - ブロックモード</title>
+  <link rel="icon" type="image/svg+xml" href="favicon.svg">
+  <link rel="alternate icon" href="favicon.ico">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/codemirror@5.65.16/lib/codemirror.css" />
+  <link rel="stylesheet" href="css/theme.css">
   <style>
-    :root { --header-height: 64px; }
-    html, body { margin: 0; padding: 0; min-height: 100%; font-family: 'Segoe UI', Tahoma, sans-serif; overflow-x: hidden; overflow-y: auto; }
-    header {
-      position: relative;
+    /* ブロックモードのレイアウト（色や文字は css/theme.css のトークンを使う） */
+    :root { --c-accent: var(--c-blocks); }
+    html, body { height: 100%; overflow: hidden; }
+
+    #shell {
+      display: flex;
+      height: calc(100vh - var(--topbar-h));
+      overflow: hidden;
+    }
+
+    /* ===== ワークスペース ===== */
+    #workspace {
+      flex: 1 1 auto;
+      display: grid;
+      min-width: 0;
+      grid-template-columns: 1fr 1fr;
+      grid-template-rows: 1fr 1fr;
+      grid-template-areas:
+        "code   flow"
+        "blocks output";
+      gap: var(--sp-2);
+      padding: var(--sp-2);
+    }
+    #panel-code   { grid-area: code; }
+    #panel-flow   { grid-area: flow; }
+    #panel-blocks { grid-area: blocks; }
+    #panel-output { grid-area: output; }
+    #stage-tabs   { display: none; }
+
+    /* ===== 3画面: コード（左・縦長） / フローチャート / 実行結果 ===== */
+    body.layout-3 #workspace {
+      grid-template-areas:
+        "code flow"
+        "code output";
+    }
+    body.layout-3 #panel-blocks { display: none; }
+
+    /* ===== 2画面: 左はタブで切り替え、右は実行結果 ===== */
+    body.layout-2 #workspace {
+      grid-template-columns: minmax(0, 1.05fr) minmax(0, 0.95fr);
+      grid-template-rows: auto minmax(0, 1fr);
+      grid-template-areas:
+        "tabs  output"
+        "stage output";
+    }
+    body.layout-2 #stage-tabs {
+      grid-area: tabs;
       display: flex;
       align-items: center;
-      height: var(--header-height);
-      background: #2c3e50;
-      color: #ecf0f1;
-      padding: 0 1em;
-      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+      gap: var(--sp-2);
+      padding-bottom: var(--sp-1);
     }
-    #header-left {
-      display: flex;
-      align-items: center;
-      gap: 0.5em;
+    body.layout-2 #panel-code,
+    body.layout-2 #panel-flow,
+    body.layout-2 #panel-blocks { grid-area: stage; }
+    body.layout-2 .panel[data-stage]:not(.is-stage) { display: none; }
+    body.layout-2 .panel[data-stage].is-stage { display: flex; }
+
+    /* ステップ実行中は、終了ボタンも並べる */
+    #stage-exit { display: none; }
+    body.step-mode #stage-exit { display: inline-flex; }
+    #step-chip { display: none; }
+    body.step-mode #step-chip { display: inline-block; }
+
+    /* トップバーの中の切り替えは、暗い背景に合わせる */
+    .topbar .tabs {
+      background: rgba(255, 255, 255, 0.08);
+      border-color: rgba(255, 255, 255, 0.16);
+      box-shadow: none;
     }
-    #toggle-sidebar {
+    .topbar .tabs button {
       background: transparent;
-      border: none;
-      color: #ecf0f1;
-      font-size: 1.5em;
-      cursor: pointer;
+      border-color: transparent;
+      color: rgba(255, 255, 255, 0.7);
     }
-    .problem-nav {
-      display: flex;
-      align-items: center;
-      gap: 0.5em;
-    }
-    .problem-nav button {
-      background: #3498db;
+    .topbar .tabs button:hover { background: rgba(255, 255, 255, 0.14); color: #fff; }
+    .topbar .tabs button[aria-selected='true'] {
+      background: var(--c-accent);
       color: #fff;
-      border: none;
-      border-radius: 6px;
-      padding: 0.4em 0.8em;
-      cursor: pointer;
-      font-size: 0.85em;
-      font-weight: 500;
-      transition: all 0.2s ease;
-      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-    }
-    .problem-nav button:hover:not(:disabled) {
-      background: #2980b9;
-      transform: translateY(-1px);
-      box-shadow: 0 4px 6px rgba(0, 0, 0, 0.15);
-    }
-    .problem-nav button:active:not(:disabled) {
-      transform: translateY(0);
-    }
-    .problem-nav button:disabled {
-      background: #95a5a6;
-      cursor: not-allowed;
-      opacity: 0.6;
-    }
-    #current-problem-label {
-      font-weight: bold;
-      padding: 0 0.5em;
-    }
-    header h1 {
-      position: absolute;
-      left: 50%;
-      transform: translateX(-50%);
-      margin: 0;
-      font-size: 1.2em;
-    }
-    .header-right {
-      margin-left: auto;
-      display: flex;
-      gap: 0.5em;
-    }
-    .mode-switch {
-      background: linear-gradient(135deg, #8e44ad, #9b59b6);
-      color: #fff;
-      border: none;
-      border-radius: 6px;
-      padding: 0.5em 1em;
-      cursor: pointer;
-      font-weight: 500;
-      transition: all 0.2s ease;
-      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-      text-decoration: none;
-      font-size: 0.8em;
-      display: flex;
-      align-items: center;
-      gap: 0.3em;
-    }
-    .mode-switch:hover {
-      background: #7d3c98;
-    }
-    
-    /* ナビゲーションリンクのホバー効果 */
-    footer a[href$=".html"]:hover {
-      transform: translateY(-2px);
-      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
-    }
-    #loader {
-      position: fixed;
-      top: 0; left: 0;
-      width: 100%; height: 100%;
-      background: rgba(255,255,255,0.8);
-      display: flex;
-      align-items: center; justify-content: center; flex-direction: column;
-      z-index: 1000;
-    }
-    .spinner {
-      border: 8px solid #f3f3f3;
-      border-top: 8px solid #2c3e50;
-      border-radius: 50%; width: 60px; height: 60px;
-      animation: spin 1s linear infinite;
-    }
-    @keyframes spin { to { transform: rotate(360deg); } }
-    #container {
-      display: flex;
-      min-height: calc(100vh - var(--header-height));
-      height: calc(100vh - var(--header-height));
-      visibility: hidden;
-      overflow: hidden;
-    }
-    aside {
-      width: 0;
-      padding: 0;
-      background: #ecf0f1;
-      box-sizing: border-box;
-      overflow-y: auto;
-      overflow-x: hidden;
-      transition: all 0.3s ease;
-      border-right: 1px solid transparent;
-      max-height: none;
-    }
-    aside.open { 
-      width: 280px;
-      padding: 1em;
-      border-right: 1px solid #bdc3c7;
-    }
-    /* サイドバーリサイズハンドル */
-    #sidebar-resize-handle {
-      position: absolute;
-      top: 0;
-      right: -5px;
-      width: 10px;
-      height: 100%;
-      cursor: ew-resize;
-      z-index: 10;
-    }
-    #sidebar-resize-handle:hover {
-      background: rgba(52, 152, 219, 0.2);
-    }
-    #sidebar {
-      position: relative;
-    }
-    #content {
-      flex: 1;
-      display: flex;
-      flex-direction: column;
-      overflow: hidden;
-      height: 100%;
-    }
-    #problem-area {
-      padding: 0.75em;
-      background: linear-gradient(135deg, #f7f9fa 0%, #e9ecef 100%);
-      border-bottom: 2px solid #dfe6e9;
-      overflow-y: auto;
-      max-height: 25%;
-      flex-shrink: 0;
-      box-sizing: border-box;
-      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
-    }
-    #problem-area h2 {
-      margin: 0 0 0.5em;
-      font-size: 1.1em;
-      font-weight: 600;
-      color: #2c3e50;
-      padding-bottom: 0.3em;
-      border-bottom: 2px solid #3498db;
-    }
-    #problem-area h3 {
-      margin: 0 0 0.5em;
-      font-size: 1em;
-      font-weight: 600;
-      color: #34495e;
-    }
-    #problem-area pre {
-      background: #fff;
-      padding: 1em;
-      border: 1px solid #dfe6e9;
-      border-radius: 6px;
-      overflow-x: auto;
-      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
-      font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
-    }
-    /* 左右2分割レイアウト */
-    .problem-layout {
-      display: flex;
-      flex-direction: row;
-      gap: 0.75em;
-      margin-top: 0.5em;
-    }
-    .problem-description {
-      flex: 1;
-      min-width: 0;
-    }
-    .problem-examples {
-      flex: 1;
-      min-width: 0;
-      background: #fff;
-      padding: 1em;
-      border: 1px solid #dfe6e9;
-      border-radius: 6px;
-      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
-    }
-    .problem-examples h4 {
-      margin: 0 0 0.5em;
-      font-size: 0.95em;
-      font-weight: 600;
-      color: #34495e;
-    }
-    .problem-examples h4:not(:first-child) {
-      margin-top: 1em;
-    }
-    main {
-      display: flex;
-      flex: 1;
-      gap: 0;
-      min-height: 0;
-      overflow: hidden;
-    }
-    #editor, #result {
-      flex: 1 1 50%;
-      min-width: 0;
-      padding: 0.75em;
-      box-sizing: border-box;
-      display: flex;
-      flex-direction: column;
-      overflow: hidden;
-    }
-    #editor {
-      background: #f8f9fa;
-      border-right: 2px solid #e1e8ed;
-    }
-    #result {
-      background: #ffffff;
-    }
-    #editor h2, #result h2 {
-      margin: 0 0 1em;
-      font-size: 1.1em;
-      font-weight: 600;
-      color: #2c3e50;
-      padding-bottom: 0.5em;
-      border-bottom: 2px solid #3498db;
-    }
-    .CodeMirror {
-      flex: 1;
-      border: 1px solid #dfe6e9;
-      border-radius: 6px;
-      background: #1e1e1e;
-      font-size: 16px;
-      font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
-      height: 100%;
-      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-    }
-    .CodeMirror-scroll {
-      background: #1e1e1e;
-      overflow-x: auto;
-      overflow-y: auto;
-    }
-    /* CodeMirrorの内部構造には触れず、色のみ変更 */
-    .CodeMirror,
-    .CodeMirror-gutters {
-      background-color: #1e1e1e;
-      color: #d4d4d4;
-    }
-    .CodeMirror-gutters {
-      border-right: 1px solid #3e3e42;
-    }
-    /* =====================================
-       CodeMirror 選択範囲スタイル（改良版）
-       ===================================== */
-
-    /* 行レベルの選択背景 */
-    .CodeMirror div.CodeMirror-selected {
-      background: rgba(52, 152, 219, 0.3);
     }
 
-    /* 文字レベルの選択（最も重要） */
-    .CodeMirror .CodeMirror-selectedtext {
-      background: #3498db;
-      color: #ffffff;
+    /* ===== パネルの拡大 ===== */
+    body.has-max #workspace {
+      grid-template-columns: 1fr;
+      grid-template-rows: 1fr;
+      grid-template-areas: "max";
     }
+    body.has-max #stage-tabs { display: none; }
+    body.has-max .panel:not(.is-max) { display: none; }
+    /* パネルごとの grid-area（ID指定）に勝つように、ここも ID を付けて指定する */
+    body.has-max #panel-code.is-max,
+    body.has-max #panel-flow.is-max,
+    body.has-max #panel-blocks.is-max,
+    body.has-max #panel-output.is-max { grid-area: max; display: flex; }
 
-    /* より具体的な文字選択 */
-    .CodeMirror-line .CodeMirror-selectedtext {
-      background: #3498db;
-      color: #ffffff;
-    }
+    /* ===== 各パネルの中身 ===== */
+    #panel-code .CodeMirror { position: absolute; inset: 0; }
+    #blockly-area { position: absolute; inset: 0; }
 
-    /* ドラッグ中の選択 */
-    .CodeMirror-selecting div.CodeMirror-selected {
-      background: rgba(52, 152, 219, 0.4);
-    }
-
-    /* 選択中の文字を強調 */
-    .CodeMirror-selecting .CodeMirror-selectedtext {
-      background: #2980b9;
-      color: #ffffff;
-    }
-
-    /* カーソルスタイル */
-    .CodeMirror-cursor {
-      border-left: 2px solid #ffffff;
-    }
-    
-    /* レスポンシブ対応：小さな画面でのコンパクト表示 */
-    @media (max-width: 768px) {
-      #container {
-        min-height: calc(70vh - var(--header-height));
-      }
-      main {
-        flex-direction: column;
-        min-height: auto;
-        height: auto;
-        max-height: none;
-      }
-      #editor, #result {
-        flex: 1 1 auto;
-        border-right: none;
-        border-bottom: 2px solid #e1e8ed;
-      }
-      #editor {
-        min-height: 300px;
-      }
-      #result {
-        min-height: 250px;
-      }
-      .CodeMirror {
-        min-height: 200px;
-        height: 300px;
-      }
-      /* 小さな画面では問題レイアウトを縦に戻す */
-      .problem-layout {
-        flex-direction: column;
-      }
-      .problem-description,
-      .problem-examples {
-        width: 100%;
-      }
-    }
-    .CodeMirror-linenumber {
-      color: #858585;
-    }
-    .CodeMirror-activeline-background {
-      background: #2a2a2a;
-    }
-
-    /* Python シンタックスハイライト - ダークモード */
-    .cm-s-default .cm-keyword {
-      color: #569cd6; /* def, if, for, import など */
-    }
-    .cm-s-default .cm-string {
-      color: #ce9178; /* 文字列 */
-    }
-    .cm-s-default .cm-comment {
-      color: #6a9955; /* コメント */
-    }
-    .cm-s-default .cm-number {
-      color: #b5cea8; /* 数値 */
-    }
-    .cm-s-default .cm-builtin {
-      color: #4ec9b0; /* print, len など */
-    }
-    .cm-s-default .cm-variable {
-      color: #9cdcfe; /* 変数名 */
-    }
-    .cm-s-default .cm-def {
-      color: #dcdcaa; /* 関数定義 */
-    }
-    .cm-s-default .cm-operator {
-      color: #d4d4d4; /* 演算子 */
-    }
-    .cm-s-default .cm-bracket {
-      color: #ffd700; /* 括弧 */
-    }
-    /* ボタングループ */
-    .button-group {
+    #flow-body { overflow: auto; background: var(--c-surface-2); }
+    #flowchart {
       display: flex;
-      gap: 0.75em;
-      margin-top: 1em;
-      width: 100%;
-    }
-
-    #editor button, #result button {
-      background: #3498db;
-      color: #fff;
-      border: none;
-      border-radius: 6px;
-      padding: 0.7em 1.2em;
-      cursor: pointer;
-      transition: all 0.2s ease;
-      height: 44px;
-      font-size: 15px;
-      font-weight: 500;
-      box-shadow: 0 2px 4px rgba(52, 152, 219, 0.2);
-    }
-    .button-group button {
-      flex: 1;
-    }
-    #editor button:hover, #result button:hover {
-      background: #2980b9;
-      transform: translateY(-1px);
-      box-shadow: 0 4px 8px rgba(52, 152, 219, 0.3);
-    }
-    #editor button:active, #result button:active {
-      transform: translateY(0);
-    }
-    #editor button:disabled, #result button:disabled {
-      opacity: 0.6;
-      cursor: not-allowed;
-      transform: none;
-    }
-
-    /* AIコード修正ボタンのスタイル */
-    #ai-fix-code {
-      background: linear-gradient(135deg, #8e44ad, #9b59b6);
-      font-weight: 500;
-    }
-    #ai-fix-code:hover {
-      background: linear-gradient(135deg, #7d3c98, #8e44ad);
-    }
-
-    /* 正誤判定結果 */
-    #check-result {
-      margin-top: 1em;
-      padding: 1em;
-      background: #f7f9fa;
-      border-radius: 6px;
-      border-left: 4px solid #3498db;
-      display: none;
-      max-height: 200px;
-      overflow-y: auto;
-      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
-    }
-    
-    /* モダンなAIボタンスタイル */
-    #btn-explain, #btn-review, #btn-generate-problem, #btn-check-answer {
-      width: 100%;
-      background: linear-gradient(135deg, #6e8efb, #a777e3);
-      color: white;
-      border: none;
-      border-radius: 8px;
-      padding: 0.5em 1em;
-      margin: 8px 0;
-      font-weight: 500;
-      cursor: pointer;
-      box-shadow: 0 4px 6px rgba(50, 50, 93, 0.11), 0 1px 3px rgba(0, 0, 0, 0.08);
-      transition: all 0.3s ease;
-      display: flex;
-      align-items: center;
+      align-items: flex-start;
       justify-content: center;
-      gap: 8px;
-      height: 40px;
+      padding: var(--sp-3);
+      min-height: 100%;
     }
-    #btn-check-answer {
-      background: linear-gradient(135deg, #4CAF50, #45a049);
-      margin-top: 1em;
+    #flowchart svg { max-width: 100%; height: auto; }
+    #flowchart g.node.step-active > :is(rect, polygon, circle, ellipse, path) {
+      stroke: var(--c-warn) !important;
+      stroke-width: 3px !important;
+      filter: drop-shadow(0 0 7px rgba(224, 135, 0, 0.6));
     }
-    #btn-explain:hover, #btn-review:hover, #btn-generate-problem:hover, #btn-check-answer:hover {
-      transform: translateY(-2px);
-      box-shadow: 0 7px 14px rgba(50, 50, 93, 0.1), 0 3px 6px rgba(0, 0, 0, 0.08);
-      filter: brightness(1.05);
+
+    /* ===== 実行結果 ===== */
+    #output-body { display: flex; flex-direction: column; }
+    #output { flex: 1 1 auto; }
+
+    #step-panel { flex: 0 0 auto; border-bottom: 1px solid var(--c-line); background: var(--c-surface-2); }
+    .step-bar { display: flex; align-items: center; gap: var(--sp-2); padding: var(--sp-2); }
+    .step-bar input[type='range'] { flex: 1 1 auto; min-width: 60px; }
+    #step-vars { max-height: 40vh; overflow: auto; padding: 0 var(--sp-2) var(--sp-2); }
+    #step-vars table { width: 100%; border-collapse: collapse; font-size: var(--text-sm); }
+    #step-vars th, #step-vars td {
+      padding: 0.3em 0.5em;
+      border-bottom: 1px solid var(--c-line);
+      text-align: left;
+      vertical-align: top;
     }
-    #btn-explain:active, #btn-review:active, #btn-generate-problem:active, #btn-check-answer:active {
-      transform: translateY(1px);
+    #step-vars th { width: 36%; color: var(--c-ink-2); font-weight: 600; }
+    #step-vars td { font-family: var(--font-mono); word-break: break-all; }
+    #step-vars tr.changed th, #step-vars tr.changed td { background: var(--c-warn-soft); }
+
+    /* 予想してから実行（PRIMM の Predict）*/
+    #predict-panel {
+      flex: 0 0 auto;
+      padding: var(--sp-2);
+      border-bottom: 1px solid var(--c-line);
+      background: var(--c-brand-soft);
     }
-    #btn-explain::before, #btn-review::before, #btn-generate-problem::before {
-      content: "✨";
-      font-size: 1.1em;
+    #predict-panel label {
+      display: block;
+      margin-bottom: var(--sp-1);
+      font-size: var(--text-xs);
+      font-weight: 700;
+      color: var(--c-brand-ink);
     }
-    #btn-check-answer::before {
-      content: "✓";
-      font-size: 1.1em;
-    }
-    #output {
-      flex: 1;
-      background: #f8f9fa;
-      border: 1px solid #dfe6e9;
-      border-radius: 6px;
-      padding: 1em;
-      white-space: pre;
-      overflow-x: auto;
-      overflow-y: auto;
-      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-      position: relative;
-      font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
-      font-size: 14px;
-      line-height: 1.6;
-      min-height: 0;
-    }
-    
-    /* チャット機能のスタイル */
-    #chat-container {
-      margin-top: 1em;
-      border: 1px solid #dfe6e9;
-      border-radius: 4px;
-      background: #fff;
-      display: flex;
-      flex-direction: column;
-      height: 300px;
-    }
-    #chat-messages {
-      flex: 1;
-      overflow-y: auto;
-      padding: 0.5em;
-    }
-    .chat-message {
-      margin-bottom: 0.5em;
-      padding: 0.5em;
-      border-radius: 4px;
+    #predict-input { font-family: var(--font-mono); font-size: var(--text-sm); resize: vertical; }
+    #predict-result:empty { display: none; }
+    #predict-result {
+      margin-top: var(--sp-2);
+      padding: var(--sp-2);
+      border-radius: var(--r-sm);
+      background: var(--c-surface);
+      font-size: var(--text-sm);
       white-space: pre-wrap;
-      word-wrap: break-word;
     }
-    .user-message {
-      background: #e3f2fd;
-      margin-left: 1em;
-      border-radius: 10px 10px 0 10px;
-    }
-    .ai-message {
-      background: #f1f8e9;
-      margin-right: 1em;
-      border-radius: 10px 10px 10px 0;
-    }
-    .loading-message {
-      background: #f5f5f5;
-      color: #757575;
-      font-style: italic;
-      animation: pulse 1.5s infinite;
-    }
-    @keyframes pulse {
-      0% { opacity: 0.6; }
-      50% { opacity: 1; }
-      100% { opacity: 0.6; }
-    }
-    #chat-input-container {
-      display: flex;
-      padding: 0.5em;
-      border-top: 1px solid #dfe6e9;
-    }
-    #chat-input {
-      flex: 1;
-      border: 1px solid #dfe6e9;
-      border-radius: 4px;
-      padding: 0.5em;
-      margin-right: 0.5em;
-    }
-    #chat-send {
-      background: #3498db;
-      color: #fff;
-      border: none;
-      border-radius: 4px;
-      padding: 0.5em 1em;
-      cursor: pointer;
-    }
-    #input-area {
-      display: none;
-      padding: 1em;
-      background: #f7f9fa;
-      border-top: 1px solid #dfe6e9;
-    }
-    #input-area textarea {
-      width: 100%; box-sizing: border-box;
-      height: 5em;
-      border: 1px solid #dfe6e9;
-      border-radius: 4px;
-      padding: 0.5em;
-      font-family: monospace;
-    }
-    
-    /* APIキーフォームのスタイル */
-    #api-key-form {
-      margin-top: 1em;
-      padding: 0.5em;
-      background: #f7f9fa;
-      border: 1px solid #dfe6e9;
-      border-radius: 4px;
-      display: flex;
-      align-items: center;
-      gap: 0.5em;
-    }
-    #api-key-form label {
-      font-size: 0.8em;
-      white-space: nowrap;
-    }
-    #api-key-form input {
-      flex: 1;
-      padding: 0.3em;
-      border: 1px solid #dfe6e9;
-      border-radius: 4px;
-      font-size: 0.9em;
-      max-width: 150px; /* APIキー入力フォームの幅を制限 */
-      min-width: 80px;
-    }
-    #api-key-form button {
-      background: #3498db;
-      color: #fff;
-      border: none;
-      border-radius: 4px;
-      padding: 0.3em 0.6em;
-      cursor: pointer;
-      font-size: 0.8em;
-      white-space: nowrap;
-    }
-    #api-key-form button:hover {
-      background: #2980b9;
-    }
-    #api-key-status {
-      font-size: 0.8em;
-      margin-top: 0.2em;
-      text-align: right;
-    }
-    
-    /* トグルスイッチのスタイル */
-    .toggle-switch {
-      position: relative;
-      display: inline-block;
-      width: 44px;
-      height: 24px;
-    }
-    .toggle-switch input {
-      opacity: 0;
-      width: 0;
-      height: 0;
-    }
-    .toggle-slider {
-      position: absolute;
-      cursor: pointer;
-      top: 0;
-      left: 0;
-      right: 0;
-      bottom: 0;
-      background-color: #ccc;
-      border-radius: 24px;
-      transition: 0.3s;
-    }
-    .toggle-slider:before {
-      position: absolute;
-      content: "";
-      height: 18px;
-      width: 18px;
-      left: 3px;
-      bottom: 3px;
-      background-color: white;
-      border-radius: 50%;
-      transition: 0.3s;
-    }
-    input:checked + .toggle-slider {
-      background-color: #3498db;
-    }
-    input:checked + .toggle-slider:before {
-      transform: translateX(20px);
-    }
-    
-    /* コード補完ポップアップのスタイル */
-    .code-completion-popup {
-      position: absolute;
-      background: white;
-      border: 1px solid #ddd;
-      border-radius: 4px;
-      box-shadow: 0 4px 8px rgba(0,0,0,0.1);
-      max-width: 400px;
-      max-height: 200px;
-      overflow-y: auto;
-      z-index: 1000;
-      display: none;
-    }
-    .completion-item {
-      padding: 8px 12px;
-      cursor: pointer;
-      border-bottom: 1px solid #f0f0f0;
-      font-family: 'Courier New', monospace;
-      font-size: 0.9em;
-    }
-    .completion-item:hover {
-      background-color: #e3f2fd;
-    }
-    .completion-item.selected {
-      background-color: #2196f3;
-      color: white;
-    }
-    .completion-item:last-child {
-      border-bottom: none;
-    }
-    
-    /* インライン補完のスタイル */
-    .inline-completion {
-      position: relative;
-      display: inline;
-    }
-    .inline-completion-text {
-      color: #999 !important;
-      background: transparent !important;
-      position: relative;
-      pointer-events: none;
-      font-style: italic;
-    }
-    .CodeMirror-line .inline-suggestion {
-      color: #666 !important;
-      font-style: italic;
-      opacity: 0.8;
-    }
-    .inline-suggestion-highlight {
-      background: transparent !important;
-      color: #666 !important;
-      opacity: 0.7 !important;
-      font-style: italic !important;
-    }
-    
-    /* 実行時入力フォーム */
+    #predict-result.is-hit { border-left: 3px solid var(--c-ok); color: #146c33; }
+    #predict-result.is-miss { border-left: 3px solid var(--c-warn); color: #8a5300; }
+
+    #step-inputs { display: none; padding: var(--sp-2); border-top: 1px solid var(--c-line); }
+    #step-inputs.is-visible { display: block; }
+    #step-input-values { font-family: var(--font-mono); font-size: var(--text-sm); resize: vertical; }
+
     #runtime-input-container {
       display: none;
-      margin-top: 1em;
-      background: #fff;
-      border: 2px solid #3498db;
-      border-radius: 6px;
-      padding: 1em;
-      box-shadow: 0 2px 8px rgba(52, 152, 219, 0.2);
+      align-items: center;
+      gap: var(--sp-2);
+      padding: var(--sp-2);
+      background: var(--c-surface-2);
+      border-top: 1px solid var(--c-line);
     }
-    #runtime-input-container label {
-      display: block;
-      margin-bottom: 0.5em;
-      font-size: 0.95em;
-      font-weight: 600;
-      color: #2c3e50;
-    }
-    #runtime-input {
-      width: 100%;
-      box-sizing: border-box;
-      padding: 0.6em;
-      border: 1px solid #dfe6e9;
-      border-radius: 4px;
-      margin-bottom: 0.5em;
-      font-size: 14px;
-      font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
-    }
-    #runtime-input:focus {
-      outline: none;
-      border-color: #3498db;
-      box-shadow: 0 0 0 3px rgba(52, 152, 219, 0.1);
-    }
-    #runtime-input-submit {
-      background: #3498db;
-      color: #fff;
-      border: none;
-      border-radius: 4px;
-      padding: 0.3em 0.8em;
-      cursor: pointer;
-      font-size: 0.9em;
-    }
+    #runtime-input-container label { font-size: var(--text-sm); font-weight: 600; white-space: nowrap; }
 
-    /* フリーコーディングモードのレイアウト */
-    body.free-coding-mode main {
-      height: calc(100vh - var(--header-height) - 2em);
-      max-height: calc(100vh - var(--header-height) - 2em);
-      min-height: calc(100vh - var(--header-height) - 2em);
-    }
-    body.free-coding-mode #editor,
-    body.free-coding-mode #result {
-      display: flex;
-      flex-direction: column;
-      height: 100%;
-      overflow: hidden;
-    }
-    body.free-coding-mode .CodeMirror {
-      flex: 1;
-      height: 100%;
-      min-height: 0;
-    }
-    body.free-coding-mode #output {
-      flex: 1;
-      min-height: 0;
+    /* ===== 狭い画面 ===== */
+    @media (max-width: 1000px) {
+      html, body { overflow: auto; }
+      #shell { height: auto; flex-direction: column; }
+      .sidebar { flex-basis: auto; width: auto; border-right: none; border-bottom: 1px solid var(--c-line); }
+      #workspace {
+        grid-template-columns: 1fr;
+        grid-template-rows: repeat(4, minmax(300px, 1fr));
+        grid-template-areas: "code" "flow" "blocks" "output";
+      }
+      body.layout-3 #workspace {
+        grid-template-rows: repeat(3, minmax(300px, 1fr));
+        grid-template-areas: "code" "flow" "output";
+      }
+      body.layout-2 #workspace {
+        grid-template-columns: 1fr;
+        grid-template-rows: auto minmax(320px, 1fr) minmax(320px, 1fr);
+        grid-template-areas: "tabs" "stage" "output";
+      }
+      /* 拡大したときは、狭い画面でも画面いっぱいに広げる */
+      body.has-max #workspace {
+        height: calc(100vh - var(--topbar-h));
+        grid-template-columns: minmax(0, 1fr);
+        grid-template-rows: minmax(0, 1fr);
+        grid-template-areas: "max";
+      }
     }
   </style>
 </head>
 <body>
-  <header>
-    <div id="header-left">
-      <button id="toggle-sidebar">☰</button>
-      <div class="problem-nav">
-        <button id="prev-problem" disabled>&lt; 前の問題</button>
-        <span id="current-problem-label">問題1</span>
-        <button id="next-problem">次の問題 &gt;</button>
-        <button id="free-coding" style="background: #e74c3c; margin-left: 1em;">フリーコーディング</button>
+  <div id="loader" class="loader">
+    <div class="spinner"></div>
+    <p>Python の実行環境を準備しています…</p>
+  </div>
+
+  <header class="topbar">
+    <a class="brand" href="index.html">
+      <span class="brand-mark">🧩</span>
+      <span>easyCode<small>ブロックモード</small></span>
+    </a>
+
+    <button id="toggle-sidebar" class="icon-btn" aria-expanded="false" title="ヒントを開く">📖</button>
+    <span class="topbar-divider"></span>
+
+    <div class="topbar-tools">
+      <button id="run-btn" class="btn btn-run" disabled>▶ 実行</button>
+      <button id="step-btn" class="btn btn-primary" disabled>⏯ ステップ実行</button>
+      <span class="topbar-divider"></span>
+      <button id="think-btn" class="btn" title="補完をひかえめにして、自分で考える時間をつくります">🧠 じっくりモード</button>
+      <span class="topbar-divider"></span>
+      <div class="tabs layout-switch" id="layout-switch" role="tablist" aria-label="画面の分け方">
+        <button type="button" data-layout="4" role="tab" aria-selected="true"
+                title="コード・フローチャート・ブロック・実行結果をすべて表示">⊞ 4画面</button>
+        <button type="button" data-layout="3" role="tab" aria-selected="false"
+                title="コード・フローチャート・実行結果（ブロックは隠す）">⊟ 3画面</button>
+        <button type="button" data-layout="2" role="tab" aria-selected="false"
+                title="左は切り替え表示、右は実行結果">◫ 2画面</button>
       </div>
+      <button id="share-btn" class="btn" title="今のコードが入ったリンクを作ります">🔗 共有</button>
+      <button id="clear-btn" class="btn">🗑 全消去</button>
     </div>
-    <h1>easyCode</h1>
-    <div class="header-right">
-      <a href="drawing.html" class="mode-switch">🎨 描画モード</a>
+
+    <div class="topbar-end">
+      <nav class="mode-switch" aria-label="モード切り替え">
+        <a href="index.html" aria-current="page">🧩<span class="label">ブロック</span></a>
+        <a href="problems.html">📚<span class="label">問題</span></a>
+        <a href="drawing.html">🎨<span class="label">描画</span></a>
+        <a href="python-guide.html">📘<span class="label">ガイド</span></a>
+      </nav>
     </div>
   </header>
 
-  <div id="loader">
-    <div class="spinner"></div>
-    <p>ロード中…</p>
-  </div>
+  <div id="shell">
+    <!-- ヒント（既定は閉じている） -->
+    <aside id="sidebar" class="sidebar">
+      <p class="sidebar-title">ヒント</p>
 
-  <div id="container">
-    <aside id="sidebar">
-      <h2>AIサポート</h2>
-      <div class="section">
-        <p>AIとプログラミングを学ぼう！</p>
-        <div style="margin-bottom: 0.5em;">
-          <a href="https://aistudio.google.com/app/apikey" target="_blank" style="color: #3498db; text-decoration: none; font-size: 0.9em;">
-            🔑 Gemini APIキーを取得する →
-          </a>
+      <details class="expander" open>
+        <summary>⌨️ キーボード操作</summary>
+        <div class="expander-body keylist">
+          <div><span class="keys"><kbd>Tab</kbd></span><span>字下げ（スペース4つ）／補完の確定</span></div>
+          <div><span class="keys"><kbd>Shift</kbd><kbd>Tab</kbd></span><span>字下げを1段もどす</span></div>
+          <div><span class="keys"><kbd>Ctrl</kbd><kbd>Space</kbd></span><span>補完の候補一覧を出す</span></div>
+          <div><span class="keys"><kbd>Esc</kbd></span><span>補完を取り消す／拡大を戻す</span></div>
+          <div><span class="keys"><kbd>Ctrl</kbd><kbd>/</kbd></span><span>コメントの切り替え</span></div>
+          <div><span class="keys"><kbd>Ctrl</kbd><kbd>⇧</kbd><kbd>F</kbd></span><span>コード整形（<kbd>⇧</kbd><kbd>Alt</kbd><kbd>F</kbd> でも同じ）</span></div>
+          <div><span class="keys"><kbd>Ctrl</kbd><kbd>⇧</kbd><kbd>I</kbd></span><span>自動インデント（<kbd>⇧</kbd><kbd>Alt</kbd><kbd>I</kbd> でも同じ）</span></div>
+          <div><span class="keys"><kbd>←</kbd><kbd>→</kbd></span><span>ステップ実行中に前後へ移動</span></div>
         </div>
-        <div id="api-key-form">
-          <label for="api-key">APIキー:</label>
-          <input type="password" id="api-key" placeholder="Gemini APIキー">
-          <button id="save-api-key">保存</button>
-        </div>
-        <div id="api-key-status"></div>
-      </div>
-      
-      <div class="section">
-        <div style="margin-bottom: 0.5em;">
-          <label style="font-size: 0.9em; display: block; margin-bottom: 0.3em;">コード補完モード:</label>
-          <select id="completion-mode-select" style="width: 100%; padding: 0.3em; border: 1px solid #dfe6e9; border-radius: 4px; font-size: 0.9em;">
-            <option value="inline-only" selected>インライン補完のみ</option>
-            <option value="popup-only">複数候補のみ</option>
-            <option value="both">インライン + 複数候補</option>
-            <option value="none">補完なし</option>
-          </select>
-        </div>
-        <div style="font-size: 0.8em; color: #7f8c8d;">
-          <span id="completion-status">インライン補完のみ</span><br>
-          <span id="completion-description">単一候補を薄い色で表示</span><br>
-          <strong>Tab</strong>で決定、↑↓で選択、<strong>Esc</strong>でキャンセル
-        </div>
-      </div>
-      <div class="section">
-        <button id="btn-explain">問題の解説を生成する</button>
-      </div>
-      <div class="section">
-        <div id="explanation"></div>
-      </div>
-      <div class="section">
-        <button id="btn-review">コードレビューを生成する</button>
-      </div>
-      <div class="section">
-        <div id="review"></div>
-      </div>
-      <div class="section">
-        <button id="btn-generate-problem">AIで新しい問題を生成する</button>
-      </div>
-      
-      <h2>AIチャット</h2>
-      <div class="section">
-        <div id="chat-container">
-          <div id="chat-messages"></div>
-          <div id="chat-input-container">
-            <input type="text" id="chat-input" placeholder="質問を入力...">
-            <button id="chat-send">送信</button>
+      </details>
+
+      <details class="expander">
+        <summary>💡 コード補完の使い方</summary>
+        <div class="expander-body stack">
+          <p>APIキーが無くても使えます。書いたコードを読み取って候補を出します。</p>
+          <ul style="margin:0; padding-left:1.2em;">
+            <li>自分で作った変数・関数・クラス</li>
+            <li><code>import</code> したモジュールの中身</li>
+            <li>変数の型から分かるメソッド（<code>name.</code> で文字列のメソッド）</li>
+            <li>組み込み関数と、よく使う書き方のひな形</li>
+          </ul>
+          <div class="field">
+            <label for="completion-mode-select">補完のしかた</label>
+            <select id="completion-mode-select">
+              <option value="both">薄い文字＋候補一覧</option>
+              <option value="inline-only">薄い文字だけ</option>
+              <option value="popup-only">候補一覧だけ</option>
+              <option value="none">使わない</option>
+            </select>
           </div>
+          <p class="muted" style="font-size:var(--text-xs);margin:0;">
+            <span id="completion-status"></span> / <span id="completion-description"></span>
+          </p>
         </div>
-      </div>
+      </details>
+
+      <details class="expander">
+        <summary>🧩 ブロックとコードの関係</summary>
+        <div class="expander-body stack">
+          <p>ブロックを動かすとコードが変わり、コードを書き換えるとブロックが組み直されます。</p>
+          <p>ブロックにできない書き方は「Python」ブロックとしてそのまま残るので、どんなコードでも往復できます。</p>
+          <p>コードだけで書きたいときは <strong>ブロックを閉じる</strong> を押してください。</p>
+        </div>
+      </details>
+
+      <details class="expander">
+        <summary>🧠 じっくりモードとは</summary>
+        <div class="expander-body stack">
+          <p>すぐに答えが出てしまうと、考える時間がなくなってしまいます。じっくりモードでは：</p>
+          <ul style="margin:0; padding-left:1.2em;">
+            <li>補完は自動で出さず、<kbd>Ctrl</kbd><kbd>Space</kbd> を押したときだけ出ます</li>
+            <li>実行の前に「出力はどうなる？」と予想を書く欄が出ます</li>
+            <li>実行後、予想と実際を見くらべて教えてくれます</li>
+          </ul>
+          <p class="muted" style="font-size:var(--text-xs);margin:0;">
+            予想してから実行する進め方は PRIMM（Predict → Run → Investigate → Modify → Make）という学び方にもとづいています。
+          </p>
+        </div>
+      </details>
+
+      <details class="expander">
+        <summary>⏯ ステップ実行とは</summary>
+        <div class="expander-body stack">
+          <p>プログラムを1行ずつたどって、そのときの変数の値と出力を確かめられます。</p>
+          <p>実行中は画面が2つに分かれ、左側でコード・フローチャート・ブロックを切り替えられます。</p>
+        </div>
+      </details>
     </aside>
 
-    <div id="content">
-      <div id="problem-area">
-        <h2>問題</h2>
-        <div id="problem-content"></div>
+    <div id="workspace">
+      <!-- ステップ実行中に出る、左側の切り替えタブ -->
+      <div id="stage-tabs">
+        <span class="chip is-warn" id="step-chip">⏯ ステップ実行中</span>
+        <span class="tabs-label">左に表示</span>
+        <div class="tabs" role="tablist">
+          <button type="button" data-stage="panel-code" role="tab" aria-selected="true">🐍 コード</button>
+          <button type="button" data-stage="panel-flow" role="tab" aria-selected="false">🔀 フローチャート</button>
+          <button type="button" data-stage="panel-blocks" role="tab" aria-selected="false">🧩 ブロック</button>
+        </div>
+        <button id="stage-exit" class="btn btn-danger btn-sm" title="ふだんの画面に戻ります">⏹ ステップ実行を終わる</button>
       </div>
 
-      <main>
-        <div id="editor">
-          <h2>コードエディタ</h2>
-          <textarea id="code"></textarea>
-          <div class="button-group">
-            <button id="run" disabled>▶ 実行する</button>
-            <button id="format-code">✨ フォーマット</button>
-            <button id="ai-fix-code" disabled>🤖 AIコード修正</button>
-          </div>
+      <!-- 左上: Python コード -->
+      <section class="panel" id="panel-code" data-stage>
+        <div class="panel-head">
+          <span class="panel-title">🐍 Python コード <span class="chip is-live" id="sync-chip">ブロックと同期中</span></span>
+          <span class="panel-tools">
+            <button class="tool-btn" id="code-indent" title="字下げをそろえます">⇥ 自動インデント</button>
+            <button class="tool-btn" id="code-format" title="記号まわりの空白や空行も整えます">✨ コード整形</button>
+            <button class="tool-btn" id="code-copy" title="コードをコピー">📋 コピー</button>
+            <button class="tool-btn panel-max" data-panel="panel-code" title="このパネルを大きく表示">⛶</button>
+          </span>
         </div>
+        <div class="panel-body"><textarea id="code"></textarea></div>
+      </section>
 
-        <div id="result">
-          <h2>実行結果</h2>
-          <div id="output"></div>
+      <!-- 右上: フローチャート -->
+      <section class="panel" id="panel-flow" data-stage>
+        <div class="panel-head">
+          <span class="panel-title">🔀 フローチャート</span>
+          <span class="panel-tools">
+            <button class="tool-btn is-on" id="flow-language" title="ラベルの書き方を切り替えます">🈁 やさしい日本語</button>
+          <button class="tool-btn" id="flow-refresh" title="描き直します">🔄 更新</button>
+            <button class="tool-btn panel-max" data-panel="panel-flow" title="このパネルを大きく表示">⛶</button>
+          </span>
+        </div>
+        <div class="panel-body" id="flow-body">
+          <div id="flowchart"><div class="empty-state"><span class="big">🔀</span>コードを書くと流れが図になります</div></div>
+        </div>
+      </section>
+
+      <!-- 左下: ブロックエディタ -->
+      <section class="panel" id="panel-blocks" data-stage>
+        <div class="panel-head">
+          <span class="panel-title">🧩 ブロックエディタ</span>
+          <span class="panel-tools">
+            <button class="tool-btn" id="blocks-undo" title="元に戻す">↶</button>
+            <button class="tool-btn" id="blocks-redo" title="やり直す">↷</button>
+            <button class="tool-btn" id="blocks-tidy" title="ブロックを整列して画面に収めます">📐 整列</button>
+            <button class="tool-btn panel-max" data-panel="panel-blocks" title="このパネルを大きく表示">⛶</button>
+          </span>
+        </div>
+        <div class="panel-body"><div id="blockly-area"></div></div>
+      </section>
+
+      <!-- 右下: 実行結果 -->
+      <section class="panel" id="panel-output">
+        <div class="panel-head">
+          <span class="panel-title">▶ 実行結果</span>
+          <span class="panel-tools">
+            <button class="tool-btn" id="output-clear" title="実行結果を消す">🧹 消去</button>
+            <button class="tool-btn panel-max" data-panel="panel-output" title="このパネルを大きく表示">⛶</button>
+          </span>
+        </div>
+        <div class="panel-body" id="output-body">
+          <div id="step-panel" hidden>
+            <div class="step-bar">
+              <button id="step-first" class="btn btn-quiet btn-sm" title="最初へ">⏮</button>
+              <button id="step-prev" class="btn btn-quiet btn-sm" title="1つ戻る">◀</button>
+              <button id="step-next" class="btn btn-primary btn-sm" title="1つ進む">▶</button>
+              <input type="range" id="step-slider" min="0" max="0" value="0" aria-label="ステップ位置">
+              <span class="chip" id="step-label">0 / 0</span>
+              <button id="step-exit" class="btn btn-danger btn-sm" title="ふだんの画面に戻ります">⏹ 終わる</button>
+            </div>
+            <div id="step-vars"></div>
+          </div>
+
+          <div id="predict-panel" hidden>
+            <label for="predict-input">🧠 実行する前に、出力がどうなるか予想してみましょう</label>
+            <textarea id="predict-input" rows="3" placeholder="ここに予想を書いてから「▶ 実行」を押します"></textarea>
+            <div id="predict-result"></div>
+          </div>
+
+          <pre id="output" class="console">「▶ 実行」で動かし、「⏯ ステップ実行」で1行ずつ確かめられます</pre>
+
+          <div id="step-inputs">
+            <label for="step-input-values" style="display:block;margin-bottom:var(--sp-1);font-size:var(--text-xs);font-weight:600;">
+              このプログラムは input() を使います。使う値を1行に1つ書いてください
+            </label>
+            <textarea id="step-input-values" rows="2" placeholder="たろう&#10;12"></textarea>
+          </div>
+
           <div id="runtime-input-container">
-            <label for="runtime-input">値を入力:</label>
+            <label for="runtime-input" id="runtime-input-label">値を入力</label>
             <input type="text" id="runtime-input" placeholder="入力してください">
-            <button id="runtime-input-submit">送信</button>
+            <button id="runtime-input-submit" class="btn btn-primary btn-sm">送信</button>
           </div>
-          <button id="btn-check-answer">AI正誤判定</button>
-          <div id="check-result"></div>
         </div>
-      </main>
-
+      </section>
     </div>
   </div>
 
-  <!-- easyCode アプリケーション説明 -->
-  <footer style="background: linear-gradient(135deg, #f8f9fa, #e9ecef); padding: 1em; margin-top: 0.5em; border-top: 1px solid #dee2e6;">
-    <div style="max-width: 1200px; margin: 0 auto;">
-      <div style="text-align: center; margin-bottom: 1em;">
-        <h2 style="color: #2c3e50; font-size: 1.5em; margin-bottom: 0.3em;">🚀 easyCode について</h2>
-        <p style="color: #7f8c8d; font-size: 1em; margin-bottom: 0.5em;">AI搭載のインテリジェントなPythonコーディング環境</p>
-        <div style="display: flex; justify-content: center; gap: 1em; flex-wrap: wrap;">
-          <a href="python-guide.html" style="background: linear-gradient(135deg, #3498db, #2980b9); color: white; padding: 0.8em 1.5em; border-radius: 25px; text-decoration: none; font-weight: 500; transition: transform 0.2s; display: inline-flex; align-items: center; gap: 0.5em;">
-            <span>🐍</span> Pythonガイド
-          </a>
-          <a href="drawing.html" style="background: linear-gradient(135deg, #27ae60, #229954); color: white; padding: 0.8em 1.5em; border-radius: 25px; text-decoration: none; font-weight: 500; transition: transform 0.2s; display: inline-flex; align-items: center; gap: 0.5em;">
-            <span>🎨</span> 描画モード
-          </a>
-        </div>
-      </div>
-      
-      <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 1em; margin-bottom: 1em;">
-        <div style="background: white; padding: 0.75em; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
-          <h3 style="color: #8e44ad; margin-bottom: 0.5em; display: flex; align-items: center; font-size: 1em;">
-            <span style="font-size: 1.2em; margin-right: 0.3em;">🤖</span>
-            AI コード補完
-          </h3>
-          <p style="color: #555; line-height: 1.4; margin: 0; font-size: 0.9em;">
-            リアルタイムでPythonコードを解析し、文脈に応じた補完候補を提供。インライン表示で自然な入力体験を実現します。
-          </p>
-        </div>
-        
-        <div style="background: white; padding: 0.75em; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
-          <h3 style="color: #27ae60; margin-bottom: 1em; display: flex; align-items: center;">
-            <span style="font-size: 1.5em; margin-right: 0.5em;">🎨</span>
-            描画モード
-          </h3>
-          <p style="color: #555; line-height: 1.6; margin: 0;">
-            p5.js風のAPIでグラフィック描画が可能。setup()とdraw()を使って、創造的なプログラミング学習ができます。
-          </p>
-        </div>
-        
-        <div style="background: white; padding: 0.75em; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
-          <h3 style="color: #e74c3c; margin-bottom: 1em; display: flex; align-items: center;">
-            <span style="font-size: 1.5em; margin-right: 0.5em;">⚡</span>
-            即座に実行
-          </h3>
-          <p style="color: #555; line-height: 1.6; margin: 0;">
-            Pyodideを使用してブラウザ内でPythonコードを実行。インストール不要で、どこでもプログラミング学習が始められます。
-          </p>
-        </div>
-        
-        <div style="background: white; padding: 0.75em; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
-          <h3 style="color: #3498db; margin-bottom: 1em; display: flex; align-items: center;">
-            <span style="font-size: 1.5em; margin-right: 0.5em;">🎯</span>
-            問題解決
-          </h3>
-          <p style="color: #555; line-height: 1.6; margin: 0;">
-            プログラミング課題の自動生成と、AIによる正誤判定機能で、効率的な学習サイクルをサポートします。
-          </p>
-        </div>
-        
-        <div style="background: white; padding: 0.75em; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
-          <h3 style="color: #f39c12; margin-bottom: 1em; display: flex; align-items: center;">
-            <span style="font-size: 1.5em; margin-right: 0.5em;">💬</span>
-            AIアシスタント
-          </h3>
-          <p style="color: #555; line-height: 1.6; margin: 0;">
-            チャット形式でAIに質問可能。コードの疑問やエラーの解決方法を、リアルタイムで相談できます。
-          </p>
-        </div>
-        
-        <div style="background: white; padding: 0.75em; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
-          <h3 style="color: #9b59b6; margin-bottom: 1em; display: flex; align-items: center;">
-            <span style="font-size: 1.5em; margin-right: 0.5em;">🔧</span>
-            コード修正
-          </h3>
-          <p style="color: #555; line-height: 1.6; margin: 0;">
-            AIがコードの問題を自動検出し、改善提案を実行。初心者から上級者まで、コード品質向上をサポートします。
-          </p>
-        </div>
-      </div>
-      
-      <div style="text-align: center; padding: 1.5em; background: rgba(142, 68, 173, 0.1); border-radius: 8px;">
-        <h3 style="color: #8e44ad; margin-bottom: 1em;">💡 使い方のヒント</h3>
-        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 1em; text-align: left;">
-          <div>
-            <strong style="color: #2c3e50;">Tab</strong> - インライン補完を受け入れ
-          </div>
-          <div>
-            <strong style="color: #2c3e50;">Ctrl + Space</strong> - コード補完
-          </div>
-          <div>
-            <strong style="color: #2c3e50;">Ctrl + /</strong> - コメント/アンコメント
-          </div>
-          <div>
-            <strong style="color: #2c3e50;">Ctrl + Shift + F</strong> - コードフォーマット
-          </div>
-          <div>
-            <strong style="color: #2c3e50;">Esc</strong> - 補完をキャンセル
-          </div>
-          <div>
-            <strong style="color: #2c3e50;">🤖 AIコード修正</strong> - コードを自動改善
-          </div>
-        </div>
-      </div>
-      
-      <div style="text-align: center; margin-top: 2em; padding-top: 1em; border-top: 1px solid #dee2e6; color: #7f8c8d;">
-        <p style="margin: 0; font-size: 0.9em;">
-          ⚡ Created by Dit-Lab.(Daiki ITO) | 🐍 Python in Browser | 🎨 Creative Coding
-        </p>
-      </div>
-    </div>
-  </footer>
-
-  <!-- JS Libraries -->
   <script src="https://cdn.jsdelivr.net/npm/codemirror@5.65.16/lib/codemirror.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/codemirror@5.65.16/mode/python/python.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/codemirror@5.65.16/addon/comment/comment.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/codemirror@5.65.16/addon/display/rulers.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/blockly@11.2.1/blockly_compressed.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/blockly@11.2.1/blocks_compressed.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/blockly@11.2.1/python_compressed.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/blockly@11.2.1/msg/ja.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/mermaid@10.9.1/dist/mermaid.min.js"></script>
   <script src="https://cdn.jsdelivr.net/pyodide/v0.23.4/full/pyodide.js"></script>
-  <!-- Module Scripts -->
-  <script type="module" src="module/completion.js"></script>
-  <script type="module" src="module/editor.js"></script>
-  <script type="module" src="module/sidebar.js"></script>
-  <script type="module" src="module/ai.js"></script>
+  <script type="module" src="module/blocks.js"></script>
 </body>
 </html>
