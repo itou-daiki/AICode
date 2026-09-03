@@ -4,5 +4,6 @@
   "input": "",
   "expected": "こんにちは、世界",
   "template": "# 文字列1を変数に代入\ngreeting = \"こんにちは、\"\n\n# 文字列2を変数に代入\ntarget = \"世界\"\n\n# 2つの文字列を連結して出力\n",
-  "solution": "greeting = \"こんにちは、\"\ntarget = \"世界\"\nprint(greeting + target)\n"
+  "solution": "greeting = \"こんにちは、\"\ntarget = \"世界\"\nprint(greeting + target)\n",
+  "hint": "2 つの変数を `+` でつなぐと、文字がつながります。"
 }

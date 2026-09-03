@@ -1,0 +1,216 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-09-04T00:00:00Z",
+  "title": "Design System: easyCode",
+  "extensions": {
+    "colorMeta": {
+      "mark": { "role": "primary", "displayName": "信号の朱", "canonical": "#C0392B", "tonalRamp": ["#2B0D08", "#4E1811", "#71241A", "#9C2C20", "#C0392B", "#D9705F", "#EFA99C", "#F6E4E1"] },
+      "mark-deep": { "role": "primary", "displayName": "押し込みの朱", "canonical": "#9C2C20", "tonalRamp": ["#210A07", "#3F130E", "#5E1D15", "#7D251C", "#9C2C20", "#C05A4A", "#DE9A8C", "#F4DCD7"] },
+      "mark-faint": { "role": "primary", "displayName": "敷きの朱", "canonical": "#F6E4E1", "tonalRamp": ["#3A2320", "#5C3A35", "#7F544D", "#A47269", "#C89A91", "#E0BDB6", "#F6E4E1", "#FDF6F5"] },
+      "hold": { "role": "secondary", "displayName": "保留の黄土", "canonical": "#8A6D1F", "tonalRamp": ["#1F1806", "#3A2D0C", "#564213", "#71571A", "#8A6D1F", "#B39440", "#D4BC7C", "#EEE3C4"] },
+      "void": { "role": "secondary", "displayName": "無効の薄墨", "canonical": "#63686C", "tonalRamp": ["#15171A", "#282C2F", "#3C4144", "#4F5559", "#63686C", "#8A9095", "#B4B9BD", "#DEE1E3"] },
+      "paper": { "role": "neutral", "displayName": "紙", "canonical": "#FCFCFA", "tonalRamp": ["#1A1A18", "#333330", "#4D4D49", "#676762", "#93938C", "#C0C0B8", "#EAEAE4", "#FCFCFA"] },
+      "paper-2": { "role": "neutral", "displayName": "紙・一段沈め", "canonical": "#F4F5F2", "tonalRamp": ["#191A18", "#31332F", "#4A4C47", "#63665F", "#8D9088", "#B9BCB3", "#E4E6E1", "#F4F5F2"] },
+      "paper-3": { "role": "neutral", "displayName": "紙・二段沈め", "canonical": "#EAEBE6", "tonalRamp": ["#171815", "#2E2F2B", "#454741", "#5C5E57", "#85887F", "#B0B3A9", "#D8DAD3", "#EAEBE6"] },
+      "rule": { "role": "neutral", "displayName": "主罫", "canonical": "#D8DAD3", "tonalRamp": ["#161714", "#2C2E29", "#43453E", "#595C53", "#7F8378", "#A9AD9F", "#D8DAD3", "#EFF0EC"] },
+      "rule-faint": { "role": "neutral", "displayName": "方眼の細罫（8px）", "canonical": "#E3E5DF", "tonalRamp": ["#161715", "#2C2E2A", "#42453F", "#585C54", "#7E8278", "#A8AC9F", "#D2D5CD", "#E3E5DF"] },
+      "rule-major": { "role": "neutral", "displayName": "方眼の主罫（32px）", "canonical": "#D2D5CD", "tonalRamp": ["#151614", "#2A2C28", "#40423C", "#555951", "#7B8074", "#A5AA9B", "#D2D5CD", "#ECEEE9"] },
+      "ink": { "role": "neutral", "displayName": "墨", "canonical": "#16181A", "tonalRamp": ["#16181A", "#2C3033", "#42474C", "#585F65", "#7E858B", "#A8AEB3", "#D2D6D9", "#EFF1F2"] },
+      "ink-2": { "role": "neutral", "displayName": "墨・二", "canonical": "#4A4E52", "tonalRamp": ["#131416", "#25282A", "#383B3F", "#4A4E52", "#6F757A", "#99A0A5", "#C4C9CD", "#E8EBEC"] },
+      "ink-3": { "role": "neutral", "displayName": "薄墨", "canonical": "#63686C", "tonalRamp": ["#15171A", "#282C2F", "#3C4144", "#4F5559", "#63686C", "#8A9095", "#B4B9BD", "#DEE1E3"] },
+      "ink-on-mark": { "role": "neutral", "displayName": "朱に抜く白", "canonical": "#FFFFFF", "tonalRamp": ["#1A1A1A", "#333333", "#4D4D4D", "#666666", "#999999", "#CCCCCC", "#F0F0F0", "#FFFFFF"] },
+      "code-bg": { "role": "neutral", "displayName": "コードの地（白）", "canonical": "#F4F5F2", "tonalRamp": ["#191A18", "#31332F", "#4A4C47", "#63665F", "#8D9088", "#B9BCB3", "#E4E6E1", "#F4F5F2"] },
+      "code-gutter": { "role": "neutral", "displayName": "行番号の薄墨", "canonical": "#63686C", "tonalRamp": ["#15171A", "#282C2F", "#3C4144", "#4F5559", "#63686C", "#8A9095", "#B4B9BD", "#DEE1E3"] },
+      "code-keyword": { "role": "tertiary", "displayName": "予約語の赤", "canonical": "#A32B1E", "tonalRamp": ["#230A06", "#42120D", "#611B13", "#82231A", "#A32B1E", "#C75B4B", "#E29B8E", "#F5DCD7"] },
+      "code-string": { "role": "tertiary", "displayName": "文字列の緑", "canonical": "#2F6B3A", "tonalRamp": ["#0A1810", "#132C1B", "#1D4126", "#265631", "#2F6B3A", "#519163", "#8CBB99", "#CFE3D5"] },
+      "code-number": { "role": "tertiary", "displayName": "数の青", "canonical": "#1F4E79", "tonalRamp": ["#07111B", "#0C2131", "#123147", "#18405E", "#1F4E79", "#3F79AD", "#7CA6CF", "#C4D8EA"] },
+      "code-comment": { "role": "tertiary", "displayName": "注記のグレー", "canonical": "#5A5F63", "tonalRamp": ["#131517", "#25282A", "#37393C", "#484C4F", "#5A5F63", "#83888C", "#AEB2B6", "#D9DCDE"] },
+      "code-line": { "role": "neutral", "displayName": "字下げの目安", "canonical": "#E2E4DE", "tonalRamp": ["#161714", "#2C2E29", "#42453E", "#585B53", "#7E8277", "#A8AC9E", "#D2D5CC", "#E2E4DE"] }
+    },
+    "typographyMeta": {
+      "display": { "displayName": "Display", "purpose": "ページのいちばん上の題。数は少ない。" },
+      "headline": { "displayName": "Headline", "purpose": "レッスンの問題名など、その画面でいちばん大きい字。投影時の見当。" },
+      "title": { "displayName": "Title", "purpose": "節の見出し。" },
+      "subtitle": { "displayName": "Subtitle", "purpose": "小見出し、ダイアログの題、ブランド名。" },
+      "body": { "displayName": "Body", "purpose": "本文。問題文は行間 1.8 まで空ける。" },
+      "ui": { "displayName": "UI", "purpose": "ボタン・タブ・一覧の項目。画面の部品はここに揃う。" },
+      "label": { "displayName": "Label（レーン番号）", "purpose": "01〜04 のモード番号、区画の記号、行番号、難易度、kbd。Archivo Narrow に tabular-nums。" },
+      "code": { "displayName": "Code", "purpose": "エディタ・実行結果・変数の値。" },
+      "grid-jp": { "displayName": "マス揃えの和文", "purpose": "全角が等幅にそろう。表や共通テスト用プログラム表記。" }
+    },
+    "shadows": [
+      { "name": "sh-1", "value": "none", "purpose": "既定。すべての面はここに属する。面は影ではなく罫で分ける。" },
+      { "name": "sh-2", "value": "0 1px 0 var(--c-rule)", "purpose": "影ではなく、面の下に引いた 1 本の罫。ぼかさない。" },
+      { "name": "sh-3", "value": "0 2px 0 var(--c-rule)", "purpose": "同上の 2px 版。" },
+      { "name": "ring", "value": "0 0 0 2px var(--c-paper), 0 0 0 4px var(--c-mark)", "purpose": "キーボードのフォーカス。紙で 2px あけてから朱で囲む。" },
+      { "name": "lane-current", "value": "inset 0 -4px 0 var(--c-mark)", "purpose": "いま開いているモードのレーン。面は塗らず、下に朱の太罫。" },
+      { "name": "tab-selected", "value": "inset 0 -3px 0 var(--c-paper), inset 0 -5px 0 var(--c-mark), inset 0 -8px 0 var(--c-mark)", "purpose": "いま開いているタブ。二重の朱罫で示す。" },
+      { "name": "item-current", "value": "inset 3px 0 0 var(--c-mark)", "purpose": "一覧のいま開いている行。左端の朱罫。" },
+      { "name": "step-line", "value": "inset 2px 0 0 var(--c-mark)", "purpose": "いま動いているコードの行。左端 2px の朱罫＋ごく薄い朱の帯。" }
+    ],
+    "motion": [
+      { "name": "t-fast", "value": "90ms", "purpose": "hover / active など、押した手ごたえ。" },
+      { "name": "t-base", "value": "160ms", "purpose": "トーストの出入りなど、少し大きい変化。" },
+      { "name": "ease", "value": "cubic-bezier(0.2, 0, 0, 1)", "purpose": "既定のイージング。出だしを速く、止まりを静かに。" },
+      { "name": "reduced-motion", "value": "prefers-reduced-motion: reduce → 0.01ms", "purpose": "動きを減らす設定のとき、すべてのアニメーションと遷移を実質無効化する。" }
+    ],
+    "breakpoints": [
+      { "name": "topbar-wrap", "value": "900px" },
+      { "name": "columns-stack", "value": "1000px" },
+      { "name": "touch", "value": "720px" }
+    ],
+    "layoutVars": [
+      { "name": "--topbar-h", "value": "52px", "purpose": "上端の帯の高さ。" },
+      { "name": "--gutter", "value": "16px", "purpose": "両端と下に必ず残す余白。何もここまで伸びない。" },
+      { "name": "--pair-line", "value": "21px（実測で上書き）", "purpose": "並べて結ぶ帯の細罫の間隔。エディタの行の高さに合わせる。" },
+      { "name": "--pair-top", "value": "8px（実測で上書き）", "purpose": "帯の細罫の上端。エディタの 1 行目に合わせる。" }
+    ],
+    "grid": {
+      "name": "白い方眼",
+      "value": "linear-gradient で 32px の主罫（#D2D5CD）と 8px の細罫（#E3E5DF）を重ねる",
+      "purpose": "背景画像ではなく面の材質。body と .grid-ground に敷く。"
+    }
+  },
+  "components": [
+    {
+      "name": "主となる操作（実行）",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "朱の面に白抜き。1 画面に 1 つだけ。",
+      "html": "<button class=\"ds-btn ds-btn-primary\"><svg class=\"ds-icon\" viewBox=\"0 0 20 20\" aria-hidden=\"true\"><path d=\"M6 4l10 6-10 6z\"/></svg>実行</button>",
+      "css": ".ds-btn { display: inline-flex; align-items: center; justify-content: center; gap: 0.4em; padding: 0.4em 0.85em; border: 1px solid #63686C; border-radius: 2px; background: #FCFCFA; color: #16181A; font-family: 'BIZ UDPGothic', 'Hiragino Sans', sans-serif; font-size: 0.875rem; font-weight: 700; line-height: 1.3; cursor: pointer; transition: background 90ms cubic-bezier(0.2,0,0,1), border-color 90ms cubic-bezier(0.2,0,0,1); } .ds-icon { width: 1em; height: 1em; fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: square; stroke-linejoin: miter; } .ds-btn-primary { background: #C0392B; border-color: #C0392B; color: #FFFFFF; } .ds-btn-primary:hover { background: #9C2C20; border-color: #9C2C20; } .ds-btn-primary:active { background: #9C2C20; } .ds-btn-primary:focus-visible { outline: 2px solid #C0392B; outline-offset: 2px; } .ds-btn-primary:disabled { background: #F4F5F2; border-color: #D8DAD3; color: #63686C; cursor: not-allowed; }"
+    },
+    {
+      "name": "二番手の操作",
+      "kind": "button",
+      "refersTo": "button-mark",
+      "description": "朱の枠と下の朱罫。面は塗らない（塗るのは 1 画面に 1 つだけ）。",
+      "html": "<button class=\"ds-btn ds-btn-mark\">答え合わせ</button>",
+      "css": ".ds-btn { display: inline-flex; align-items: center; gap: 0.4em; padding: 0.4em 0.85em; border: 1px solid #63686C; border-radius: 2px; background: #FCFCFA; color: #16181A; font-family: 'BIZ UDPGothic', 'Hiragino Sans', sans-serif; font-size: 0.875rem; font-weight: 700; line-height: 1.3; cursor: pointer; transition: background 90ms cubic-bezier(0.2,0,0,1), border-color 90ms cubic-bezier(0.2,0,0,1); } .ds-btn-mark { border-color: #C0392B; color: #9C2C20; box-shadow: inset 0 -2px 0 #C0392B; } .ds-btn-mark:hover { background: #F6E4E1; border-color: #9C2C20; } .ds-btn-mark:focus-visible { outline: 2px solid #C0392B; outline-offset: 2px; }"
+    },
+    {
+      "name": "取り消せない操作",
+      "kind": "button",
+      "refersTo": "button-danger",
+      "description": "端を丸で閉じる（結線表の open ring）。丸い端は「戻せない」の意味を持つ。",
+      "html": "<button class=\"ds-btn ds-btn-danger\">全部消す</button>",
+      "css": ".ds-btn { display: inline-flex; align-items: center; gap: 0.4em; padding: 0.4em 0.85em; border: 1px solid #63686C; background: #FCFCFA; color: #16181A; font-family: 'BIZ UDPGothic', 'Hiragino Sans', sans-serif; font-size: 0.875rem; font-weight: 700; line-height: 1.3; cursor: pointer; transition: background 90ms cubic-bezier(0.2,0,0,1), border-color 90ms cubic-bezier(0.2,0,0,1); } .ds-btn-danger { border-color: #C0392B; color: #C0392B; border-radius: 999px; padding-inline: 1.1em; } .ds-btn-danger:hover { background: #F6E4E1; border-color: #9C2C20; } .ds-btn-danger:focus-visible { outline: 2px solid #C0392B; outline-offset: 2px; }"
+    },
+    {
+      "name": "モードのレーン（01〜04）",
+      "kind": "nav",
+      "refersTo": "mode-lane",
+      "description": "上端の帯の番号つきレーン。いま開いているものは面を塗らず、下に 4px の朱罫。",
+      "html": "<nav class=\"ds-mode-switch\" aria-label=\"モードの切り替え\"><a href=\"#\" aria-current=\"page\"><span class=\"ds-lane\">01</span><span class=\"ds-label\">実験</span></a><a href=\"#\"><span class=\"ds-lane\">02</span><span class=\"ds-label\">レッスン</span></a><a href=\"#\"><span class=\"ds-lane\">03</span><span class=\"ds-label\">スケッチ</span></a><a href=\"#\"><span class=\"ds-lane\">04</span><span class=\"ds-label\">早見表</span></a></nav>",
+      "css": ".ds-mode-switch { display: flex; align-items: stretch; height: 52px; background: #FCFCFA; border-left: 1px solid #D8DAD3; border-bottom: 2px solid #16181A; } .ds-mode-switch a { position: relative; display: flex; flex-direction: column; justify-content: center; gap: 1px; min-width: 74px; padding: 0 16px; border-right: 1px solid #D8DAD3; color: #4A4E52; text-decoration: none; transition: background 90ms cubic-bezier(0.2,0,0,1), color 90ms cubic-bezier(0.2,0,0,1); } .ds-mode-switch a:last-child { border-right: 0; } .ds-lane { font-family: 'Archivo Narrow', 'BIZ UDGothic', sans-serif; font-size: 0.75rem; font-weight: 600; letter-spacing: 0.1em; font-variant-numeric: tabular-nums; color: #63686C; } .ds-label { font-family: 'BIZ UDPGothic', 'Hiragino Sans', sans-serif; font-size: 0.875rem; font-weight: 700; letter-spacing: 0.02em; white-space: nowrap; } .ds-mode-switch a:hover { background: #F4F5F2; color: #16181A; } .ds-mode-switch a:focus-visible { outline: 2px solid #C0392B; outline-offset: -2px; } .ds-mode-switch a[aria-current='page'] { background: #FCFCFA; color: #16181A; box-shadow: inset 0 -4px 0 #C0392B; } .ds-mode-switch a[aria-current='page'] .ds-lane { color: #9C2C20; font-weight: 700; }"
+    },
+    {
+      "name": "タブ",
+      "kind": "nav",
+      "refersTo": "tab",
+      "description": "丸い錠剤ではなく罫で区切った札。選ばれたものは二重の朱罫で示す。",
+      "html": "<div class=\"ds-tabs\" role=\"tablist\"><button role=\"tab\" aria-selected=\"true\">コード</button><button role=\"tab\" aria-selected=\"false\">ブロック</button><button role=\"tab\" aria-selected=\"false\">並べて結ぶ</button></div>",
+      "css": ".ds-tabs { display: inline-flex; align-items: stretch; border: 1px solid #D8DAD3; background: #FCFCFA; } .ds-tabs button { display: inline-flex; align-items: center; gap: 0.35em; padding: 0.3em 0.8em; border: 0; border-right: 1px solid #D8DAD3; background: #FCFCFA; color: #4A4E52; font-family: 'BIZ UDPGothic', 'Hiragino Sans', sans-serif; font-size: 0.8125rem; font-weight: 700; white-space: nowrap; cursor: pointer; transition: background 90ms cubic-bezier(0.2,0,0,1), color 90ms cubic-bezier(0.2,0,0,1); } .ds-tabs button:last-child { border-right: 0; } .ds-tabs button:hover { background: #F4F5F2; color: #16181A; } .ds-tabs button:focus-visible { outline: 2px solid #C0392B; outline-offset: -2px; } .ds-tabs button[aria-selected='true'] { background: #FCFCFA; color: #16181A; box-shadow: inset 0 -3px 0 #FCFCFA, inset 0 -5px 0 #C0392B, inset 0 -8px 0 #C0392B; }"
+    },
+    {
+      "name": "区画（パネル）",
+      "kind": "card",
+      "refersTo": "panel",
+      "description": "角丸のカードを重ねない。直角の枠と、番号つきの見出しの帯。",
+      "html": "<section class=\"ds-panel\"><header class=\"ds-panel-head\"><div class=\"ds-panel-title\"><span class=\"ds-lane\">A</span>Python</div><div class=\"ds-panel-tools\"><button class=\"ds-tool-btn\">整形</button></div></header><div class=\"ds-panel-body\">紙の上の観察窓。</div></section>",
+      "css": ".ds-panel { display: flex; flex-direction: column; background: #FCFCFA; border: 1px solid #D8DAD3; border-radius: 0; overflow: hidden; } .ds-panel-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; min-height: 34px; padding: 4px 8px; background: #F4F5F2; border-bottom: 1px solid #D8DAD3; } .ds-panel-title { display: flex; align-items: center; gap: 0.4em; font-family: 'BIZ UDPGothic', 'Hiragino Sans', sans-serif; font-size: 0.8125rem; font-weight: 700; letter-spacing: 0.04em; color: #16181A; } .ds-panel-title .ds-lane { font-family: 'Archivo Narrow', 'BIZ UDGothic', sans-serif; font-size: 0.75rem; font-weight: 600; letter-spacing: 0.1em; color: #63686C; } .ds-tool-btn { display: inline-flex; align-items: center; gap: 0.3em; min-height: 24px; padding: 0.15em 0.5em; border: 1px solid #D8DAD3; border-radius: 2px; background: #FCFCFA; color: #4A4E52; font-family: inherit; font-size: 0.75rem; font-weight: 700; cursor: pointer; transition: border-color 90ms cubic-bezier(0.2,0,0,1), color 90ms cubic-bezier(0.2,0,0,1); } .ds-tool-btn:hover { border-color: #16181A; color: #16181A; } .ds-tool-btn:focus-visible { outline: 2px solid #C0392B; outline-offset: 2px; } .ds-panel-body { padding: 16px; font-family: 'BIZ UDPGothic', 'Hiragino Sans', sans-serif; font-size: 1rem; line-height: 1.75; color: #16181A; }"
+    },
+    {
+      "name": "入力欄",
+      "kind": "input",
+      "refersTo": "input",
+      "description": "紙の地に 1px の枠。フォーカスで枠が朱になり、紙で 2px あけた朱の環が付く。",
+      "html": "<div class=\"ds-field\"><label for=\"ds-ans\">答え</label><input id=\"ds-ans\" type=\"text\" placeholder=\"ここに書く\"></div>",
+      "css": ".ds-field { display: flex; flex-direction: column; gap: 4px; } .ds-field label { font-family: 'BIZ UDPGothic', 'Hiragino Sans', sans-serif; font-size: 0.8125rem; font-weight: 600; color: #4A4E52; } .ds-field input { width: 100%; padding: 0.45em 0.65em; border: 1px solid #D8DAD3; border-radius: 3px; background: #FCFCFA; color: #16181A; font-family: 'BIZ UDPGothic', 'Hiragino Sans', sans-serif; font-size: 1rem; transition: border-color 90ms cubic-bezier(0.2,0,0,1), box-shadow 90ms cubic-bezier(0.2,0,0,1); } .ds-field input::placeholder { color: #63686C; } .ds-field input:hover { border-color: #63686C; } .ds-field input:focus { outline: none; border-color: #C0392B; box-shadow: 0 0 0 2px #FCFCFA, 0 0 0 4px #C0392B; }"
+    },
+    {
+      "name": "状態の札（チップ）",
+      "kind": "chip",
+      "refersTo": "chip",
+      "description": "面を塗らず、左の線の描き分けだけで意味を出す。実線＝動いている、切れ目＝待っている。",
+      "html": "<span class=\"ds-chip ds-chip-live\">実行中</span> <span class=\"ds-chip ds-chip-warn\">待っています</span>",
+      "css": ".ds-chip { display: inline-flex; align-items: center; gap: 0.35em; padding: 0.1em 0.5em 0.1em 0.45em; border-left: 1px solid #63686C; background: #F4F5F2; color: #4A4E52; font-family: 'BIZ UDPGothic', 'Hiragino Sans', sans-serif; font-size: 0.75rem; font-weight: 700; white-space: nowrap; } .ds-chip-live { border-left-color: #16181A; color: #16181A; } .ds-chip-warn { border-left: 0; color: #8A6D1F; background-color: #F4F5F2; background-image: linear-gradient(#8A6D1F 0 0); background-size: 1px 5px; background-repeat: repeat-y; background-position: left top; padding-left: 0.45em; }"
+    },
+    {
+      "name": "知らせ（note）",
+      "kind": "custom",
+      "refersTo": "note",
+      "description": "色ではなく左の線の描き分けで種類を示す。実線＝うまくいった／破線＝待っている／二重＝直すところ。",
+      "html": "<div class=\"ds-note ds-note-ok\"><p>合っています。</p></div><div class=\"ds-note ds-note-warn\"><p>まだ途中です。</p></div><div class=\"ds-note ds-note-bad\"><p>3 行目を直しましょう。</p></div>",
+      "css": ".ds-note { padding: 8px 16px; margin-bottom: 8px; border-left: 2px solid #16181A; background: #F4F5F2; color: #16181A; font-family: 'BIZ UDPGothic', 'Hiragino Sans', sans-serif; font-size: 0.875rem; line-height: 1.7; } .ds-note p { margin: 0; } .ds-note-ok { border-left-style: solid; border-left-color: #16181A; } .ds-note-warn { border-left-style: dashed; border-left-color: #8A6D1F; } .ds-note-bad { border-left-color: #C0392B; background: #F6E4E1; box-shadow: inset 0 -1px 0 #C0392B; }"
+    },
+    {
+      "name": "一覧の項目（線で描き分ける状態）",
+      "kind": "custom",
+      "refersTo": "note",
+      "description": "解けた＝実線、未着手＝切れ目、模試＝二重線。色は使わない。開いている行だけ左に朱罫。",
+      "html": "<div class=\"ds-lesson-list\"><button class=\"ds-lesson-item\" aria-current=\"true\"><span class=\"ds-mark\" data-state=\"done\"></span><span class=\"ds-name\">はじめての print</span><span class=\"ds-kind\">読む</span></button><button class=\"ds-lesson-item\"><span class=\"ds-mark\" data-state=\"todo\"></span><span class=\"ds-name\">くり返し</span><span class=\"ds-kind\">追う</span></button><button class=\"ds-lesson-item\"><span class=\"ds-mark\" data-state=\"mock\"></span><span class=\"ds-name\">第 1 回 模試</span><span class=\"ds-kind\">模試</span></button></div>",
+      "css": ".ds-lesson-list { display: flex; flex-direction: column; gap: 2px; background: #FCFCFA; } .ds-lesson-item { display: flex; align-items: center; gap: 8px; padding: 6px 8px; border: 1px solid transparent; border-radius: 2px; background: none; font-family: 'BIZ UDPGothic', 'Hiragino Sans', sans-serif; font-size: 0.875rem; color: #16181A; cursor: pointer; text-align: left; } .ds-lesson-item:hover { background: #F4F5F2; border-color: #D8DAD3; } .ds-lesson-item:focus-visible { outline: 2px solid #C0392B; outline-offset: 2px; } .ds-lesson-item[aria-current='true'] { background: #F4F5F2; border-color: #D8DAD3; font-weight: 700; box-shadow: inset 3px 0 0 #C0392B; } .ds-mark { flex: 0 0 auto; width: 14px; height: 12px; background-repeat: no-repeat; background-position: center; } .ds-mark[data-state='done'] { background-image: linear-gradient(#16181A 0 0); background-size: 14px 2px; } .ds-mark[data-state='todo'] { background-image: linear-gradient(#63686C 0 0); background-size: 4px 2px; } .ds-mark[data-state='mock'] { background-image: linear-gradient(#16181A 0 0), linear-gradient(#16181A 0 0); background-size: 14px 2px, 14px 2px; background-position: center top 3px, center bottom 3px; } .ds-lesson-item[aria-current='true'] .ds-mark[data-state] { background-image: linear-gradient(#C0392B 0 0); background-size: 14px 2px; } .ds-name { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; } .ds-kind { flex: 0 0 auto; font-size: 0.75rem; opacity: 0.8; }"
+    },
+    {
+      "name": "並べて結ぶ（結線の帯）",
+      "kind": "custom",
+      "refersTo": "code-surface",
+      "description": "この製品の署名。左右のコードを行の高さでそろえ、光っている行だけを朱の線と開いた輪で結ぶ。",
+      "html": "<div class=\"ds-pair-grid\"><div class=\"ds-pair-slot\"><pre class=\"ds-pair-code\">x = 3\nif x &gt; 2:\n    print(x)</pre></div><div class=\"ds-pair-rail\"><span class=\"ds-pair-mark\" style=\"top: 29px;\"></span></div><div class=\"ds-pair-slot\"><pre class=\"ds-pair-code\">x ← 3\nもし x &gt; 2 ならば\n    表示する(x)</pre></div></div>",
+      "css": ".ds-pair-grid { display: grid; grid-template-columns: 1fr 28px 1fr; border: 1px solid #D8DAD3; background: #F4F5F2; } .ds-pair-slot { position: relative; min-width: 0; overflow: hidden; } .ds-pair-code { margin: 0; padding: 8px 10px; background: #F4F5F2; color: #16181A; font-family: 'Sometype Mono', 'BIZ UDGothic', ui-monospace, monospace; font-size: 0.875rem; line-height: 21px; } .ds-pair-rail { position: relative; border-left: 1px solid #D8DAD3; border-right: 1px solid #D8DAD3; background-color: #FCFCFA; background-image: repeating-linear-gradient(to bottom, #D8DAD3 0 1px, transparent 1px 21px); background-position: 0 8px; } .ds-pair-mark { position: absolute; left: -1px; right: -1px; height: 2px; background: #C0392B; } .ds-pair-mark::before, .ds-pair-mark::after { content: ''; position: absolute; top: -2px; width: 6px; height: 6px; border: 2px solid #C0392B; border-radius: 50%; background: #FCFCFA; } .ds-pair-mark::before { left: -4px; } .ds-pair-mark::after { right: -4px; }"
+    },
+    {
+      "name": "線画（icons.js）",
+      "kind": "custom",
+      "refersTo": "icon-button",
+      "description": "20×20 の升目に線幅 1.6、角は落とさない。絵文字は製品のどこにも使わない。",
+      "html": "<button class=\"ds-icon-btn\" aria-label=\"実行\"><svg viewBox=\"0 0 20 20\" class=\"ds-icon\"><path d=\"M6 4l10 6-10 6z\"/></svg></button><button class=\"ds-icon-btn is-on\" aria-label=\"フローチャート\"><svg viewBox=\"0 0 20 20\" class=\"ds-icon\"><path d=\"M3 5h3M3 10h3M3 15h3\"/><path d=\"M9 5h8M9 10h8M9 15h8\"/></svg></button>",
+      "css": ".ds-icon-btn { display: grid; place-items: center; width: 30px; height: 30px; border: 1px solid #63686C; border-radius: 2px; background: #FCFCFA; color: #16181A; cursor: pointer; transition: background 90ms cubic-bezier(0.2,0,0,1), border-color 90ms cubic-bezier(0.2,0,0,1); } .ds-icon-btn:hover { background: #F4F5F2; border-color: #16181A; } .ds-icon-btn:focus-visible { outline: 2px solid #C0392B; outline-offset: 2px; } .ds-icon-btn.is-on { background: #FCFCFA; border-color: #C0392B; color: #C0392B; } .ds-icon { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: square; stroke-linejoin: miter; }"
+    }
+  ],
+  "narrative": {
+    "northStar": "結線表（normalled jackfield）を白い紙に移したもの",
+    "overview": "放送局の機械室にある、番号を振った端子盤。どの端子も必ず番号のついた列に属し、つないだところだけが 1 本の線で結ばれる。easyCode の画面はそれを白い方眼紙の上に移したものとして作ってある。同じ 1 本のプログラムが Python コード・ブロック・フローチャート・共通テスト用プログラム表記のどの姿になっても、必ず同じ行番号の列に並ぶ。だから画面のいちばん下の材質が「番号のついた行」であり、いちばん強い装置が「行どうしを結ぶ線」になる。\n\n地は near-white の方眼（#FCFCFA に 8px の細罫と 32px の主罫）で、そこに引く色は朱 1 色（#C0392B）だけ。書体は日本の教材と役所の文書の書体である BIZ UD 系、番号は詰まったグロテスクの Archivo Narrow、コードは Sometype Mono。教室のプロジェクターに映して後ろの席から読める、という制約が色と字の下限を決めている（薄い色も暗い地も使わない）。\n\nこの世界は分野の定番を積極的に外している。角丸カードの反復、絵文字の見出し、紫のアクセント、暗い IDE 風のコード面、影で浮かせた面。どれも使わない。面は影ではなく罫で分け、状態は色ではなく線の描き分けで表す。",
+    "keyCharacteristics": [
+      "白い方眼の地に、信号は朱 1 色だけ",
+      "すべての区画に番号（レーン）が振られ、行番号でそろう",
+      "状態は色ではなく線の描き分け（実線／点線／二重線／端の丸）",
+      "影は使わない（--sh-1: none）。角は 2〜4px でほぼ立てる",
+      "絵文字を一切使わず、20×20・線幅 1.6 の自作線画だけを使う",
+      "両端に必ず 16px の余白（--gutter）を残し、何も画面の端まで伸びない"
+    ],
+    "rules": [
+      { "name": "朱の面は 1 画面に 1 つの法則", "body": "朱で「塗る」ことが許されるのは、その画面の主となる操作（実行）ただ 1 つだけ。いま開いているモードのレーン、いま見ている凡例の行、選ばれているタブ — 場所を示すものはすべて、朱の太い罫で示す（box-shadow: inset の 2〜8px）。塗ってしまうと「今どこにいるか」と「次に何を押すか」が同じ強さになり、学習者が押す先を見失う。これを防ぐための規則。", "section": "colors" },
+      { "name": "色で意味を持たせない法則", "body": "正誤・種類・進み具合を色相で表さない。朱は「今」だけ、黄土は「途中」だけを表す。それ以外の区別はすべて線の描き分けで行う。緑＝正解／赤＝不正解という配色は、色覚と投影の両方で落ちるうえ、この世界の唯一の信号色である朱の意味を薄める。", "section": "colors" },
+      { "name": "投影の下限の法則", "body": "文字と地の明るさの差は、小さい字で 4.5:1 以上、大きい字で 3:1 以上。ink-3（#63686C）が紙の上で使ってよい最も薄い墨で、これより薄い文字色を新しく作らない。暗い地に薄い文字、という組み合わせは全ページで使わない。", "section": "colors" },
+      { "name": "桁をそろえる法則", "body": "数字が並ぶところ（レーン番号、行番号、表）は必ず font-variant-numeric: tabular-nums。番号がそろわないと、この世界の骨組みである「番号つきレーン」が目に見えて崩れる。", "section": "typography" },
+      { "name": "番号は Archivo Narrow の法則", "body": "01〜04 のモード番号、区画の記号、行番号、ヒントの番号は、すべて同じ 12px の Archivo Narrow で打つ。和文書体で番号を打つと、番号が本文の一部に見えて「レーン」として読めなくなる。", "section": "typography" },
+      { "name": "端まで伸ばさない法則", "body": "どの面も --gutter（16px）の内側で止める。全幅に伸ばした帯や画面いっぱいのカードは、この世界では作らない。", "section": "layout" },
+      { "name": "行番号でそろえる法則", "body": "同じプログラムを並べて見せるときは、行の高さを一致させて同じ行番号が必ず真横に来るようにする（.pair-rail の細罫は --pair-line でエディタの行の高さから計算して敷く）。ずれた瞬間、この製品のいちばんの主張が嘘になる。", "section": "layout" },
+      { "name": "ぼかさない法則", "body": "box-shadow にぼかし半径（3 番目の値）を入れない。すべて 0 Npx 0 の実線。ぼかした影が 1 つ入ると、白い紙の世界が一気に「よくある管理画面」に落ちる。", "section": "elevation" },
+      { "name": "丸は取り消せないもの法則", "body": "--r-full を「かわいくするため」に使わない。丸まった端は、押したら戻せない操作か、結線の端点のどちらかを意味する。", "section": "shapes" }
+    ],
+    "dos": [
+      "朱の面（塗り）を、その画面の主となる操作 1 つだけに取っておく。場所を示すときは、朱の太い罫（inset の 2〜8px）を使う。",
+      "状態を線の描き分けで表す。実線＝進行中／切れ目＝未着手・保留／二重線＝いま開いている・模試／端の丸＝取り消せない操作。",
+      "すべての区画に番号を振り、番号は 12px の Archivo Narrow で、tabular-nums を効かせて打つ。",
+      "面を分けるときは罫（1px）と紙の 3 段（paper / paper-2 / paper-3）で分ける。",
+      "両端に --gutter（16px）を残し、地の方眼を覗かせる。",
+      "小さい字で 4.5:1、大きい字で 3:1 の明るさの差を守る。紙の上で使ってよい最も薄い墨は ink-3（#63686C）まで。",
+      "図が要るときは module/icons.js に 20×20・線幅 1.6 で描き足す。",
+      "並べて見せるものは、行の高さを実測してそろえる（--pair-line / --pair-top）。"
+    ],
+    "donts": [
+      "グラデーションを使う（製品側からの明示的な指示。地の方眼は linear-gradient で作った罫であって、ぼかした階調ではない）。",
+      "絵文字を置く。端末ごとに形も色も変わり、線の太さがそろわない。",
+      "影で面を浮かせる。box-shadow にぼかし半径を入れない（すべて 0 Npx 0）。",
+      "暗い地・暗い IDE 風のコード面を作る。教室で投影すると沈む。",
+      "角丸のカードを反復して並べる。角は 2〜4px、区画は直角。",
+      "正誤や種類を色相で表す（緑＝正解／赤＝不正解をやらない）。区別は線の描き分けで行う。",
+      "--r-full を装飾として使う。丸い端は「取り消せない」か「結線の端点」の意味を持つ。",
+      "新しい彩度のある色を足す。朱・黄土・薄墨の 3 つで足りないなら、たいてい線の描き分けで解ける。",
+      "番号を和文書体で打つ。レーンとして読めなくなる。"
+    ]
+  }
+}

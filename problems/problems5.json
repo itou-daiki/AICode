@@ -4,5 +4,9 @@
   "input": "",
   "expected": "80",
   "template": "# 変数scoreに50を代入\n\n\n# scoreに30を加える\n\n\n# scoreの値を出力\n",
-  "solution": "score = 50\nscore = score + 30\nprint(score)\n"
+  "solution": "score = 50\nscore = score + 30\nprint(score)\n",
+  "hint": [
+    "同じ箱に、今の中身を使って入れ直します。",
+    "`score = score + 30` と書くと、今の中身に 30 を足したものが入ります。"
+  ]
 }

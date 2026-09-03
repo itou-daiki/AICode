@@ -29,12 +29,12 @@ function setupMermaid() {
     startOnLoad: false,
     securityLevel: 'strict',
     theme: 'base',
-    fontFamily: 'Inter, "Hiragino Sans", "Noto Sans JP", sans-serif',
+    fontFamily: '"BIZ UDPGothic", "Hiragino Sans", sans-serif',
     themeVariables: {
-      primaryColor: '#ffffff',
-      primaryBorderColor: '#c4ccdd',
-      primaryTextColor: '#10162a',
-      lineColor: '#69738c',
+      primaryColor: '#FCFCFA',
+      primaryBorderColor: '#4A4E52',
+      primaryTextColor: '#16181A',
+      lineColor: '#4A4E52',
       fontSize: '13px',
     },
     flowchart: { htmlLabels: true, curve: 'linear', useMaxWidth: true, padding: 10 },
@@ -106,11 +106,44 @@ export function createWorkbench(options) {
 
   /* ---------- ブロックエディタ ---------- */
   defineBlocks({ drawing });
+  // ブロックの色は、画面ぜんぶの世界（紙と墨と朱）にそろえる。
+  // Blockly のままだと原色のプラスチックに見えて、まわりから浮いてしまう。
+  // 種類の見分けは残したいので、色相は保ったまま、彩度を落として紙になじませる。
+  const inkTheme = Blockly.Theme.defineTheme('easycode-ink', {
+    base: Blockly.Themes.Zelos,
+    componentStyles: {
+      workspaceBackgroundColour: '#FCFCFA',
+      toolboxBackgroundColour: '#F4F5F2',
+      toolboxForegroundColour: '#16181A',
+      flyoutBackgroundColour: '#F4F5F2',
+      flyoutForegroundColour: '#4A4E52',
+      flyoutOpacity: 1,
+      scrollbarColour: '#6E7378',
+      insertionMarkerColour: '#C0392B',
+      insertionMarkerOpacity: 0.5,
+      markerColour: '#C0392B',
+      cursorColour: '#C0392B',
+      selectedGlowColour: '#C0392B',
+      selectedGlowOpacity: 0.6,
+    },
+    blockStyles: {
+      // 種類ごとに、刷り分けた 1 色の面（原色にしない）
+      logic_blocks:      { colourPrimary: '#5B7C8D', colourTertiary: '#415B68' },
+      loop_blocks:       { colourPrimary: '#6B8E6B', colourTertiary: '#4E6B4E' },
+      math_blocks:       { colourPrimary: '#7A7A96', colourTertiary: '#5A5A72' },
+      text_blocks:       { colourPrimary: '#9A7B5A', colourTertiary: '#775E44' },
+      list_blocks:       { colourPrimary: '#8A7391', colourTertiary: '#68566E' },
+      variable_blocks:   { colourPrimary: '#B07A4E', colourTertiary: '#8A5D3B' },
+      procedure_blocks:  { colourPrimary: '#4E7A8A', colourTertiary: '#3B5D68' },
+      hat_blocks:        { colourPrimary: '#C0392B', colourTertiary: '#9C2C20' },
+    },
+  });
+
   const workspace = Blockly.inject(blocklyId, {
     toolbox: buildToolbox({ drawing }),
     renderer: 'zelos',
-    theme: Blockly.Themes.Zelos,
-    grid: { spacing: 26, length: 3, colour: '#e3e8f2', snap: true },
+    theme: inkTheme,
+    grid: { spacing: 8, length: 1, colour: '#E9EAE5', snap: true },
     zoom: { controls: true, wheel: true, startScale: 0.8, minScale: 0.3, maxScale: 2 },
     trashcan: true,
     move: { scrollbars: true, drag: true, wheel: true },
@@ -132,7 +165,7 @@ export function createWorkbench(options) {
       console.warn('ブロックの保存に失敗:', e);
       if (!warnedAboutSaving) {
         warnedAboutSaving = true;
-        toast('このブラウザに保存できません。書いたものは、閉じると消えてしまいます。「🔗 共有」でリンクにして控えておきましょう。');
+        toast('このブラウザに保存できません。書いたものは、閉じると消えてしまいます。「共有」でリンクにして控えておきましょう。');
       }
     }
   }, SAVE_MS);
@@ -217,7 +250,7 @@ export function createWorkbench(options) {
     if (!result.definition) {
       lastDefinition = '';
       container.innerHTML =
-        `<div class="empty-state"><span class="big">🔀</span>${(result.message || '').replace(/\n/g, '<br>')}</div>`;
+        `<div class="empty-state">${(result.message || '').replace(/\n/g, '<br>')}</div>`;
       return;
     }
 
@@ -242,7 +275,7 @@ export function createWorkbench(options) {
       document.getElementById(`d${id}`)?.remove();
       lastDefinition = '';
       container.innerHTML =
-        '<div class="empty-state"><span class="big">🤔</span>このコードは図にできませんでした<br>' +
+        '<div class="empty-state">このコードは図にできませんでした<br>' +
         'Python の書き方を確認してみましょう</div>';
     }
   }
@@ -281,10 +314,10 @@ export function createWorkbench(options) {
     if (availableWidth <= 0 || availableHeight <= 0) return;
 
     // 大きくはしない（小さな図が引きのばされて字が太くなるのを避ける）。
-    // 小さくするのにも下限を置く。全体を無理に収めて字が読めなくなるくらいなら、
-    // 読める大きさを保って、残りは縦スクロールと「⛶ 拡大」で見てもらう。
-    // 横は必ず収める（横スクロールは読みながらたどりにくい）。
-    const MIN_SCALE = 0.8;
+    // 縮めるのにも下限を置く。教室のプロジェクターで後ろからも読めることを
+    // 優先するので、字が小さくなりすぎる縮小はしない。
+    // 収まらないぶんは縦スクロールと「拡大」で見てもらう。
+    const MIN_SCALE = 0.75;
     let scale = Math.min(availableWidth / box.width, availableHeight / box.height, 1);
     if (scale < MIN_SCALE) {
       scale = Math.min(MIN_SCALE, availableWidth / box.width);

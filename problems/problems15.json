@@ -4,5 +4,6 @@
   "input": "太郎",
   "expected": "こんにちは、太郎さん！",
   "template": "# 名前を入力してもらう\nname = input()\n\n# 挨拶を出力\n",
-  "solution": "name = input()\nprint(\"こんにちは、\" + name + \"さん！\")\n"
+  "solution": "name = input()\nprint(\"こんにちは、\" + name + \"さん！\")\n",
+  "hint": "受け取った名前を、`+` で前後の文字とつなぎます。"
 }

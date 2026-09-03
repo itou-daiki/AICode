@@ -23,109 +23,109 @@
 /** 描画モードで使う p5 のブロック */
 export const P5_CALL_BLOCKS = [
   // --- かたち ---
-  { type: 'p5_circle', call: 'p5.circle', kind: 'statement', colour: 200, tooltip: '円をかきます',
+  { type: 'p5_circle', call: 'p5.circle', kind: 'statement', colour: '#5B7C8D', tooltip: '円をかきます',
     message: '円 中心x %1 中心y %2 直径 %3',
     args: [{ name: 'X', shadow: 200 }, { name: 'Y', shadow: 200 }, { name: 'D', shadow: 80 }] },
-  { type: 'p5_ellipse', call: 'p5.ellipse', kind: 'statement', colour: 200, tooltip: '楕円をかきます',
+  { type: 'p5_ellipse', call: 'p5.ellipse', kind: 'statement', colour: '#5B7C8D', tooltip: '楕円をかきます',
     message: '楕円 中心x %1 中心y %2 横 %3 縦 %4',
     args: [{ name: 'X', shadow: 200 }, { name: 'Y', shadow: 200 }, { name: 'W', shadow: 120 }, { name: 'H', shadow: 80 }] },
-  { type: 'p5_rect', call: 'p5.rect', kind: 'statement', colour: 200, tooltip: '四角形をかきます',
+  { type: 'p5_rect', call: 'p5.rect', kind: 'statement', colour: '#5B7C8D', tooltip: '四角形をかきます',
     message: '四角 左上x %1 左上y %2 幅 %3 高さ %4',
     args: [{ name: 'X', shadow: 100 }, { name: 'Y', shadow: 100 }, { name: 'W', shadow: 120 }, { name: 'H', shadow: 80 }] },
-  { type: 'p5_square', call: 'p5.square', kind: 'statement', colour: 200, tooltip: '正方形をかきます',
+  { type: 'p5_square', call: 'p5.square', kind: 'statement', colour: '#5B7C8D', tooltip: '正方形をかきます',
     message: '正方形 左上x %1 左上y %2 一辺 %3',
     args: [{ name: 'X', shadow: 150 }, { name: 'Y', shadow: 150 }, { name: 'S', shadow: 80 }] },
-  { type: 'p5_line', call: 'p5.line', kind: 'statement', colour: 200, tooltip: '線をひきます',
+  { type: 'p5_line', call: 'p5.line', kind: 'statement', colour: '#5B7C8D', tooltip: '線をひきます',
     message: '線 始点x %1 始点y %2 終点x %3 終点y %4',
     args: [{ name: 'X1', shadow: 50 }, { name: 'Y1', shadow: 50 }, { name: 'X2', shadow: 350 }, { name: 'Y2', shadow: 350 }] },
-  { type: 'p5_triangle', call: 'p5.triangle', kind: 'statement', colour: 200, tooltip: '三角形をかきます',
+  { type: 'p5_triangle', call: 'p5.triangle', kind: 'statement', colour: '#5B7C8D', tooltip: '三角形をかきます',
     message: '三角 %1 %2 / %3 %4 / %5 %6',
     args: [{ name: 'X1', shadow: 200 }, { name: 'Y1', shadow: 100 }, { name: 'X2', shadow: 150 },
            { name: 'Y2', shadow: 250 }, { name: 'X3', shadow: 250 }, { name: 'Y3', shadow: 250 }] },
-  { type: 'p5_point', call: 'p5.point', kind: 'statement', colour: 200, tooltip: '点をうちます',
+  { type: 'p5_point', call: 'p5.point', kind: 'statement', colour: '#5B7C8D', tooltip: '点をうちます',
     message: '点 x %1 y %2',
     args: [{ name: 'X', shadow: 200 }, { name: 'Y', shadow: 200 }] },
-  { type: 'p5_arc', call: 'p5.arc', kind: 'statement', colour: 200, tooltip: '弧をかきます（角度はラジアン）',
+  { type: 'p5_arc', call: 'p5.arc', kind: 'statement', colour: '#5B7C8D', tooltip: '弧をかきます（角度はラジアン）',
     message: '弧 中心x %1 中心y %2 横 %3 縦 %4 開始 %5 終了 %6',
     args: [{ name: 'X', shadow: 200 }, { name: 'Y', shadow: 200 }, { name: 'W', shadow: 120 },
            { name: 'H', shadow: 120 }, { name: 'A1', shadow: 0 }, { name: 'A2', shadow: 3.14 }] },
 
   // --- いろ ---
-  { type: 'p5_background', call: 'p5.background', kind: 'statement', colour: 20, tooltip: '背景の色を決めます',
+  { type: 'p5_background', call: 'p5.background', kind: 'statement', colour: '#B07A4E', tooltip: '背景の色を決めます',
     message: '背景色 赤 %1 緑 %2 青 %3',
     args: [{ name: 'R', shadow: 240 }, { name: 'G', shadow: 240 }, { name: 'B', shadow: 250 }] },
-  { type: 'p5_fill', call: 'p5.fill', kind: 'statement', colour: 20, tooltip: '塗りつぶしの色を決めます',
+  { type: 'p5_fill', call: 'p5.fill', kind: 'statement', colour: '#B07A4E', tooltip: '塗りつぶしの色を決めます',
     message: '塗り色 赤 %1 緑 %2 青 %3',
     args: [{ name: 'R', shadow: 255 }, { name: 'G', shadow: 100 }, { name: 'B', shadow: 100 }] },
-  { type: 'p5_no_fill', call: 'p5.no_fill', kind: 'statement', colour: 20, tooltip: '塗りつぶしをやめます',
+  { type: 'p5_no_fill', call: 'p5.no_fill', kind: 'statement', colour: '#B07A4E', tooltip: '塗りつぶしをやめます',
     message: '塗りつぶしなし', args: [] },
-  { type: 'p5_stroke', call: 'p5.stroke', kind: 'statement', colour: 20, tooltip: '輪郭の色を決めます',
+  { type: 'p5_stroke', call: 'p5.stroke', kind: 'statement', colour: '#B07A4E', tooltip: '輪郭の色を決めます',
     message: '線の色 赤 %1 緑 %2 青 %3',
     args: [{ name: 'R', shadow: 60 }, { name: 'G', shadow: 60 }, { name: 'B', shadow: 90 }] },
-  { type: 'p5_no_stroke', call: 'p5.no_stroke', kind: 'statement', colour: 20, tooltip: '輪郭をやめます',
+  { type: 'p5_no_stroke', call: 'p5.no_stroke', kind: 'statement', colour: '#B07A4E', tooltip: '輪郭をやめます',
     message: '輪郭なし', args: [] },
-  { type: 'p5_stroke_weight', call: 'p5.stroke_weight', kind: 'statement', colour: 20, tooltip: '線の太さを決めます',
+  { type: 'p5_stroke_weight', call: 'p5.stroke_weight', kind: 'statement', colour: '#B07A4E', tooltip: '線の太さを決めます',
     message: '線の太さ %1', args: [{ name: 'W', shadow: 3 }] },
 
   // --- もじ ---
-  { type: 'p5_text', call: 'p5.text', kind: 'statement', colour: 160, tooltip: '文字をかきます',
+  { type: 'p5_text', call: 'p5.text', kind: 'statement', colour: '#6B8E6B', tooltip: '文字をかきます',
     message: '文字 %1 を x %2 y %3 に',
     args: [{ name: 'T', text: 'Hello' }, { name: 'X', shadow: 100 }, { name: 'Y', shadow: 100 }] },
-  { type: 'p5_text_size', call: 'p5.text_size', kind: 'statement', colour: 160, tooltip: '文字の大きさを決めます',
+  { type: 'p5_text_size', call: 'p5.text_size', kind: 'statement', colour: '#6B8E6B', tooltip: '文字の大きさを決めます',
     message: '文字の大きさ %1', args: [{ name: 'S', shadow: 24 }] },
 
   // --- へんかん ---
-  { type: 'p5_push', call: 'p5.push', kind: 'statement', colour: 290, tooltip: '今の状態を保存します',
+  { type: 'p5_push', call: 'p5.push', kind: 'statement', colour: '#8A7391', tooltip: '今の状態を保存します',
     message: '状態を保存', args: [] },
-  { type: 'p5_pop', call: 'p5.pop', kind: 'statement', colour: 290, tooltip: '保存した状態に戻します',
+  { type: 'p5_pop', call: 'p5.pop', kind: 'statement', colour: '#8A7391', tooltip: '保存した状態に戻します',
     message: '状態を戻す', args: [] },
-  { type: 'p5_translate', call: 'p5.translate', kind: 'statement', colour: 290, tooltip: '原点を動かします',
+  { type: 'p5_translate', call: 'p5.translate', kind: 'statement', colour: '#8A7391', tooltip: '原点を動かします',
     message: '原点を動かす x %1 y %2',
     args: [{ name: 'X', shadow: 200 }, { name: 'Y', shadow: 200 }] },
-  { type: 'p5_rotate', call: 'p5.rotate', kind: 'statement', colour: 290, tooltip: '回転します（ラジアン）',
+  { type: 'p5_rotate', call: 'p5.rotate', kind: 'statement', colour: '#8A7391', tooltip: '回転します（ラジアン）',
     message: '回転する %1', args: [{ name: 'A', shadow: 0.785 }] },
-  { type: 'p5_scale', call: 'p5.scale', kind: 'statement', colour: 290, tooltip: '拡大・縮小します',
+  { type: 'p5_scale', call: 'p5.scale', kind: 'statement', colour: '#8A7391', tooltip: '拡大・縮小します',
     message: '拡大 横 %1 倍 縦 %2 倍',
     args: [{ name: 'X', shadow: 2 }, { name: 'Y', shadow: 2 }] },
-  { type: 'p5_clear', call: 'p5.clear', kind: 'statement', colour: 290, tooltip: 'キャンバスを消します',
+  { type: 'p5_clear', call: 'p5.clear', kind: 'statement', colour: '#8A7391', tooltip: 'キャンバスを消します',
     message: 'キャンバスを消す', args: [] },
-  { type: 'p5_reset_matrix', call: 'p5.reset_matrix', kind: 'statement', colour: 290,
+  { type: 'p5_reset_matrix', call: 'p5.reset_matrix', kind: 'statement', colour: '#8A7391',
     tooltip: '移動・回転・拡大をすべて元にもどします',
     message: '座標を元にもどす', args: [] },
 
   // --- 値として使うもの ---
-  { type: 'p5_random', call: 'random', kind: 'value', output: 'Number', colour: 230,
+  { type: 'p5_random', call: 'random', kind: 'value', output: 'Number', colour: '#4E7A8A',
     tooltip: '最小値から最大値までのランダムな数',
     message: 'ランダムな数 %1 〜 %2',
     args: [{ name: 'A', shadow: 0 }, { name: 'B', shadow: 400 }] },
-  { type: 'p5_map', call: 'map_value', kind: 'value', output: 'Number', colour: 230,
+  { type: 'p5_map', call: 'map_value', kind: 'value', output: 'Number', colour: '#4E7A8A',
     tooltip: '値の範囲を変換します',
     message: '%1 を %2 〜 %3 から %4 〜 %5 に変換',
     args: [{ name: 'V', shadow: 100 }, { name: 'A1', shadow: 0 }, { name: 'A2', shadow: 400 },
            { name: 'B1', shadow: 0 }, { name: 'B2', shadow: 100 }] },
-  { type: 'p5_cos', call: 'cos', kind: 'value', output: 'Number', colour: 230,
+  { type: 'p5_cos', call: 'cos', kind: 'value', output: 'Number', colour: '#4E7A8A',
     tooltip: 'コサイン（ラジアン）', message: 'cos %1', args: [{ name: 'A', shadow: 0 }] },
-  { type: 'p5_sin', call: 'sin', kind: 'value', output: 'Number', colour: 230,
+  { type: 'p5_sin', call: 'sin', kind: 'value', output: 'Number', colour: '#4E7A8A',
     tooltip: 'サイン（ラジアン）', message: 'sin %1', args: [{ name: 'A', shadow: 0 }] },
 ];
 
 /** 名前だけの値ブロック（変数のように使う） */
 export const P5_NAME_BLOCKS = [
-  { type: 'p5_frame_count', name: 'frameCount', label: 'フレーム数', colour: 230, output: 'Number',
+  { type: 'p5_frame_count', name: 'frameCount', label: 'フレーム数', colour: '#4E7A8A', output: 'Number',
     tooltip: 'アニメーションが始まってからのコマ数' },
-  { type: 'p5_width', name: 'p5.width', label: 'キャンバスの幅', colour: 230, output: 'Number',
+  { type: 'p5_width', name: 'p5.width', label: 'キャンバスの幅', colour: '#4E7A8A', output: 'Number',
     tooltip: 'キャンバスの横の大きさ' },
-  { type: 'p5_height', name: 'p5.height', label: 'キャンバスの高さ', colour: 230, output: 'Number',
+  { type: 'p5_height', name: 'p5.height', label: 'キャンバスの高さ', colour: '#4E7A8A', output: 'Number',
     tooltip: 'キャンバスの縦の大きさ' },
-  { type: 'p5_pi', name: 'PI', label: '円周率 π', colour: 230, output: 'Number',
+  { type: 'p5_pi', name: 'PI', label: '円周率 π', colour: '#4E7A8A', output: 'Number',
     tooltip: '約 3.14159' },
 ];
 
 /** def setup(): / def draw(): をそのままブロックにしたもの */
 export const DEF_BLOCKS = [
-  { type: 'p5_setup', name: 'setup', message: '最初に1回だけ %1', colour: 340,
+  { type: 'p5_setup', name: 'setup', message: '最初に1回だけ %1', colour: '#6E7378',
     tooltip: 'ページを開いたときに1回だけ実行されます' },
-  { type: 'p5_draw', name: 'draw', message: 'くり返し描く %1', colour: 340,
+  { type: 'p5_draw', name: 'draw', message: 'くり返し描く %1', colour: '#6E7378',
     tooltip: '1秒に何十回もくり返し実行されます（アニメーション）' },
 ];
 
@@ -180,40 +180,40 @@ export function defineBlocks({ drawing = false } = {}) {
       type: 'py_input',
       message0: 'キーボードから入力 %1',
       args0: [{ type: 'input_value', name: 'PROMPT' }],
-      output: 'String', colour: 160, inputsInline: true,
+      output: 'String', colour: '#6B8E6B', inputsInline: true,
       tooltip: 'input() でキーボードから文字列を受け取ります',
     },
     {
       type: 'py_to_int', message0: '整数にする %1',
       args0: [{ type: 'input_value', name: 'VALUE' }],
-      output: 'Number', colour: 230, inputsInline: true, tooltip: 'int() で整数に変換します',
+      output: 'Number', colour: '#4E7A8A', inputsInline: true, tooltip: 'int() で整数に変換します',
     },
     {
       type: 'py_to_float', message0: '小数にする %1',
       args0: [{ type: 'input_value', name: 'VALUE' }],
-      output: 'Number', colour: 230, inputsInline: true, tooltip: 'float() で小数に変換します',
+      output: 'Number', colour: '#4E7A8A', inputsInline: true, tooltip: 'float() で小数に変換します',
     },
     {
       type: 'py_to_text', message0: '文字列にする %1',
       args0: [{ type: 'input_value', name: 'VALUE' }],
-      output: 'String', colour: 160, inputsInline: true, tooltip: 'str() で文字列に変換します',
+      output: 'String', colour: '#6B8E6B', inputsInline: true, tooltip: 'str() で文字列に変換します',
     },
     {
       type: 'py_comment', message0: 'メモ %1',
       args0: [{ type: 'field_input', name: 'TEXT', text: 'ここに説明' }],
-      previousStatement: null, nextStatement: null, colour: 60,
+      previousStatement: null, nextStatement: null, colour: '#6E7378',
       tooltip: 'Python のコメント（# ...）になります',
     },
     {
       type: 'py_raw', message0: 'Python %1',
       args0: [{ type: 'field_input', name: 'CODE', text: 'print("hello")' }],
-      previousStatement: null, nextStatement: null, colour: 60,
+      previousStatement: null, nextStatement: null, colour: '#6E7378',
       tooltip: 'Python のコードを1行そのまま書きます',
     },
     {
       type: 'py_raw_value', message0: 'Python %1',
       args0: [{ type: 'field_input', name: 'CODE', text: 'x' }],
-      output: null, colour: 60, tooltip: 'Python の式をそのまま書きます',
+      output: null, colour: '#6E7378', tooltip: 'Python の式をそのまま書きます',
     },
   ]);
 
@@ -316,17 +316,17 @@ function toToolboxBlock(def) {
 export function buildToolbox({ drawing = false } = {}) {
   const drawingCategories = drawing ? [
     {
-      kind: 'category', name: '🎨 かたち', colour: '200',
+      kind: 'category', name: 'かたち', colour: '200',
       contents: ['p5_circle', 'p5_ellipse', 'p5_rect', 'p5_square', 'p5_line', 'p5_triangle', 'p5_point', 'p5_arc']
         .map(type => toToolboxBlock(P5_CALL_BLOCKS.find(d => d.type === type))),
     },
     {
-      kind: 'category', name: '🖌 いろ', colour: '20',
+      kind: 'category', name: 'いろ', colour: '20',
       contents: ['p5_background', 'p5_fill', 'p5_no_fill', 'p5_stroke', 'p5_no_stroke', 'p5_stroke_weight']
         .map(type => toToolboxBlock(P5_CALL_BLOCKS.find(d => d.type === type))),
     },
     {
-      kind: 'category', name: '🔄 うごき', colour: '290',
+      kind: 'category', name: 'うごき', colour: '290',
       contents: [
         ...DEF_BLOCKS.map(def => ({ kind: 'block', type: def.type })),
         ...['p5_push', 'p5_pop', 'p5_translate', 'p5_rotate', 'p5_scale', 'p5_reset_matrix', 'p5_clear']
@@ -337,7 +337,7 @@ export function buildToolbox({ drawing = false } = {}) {
       ],
     },
     {
-      kind: 'category', name: '🔠 もじ', colour: '160',
+      kind: 'category', name: 'もじ', colour: '160',
       contents: ['p5_text', 'p5_text_size']
         .map(type => toToolboxBlock(P5_CALL_BLOCKS.find(d => d.type === type))),
     },
@@ -348,7 +348,7 @@ export function buildToolbox({ drawing = false } = {}) {
     contents: [
       ...drawingCategories,
       {
-        kind: 'category', name: '🖨 入出力', colour: '160',
+        kind: 'category', name: '入出力', colour: '160',
         contents: [
           { kind: 'block', type: 'text_print', inputs: { TEXT: textShadow('こんにちは') } },
           { kind: 'block', type: 'py_input', inputs: { PROMPT: textShadow('入力してください: ') } },
@@ -358,7 +358,7 @@ export function buildToolbox({ drawing = false } = {}) {
         ],
       },
       {
-        kind: 'category', name: '🔁 制御', colour: '210',
+        kind: 'category', name: '制御', colour: '210',
         contents: [
           { kind: 'block', type: 'controls_if' },
           { kind: 'block', type: 'controls_if', extraState: { elseIfCount: 0, hasElse: true } },
@@ -373,7 +373,7 @@ export function buildToolbox({ drawing = false } = {}) {
         ],
       },
       {
-        kind: 'category', name: '⚖️ 論理', colour: '210',
+        kind: 'category', name: '論理', colour: '210',
         contents: [
           { kind: 'block', type: 'logic_compare' },
           { kind: 'block', type: 'logic_operation' },
@@ -384,7 +384,7 @@ export function buildToolbox({ drawing = false } = {}) {
         ],
       },
       {
-        kind: 'category', name: '🔢 数', colour: '230',
+        kind: 'category', name: '数', colour: '230',
         contents: [
           { kind: 'block', type: 'math_number' },
           { kind: 'block', type: 'math_arithmetic', inputs: { A: numberShadow(1), B: numberShadow(1) } },
@@ -397,7 +397,7 @@ export function buildToolbox({ drawing = false } = {}) {
         ],
       },
       {
-        kind: 'category', name: '🔤 文字', colour: '160',
+        kind: 'category', name: '文字', colour: '160',
         contents: [
           { kind: 'block', type: 'text' },
           { kind: 'block', type: 'text_join' },
@@ -410,7 +410,7 @@ export function buildToolbox({ drawing = false } = {}) {
         ],
       },
       {
-        kind: 'category', name: '📋 リスト', colour: '260',
+        kind: 'category', name: 'リスト', colour: '260',
         contents: [
           { kind: 'block', type: 'lists_create_with', extraState: { itemCount: 0 } },
           { kind: 'block', type: 'lists_create_with' },
@@ -425,10 +425,10 @@ export function buildToolbox({ drawing = false } = {}) {
           { kind: 'block', type: 'lists_split', inputs: { DELIM: textShadow(',') } },
         ],
       },
-      { kind: 'category', name: '📦 変数', colour: '330', custom: 'VARIABLE' },
-      { kind: 'category', name: '🧰 関数', colour: '290', custom: 'PROCEDURE' },
+      { kind: 'category', name: '変数', colour: '330', custom: 'VARIABLE' },
+      { kind: 'category', name: '関数', colour: '290', custom: 'PROCEDURE' },
       {
-        kind: 'category', name: '🐍 その他', colour: '60',
+        kind: 'category', name: 'その他', colour: '60',
         contents: [
           { kind: 'block', type: 'py_comment' },
           { kind: 'block', type: 'py_raw' },

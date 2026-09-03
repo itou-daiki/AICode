@@ -543,10 +543,12 @@ export function pythonToMermaid(source, { japanese = true } = {}) {
   }
 
   // 見た目の調整（開始/終了・判断・入出力・繰り返しを色分けする）
-  b.lines.push('  classDef terminator fill:#7254eb,stroke:#5b3fc4,color:#ffffff;');
-  b.lines.push('  classDef decision fill:#ffd43b,stroke:#f08c00,color:#16203a;');
-  b.lines.push('  classDef io fill:#5b5bf0,stroke:#4646d8,color:#ffffff;');
-  b.lines.push('  classDef junction fill:#c4ccdd,stroke:#c4ccdd,color:#c4ccdd,width:12px;');
+  // 紙に引いた図。面は塗らず、線で描き分ける。
+  // 始まりと終わりだけ朱の面に白で抜き、判断は太い線、入出力は薄い地。
+  b.lines.push('  classDef terminator fill:#C0392B,stroke:#9C2C20,color:#ffffff;');
+  b.lines.push('  classDef decision fill:#FCFCFA,stroke:#16181A,stroke-width:2px,color:#16181A;');
+  b.lines.push('  classDef io fill:#F4F5F2,stroke:#4A4E52,color:#16181A;');
+  b.lines.push('  classDef junction fill:#D8DAD3,stroke:#D8DAD3,color:#D8DAD3,width:10px;');
   for (const [shape, ids] of Object.entries(b.byShape)) {
     if (ids.length) b.lines.push(`  class ${ids.join(',')} ${shape};`);
   }

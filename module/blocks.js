@@ -12,6 +12,7 @@ import {
 import { PYODIDE_CONFIG } from './config.js';
 import { runUserCode, explainError } from './pyrun.js';
 import { toKtph } from './ktph.js';
+import { setIconLabel } from './icons.js';
 
 const STORAGE_KEY = 'easycode_blocks_workspace_v2';
 const LAYOUT_KEY = 'easycode_layout';
@@ -148,7 +149,7 @@ function setThinkMode(on, quiet = false) {
 
   const button = $('think-btn');
   button.classList.toggle('btn-accent', on);
-  button.textContent = on ? '🧠 じっくりモード：入' : '🧠 じっくりモード';
+  setIconLabel(button, 'bulb', on ? 'じっくり：入' : 'じっくり');
 
   // 補完のふるまいを切り替える（自動で答えを出さない）
   bench.completion.completionMode = on ? 'popup-only' : 'both';
@@ -191,12 +192,12 @@ function comparePrediction(actual) {
 
   const tidy = (text) => text.replace(/\r/g, '').split('\n').map(l => l.trimEnd()).join('\n').trim();
   if (tidy(guess) === tidy(actual)) {
-    result.textContent = '⭕ 予想どおりでした！ なぜそうなるのか、フローチャートでも確かめてみましょう。';
+    result.textContent = '予想どおりでした。なぜそうなるのか、フローチャートでも確かめてみましょう。';
     result.className = 'is-hit';
   } else {
     result.textContent =
-      '🤔 予想とちがいました。\n\nあなたの予想:\n' + guess + '\n\n実際の出力:\n' + actual.trim()
-      + '\n\n⏯ ステップ実行で、どこで考えとちがったか見てみましょう。';
+      '予想とちがいました。\n\nあなたの予想:\n' + guess + '\n\n実際の出力:\n' + actual.trim()
+      + '\n\nステップ実行で、どこで考えとちがったか見てみましょう。';
     result.className = 'is-miss';
   }
 }
@@ -270,15 +271,15 @@ async function startStepMode() {
 
     // 「戻り方」が分かるように、実行ボタン自体も終了ボタンに変える
     const stepButton = $('step-btn');
-    stepButton.textContent = '⏹ ステップ実行を終わる';
-    stepButton.classList.remove('btn-primary');
+    setIconLabel(stepButton, 'stop', 'ステップを終わる');
+    stepButton.classList.remove('btn-mark');
     stepButton.classList.add('btn-danger');
 
     showStep(0);
     // ← → で進めるように、キーを受け取れるボタンへフォーカスを移す。
     // （エディタにフォーカスが残っていると、矢印キーはカーソル移動になってしまう）
     $('step-next').focus();
-    toast(`${trace.steps.length} ステップを記録しました。← → で移動、⏹ で終了`, 3200);
+    toast(`${trace.steps.length} ステップを記録しました。← → で移動、Esc で終了`, 3200);
   } catch (error) {
     console.error('ステップ実行に失敗:', error);
     output.textContent = 'ステップ実行に失敗しました: ' + error.message;
@@ -299,9 +300,9 @@ function exitStepMode() {
   }
 
   const stepButton = $('step-btn');
-  stepButton.textContent = '⏯ ステップ実行';
+  setIconLabel(stepButton, 'step', 'ステップ実行');
   stepButton.classList.remove('btn-danger');
-  stepButton.classList.add('btn-primary');
+  stepButton.classList.add('btn-mark');
 
   $('step-panel').hidden = true;
   $('step-vars').replaceChildren();
@@ -329,7 +330,7 @@ function showStep(index) {
   // 値が足りないと、input() は空文字のまま進む。
   // 「なぜか変数がからっぽ」に見えるので、理由を出力といっしょに見せる。
   if (step.missingInput) {
-    text = '⚠ 入力の値が足りませんでした。足りない分は空文字で進んでいます。\n'
+    text = '入力の値が足りませんでした。足りない分は空文字で進んでいます。\n'
       + '   左下の欄に値を書き足して、もう一度ステップ実行してください。\n\n' + text;
   }
   if (isLast) {
@@ -555,7 +556,7 @@ function setupControls() {
   $('flow-fit').addEventListener('click', (e) => {
     const fit = !bench.isFlowFit();
     bench.setFlowFit(fit);
-    e.currentTarget.textContent = fit ? '🗜 見やすい大きさ' : '🔍 実物大';
+    setIconLabel(e.currentTarget, 'maximize', fit ? '見やすい大きさ' : '実物大');
     e.currentTarget.classList.toggle('is-on', fit);
     toast(fit ? 'パネルに合わせた大きさにしました' : '実物大にしました（スクロールで見られます）');
   });
@@ -563,7 +564,7 @@ function setupControls() {
   $('flow-language').addEventListener('click', (e) => {
     const japanese = !bench.isFlowJapanese();
     bench.setFlowJapanese(japanese);
-    e.currentTarget.textContent = japanese ? '🈁 やさしい日本語' : '🔤 コードのまま';
+    setIconLabel(e.currentTarget, 'notation', japanese ? 'やさしい日本語' : 'コードのまま');
     e.currentTarget.classList.toggle('is-on', japanese);
     toast(japanese ? 'やさしい日本語で書きます' : 'コードのまま書きます');
   });
@@ -678,11 +679,11 @@ async function init() {
     // フローチャートのラベル表示を、覚えている設定に合わせる
     const fitButton = $('flow-fit');
     if (!bench.isFlowFit()) {
-      fitButton.textContent = '🔍 実物大';
+      setIconLabel(fitButton, 'maximize', '実物大');
       fitButton.classList.remove('is-on');
     }
     const flowButton = $('flow-language');
-    flowButton.textContent = bench.isFlowJapanese() ? '🈁 やさしい日本語' : '🔤 コードのまま';
+    setIconLabel(flowButton, 'notation', bench.isFlowJapanese() ? 'やさしい日本語' : 'コードのまま');
     flowButton.classList.toggle('is-on', bench.isFlowJapanese());
     setupRuntimeInput();
 
@@ -701,7 +702,7 @@ async function init() {
     $('step-btn').disabled = false;
     loader.style.display = 'none';
   } catch (error) {
-    console.error('ブロックモードの初期化に失敗:', error);
+    console.error('01 実験の初期化に失敗:', error);
     loader.innerHTML =
       `<p style="color:var(--c-bad);">読み込みに失敗しました: ${error.message}<br>ページを再読み込みしてください。</p>`;
   }

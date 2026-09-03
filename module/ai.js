@@ -23,7 +23,7 @@ function initApiKeyForm() {
   // 保存済みのAPIキーがあれば表示
   if (apiKey) {
     apiKeyInput.value = apiKey;
-    statusDiv.textContent = '✓ 設定済み';
+    statusDiv.textContent = '設定済み';
     statusDiv.style.color = 'green';
   }
 
@@ -33,10 +33,10 @@ function initApiKeyForm() {
     if (newApiKey) {
       apiKey = newApiKey;
       localStorage.setItem(STORAGE_KEYS.API_KEY, apiKey);
-      statusDiv.textContent = '✓ 保存しました';
+      statusDiv.textContent = '保存しました';
       statusDiv.style.color = 'green';
     } else {
-      statusDiv.textContent = '⚠ 入力してください';
+      statusDiv.textContent = '入力してください';
       statusDiv.style.color = 'red';
     }
   });

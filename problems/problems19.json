@@ -4,5 +4,6 @@
   "input": "プログラミング",
   "expected": "7",
   "template": "# 文字列を入力\ntext = input()\n\n# 文字列の長さを出力\n# ヒント：len関数を使います\n",
-  "solution": "text = input()\nprint(len(text))\n"
+  "solution": "text = input()\nprint(len(text))\n",
+  "hint": "`len()` のかっこに文字列を入れると、文字数が返ります。"
 }

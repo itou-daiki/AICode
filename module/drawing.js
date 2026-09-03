@@ -14,6 +14,7 @@ import { callGemini, chatWithAI } from './ai.js';
 import { PYODIDE_CONFIG } from './config.js';
 import { runUserCode, explainError } from './pyrun.js';
 import { toKtph } from './ktph.js';
+import { setIconLabel } from './icons.js';
 
 const STORAGE_KEY = 'easycode_drawing_workspace_v2';
 
@@ -264,7 +265,7 @@ p5._recent_fps = 0
 
   animating = true;
   setCanvasState('アニメーション中', true);
-  output.textContent += 'アニメーション実行中…（⏹ 停止 で止まります）\n';
+  output.textContent += 'アニメーション実行中…（停止 で止まります）\n';
 
   // p5.js と同じく、1 秒あたりのコマ数をそろえる。
   // そろえないと、図形の少ないプログラムは速く、多いプログラムは遅く動いてしまい、
@@ -530,7 +531,7 @@ function setupControls() {
   $('flow-fit').addEventListener('click', (e) => {
     const fit = !bench.isFlowFit();
     bench.setFlowFit(fit);
-    e.currentTarget.textContent = fit ? '🗜 見やすい大きさ' : '🔍 実物大';
+    setIconLabel(e.currentTarget, 'maximize', fit ? '見やすい大きさ' : '実物大');
     e.currentTarget.classList.toggle('is-on', fit);
     toast(fit ? 'パネルに合わせた大きさにしました' : '実物大にしました（スクロールで見られます）');
   });
@@ -538,7 +539,7 @@ function setupControls() {
   $('flow-language').addEventListener('click', (e) => {
     const japanese = !bench.isFlowJapanese();
     bench.setFlowJapanese(japanese);
-    e.currentTarget.textContent = japanese ? '🈁 やさしい日本語' : '🔤 コードのまま';
+    setIconLabel(e.currentTarget, 'notation', japanese ? 'やさしい日本語' : 'コードのまま');
     e.currentTarget.classList.toggle('is-on', japanese);
     toast(japanese ? 'やさしい日本語で書きます' : 'コードのまま書きます');
   });
@@ -619,11 +620,11 @@ async function init() {
     // フローチャートのラベル表示を、覚えている設定に合わせる
     const fitButton = $('flow-fit');
     if (!bench.isFlowFit()) {
-      fitButton.textContent = '🔍 実物大';
+      setIconLabel(fitButton, 'maximize', '実物大');
       fitButton.classList.remove('is-on');
     }
     const flowButton = $('flow-language');
-    flowButton.textContent = bench.isFlowJapanese() ? '🈁 やさしい日本語' : '🔤 コードのまま';
+    setIconLabel(flowButton, 'notation', bench.isFlowJapanese() ? 'やさしい日本語' : 'コードのまま');
     flowButton.classList.toggle('is-on', bench.isFlowJapanese());
     setupChat();
 
@@ -638,7 +639,7 @@ async function init() {
     $('run-btn').disabled = false;
     loader.style.display = 'none';
   } catch (error) {
-    console.error('描画モードの初期化に失敗:', error);
+    console.error('03 スケッチの初期化に失敗:', error);
     loader.innerHTML =
       `<p style="color:var(--c-bad);">読み込みに失敗しました: ${error.message}<br>ページを再読み込みしてください。</p>`;
   }

@@ -1,10 +1,11 @@
 // module/guide.js - Python ガイドのページまわり
 //
 // ・見出しから目次を作り、いま読んでいる場所を示す
-// ・コードのかたまりに「コピー」と「▶ 試す」を付ける
-//   （「▶ 試す」を押すと、そのコードがブロックモードで開く）
+// ・コードのかたまりに「コピー」と「試す」を付ける
+//   （「試す」を押すと、そのコードが 01 実験で開く）
 
 import { toast, urlWithCode } from './ui.js';
+import { setIconLabel } from './icons.js';
 
 /** 見出しから目次を作る */
 function buildToc() {
@@ -53,7 +54,7 @@ function decorateCodeBlocks() {
 
     const copy = document.createElement('button');
     copy.type = 'button';
-    copy.textContent = '📋 コピー';
+    setIconLabel(copy, 'copy', 'コピー');
     copy.addEventListener('click', async () => {
       try {
         await navigator.clipboard.writeText(block.textContent);
@@ -65,8 +66,8 @@ function decorateCodeBlocks() {
 
     const tryIt = document.createElement('button');
     tryIt.type = 'button';
-    tryIt.textContent = '▶ 試す';
-    tryIt.title = 'このコードをブロックモードで開きます';
+    setIconLabel(tryIt, 'run', '試す');
+    tryIt.title = 'このコードを 01 実験で開きます';
     tryIt.addEventListener('click', () => {
       location.href = urlWithCode('index.html', block.textContent.trim() + '\n');
     });

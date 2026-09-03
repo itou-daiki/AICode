@@ -1,133 +1,155 @@
 /* ============================================================
- * easyCode デザインシステム v2
- * ------------------------------------------------------------
- * 全ページ共通の見た目の基準。
- * ページ側の <style> にはレイアウトだけを書き、
- * 色・文字・余白・角丸・影はここのトークンを使う。
+ * easyCode デザインシステム
  *
- *   1. トークン
- *   2. ベース
- *   3. アプリシェル（トップバー / モードスイッチ）
- *   4. ボタン
- *   5. パネル・タブ
- *   6. フォーム
- *   7. サイドバー（エキスパンダー）
- *   8. コード面（CodeMirror / 補完 / コンソール）
- *   9. ブロックエディタ
- *  10. ダイアログ・お知らせ
- *  11. ローダー・ユーティリティ
- * ========================================================== */
+ * THESIS: 番号つきの行と、行どうしを結ぶ線。同じ 1 本のプログラムが
+ *   コード・ブロック・図・共通テスト表記のどの姿でも、必ず同じ行番号に
+ *   並ぶ。分野の定番（角丸カードの反復・絵文字の見出し・紫）を使わない。
+ * OWN-WORLD: 白い方眼の地に、朱 1 色。すべての区画は番号つきレーンに
+ *   吸着し、左端に凡例の帯が固定される。両端の余白は必ず残し、何も画面の
+ *   端まで伸びない。強調は「色を足す」ではなく「朱の面に白で抜く」。
+ *   状態は色ではなく線の描き分けで表す（実線＝進行中／切れ目＝未着手／
+ *   二重線＝いま開いている／端の丸＝取り消せない操作）。
+ *   朱の「面」は主となる操作（実行）ただ 1 つに取っておく。いま開いている
+ *   場所（モードのレーン、凡例の行、タブ）は、朱の太い罫で示す。
+ * STORY: 学習者は左の凡例で今どこにいるかを知り、中央で予想を書き、
+ *   右で走らせて、同じ行が 4 つの姿で光るのを見る。レッスンの「並べて結ぶ」は、
+ *   Python と共通テスト表記を左右に置き、間の帯で同じ行番号どうしを線で結ぶ。
+ * FIRST VIEWPORT: 上端に番号つきのモード帯（01〜04）。左に固定の凡例。
+ *   中央に課題、右にコードと結果。主となる操作は、朱の面に白抜きで 1 画面に 1 つ。
+ * FORM: 結線表（normalled jackfield）を白地に移したもの。
+ *   自分の並びの 5 番目ではなく、利用者が選んだ挑戦者。seed: dc227d86
+ * FINISH: unreviewed and undocumented is unfinished; this build ends with
+ *   the finish review, the verdict, DESIGN.md, and every shipping raster
+ *   carrying its provenance.
+ * ---------------------------------------------------------- */
 
 /* ------------------------------------------------------------
  * 1. トークン
  * ---------------------------------------------------------- */
 :root {
-  /* --- 面 --- */
-  --c-canvas:        #eceff6;
-  --c-surface:       #ffffff;
-  --c-surface-2:     #f4f6fb;
-  --c-surface-3:     #e6eaf3;
+  /* --- 地：白い方眼 ---
+     教室のプロジェクターに映す前提。暗い地は沈むので使わない。 */
+  --c-paper:         #FCFCFA;  /* 紙 */
+  --c-paper-2:       #F4F5F2;  /* 一段沈めた面（凡例・見出しの帯） */
+  --c-paper-3:       #EAEBE6;  /* さらに沈めた面（コードの地） */
+  --c-rule:          #D8DAD3;  /* 方眼の主罫 */
+  --c-rule-faint:    #E3E5DF;  /* 方眼の細罫（8px） */
+  --c-rule-major:    #D2D5CD;  /* 方眼の主罫（32px）。投影しても残る */
 
-  /* 色は「白い文字をのせても読める」ところまで暗くしてある。
-     （日本語の細い字でも見分けられるよう、小さい文字で 4.5:1 以上） */
+  /* --- 墨：文字 --- */
+  --c-ink:           #16181A;
+  --c-ink-2:         #4A4E52;
+  --c-ink-3:         #63686C;  /* 薄墨。小さい字でも 5:1 以上 */
+  --c-ink-on-mark:   #FFFFFF;  /* 朱の面に抜く白 */
 
-  /* --- 文字 --- */
-  --c-ink:           #10162a;
-  --c-ink-2:         #4d566f;
-  --c-ink-3:         #69738c;
-  --c-ink-on-dark:   #f4f7ff;
+  /* --- 朱：ただ 1 色の信号 ---
+     いま動いているもの、いま選ばれているもの、主となる操作。
+     正誤や種類は色で表さない（線の描き分けで表す）。 */
+  --c-mark:          #C0392B;
+  --c-mark-deep:     #9C2C20;  /* 押し込んだとき */
+  --c-mark-faint:    #F6E4E1;  /* 朱の面をごく薄く敷く */
 
-  /* --- 線 --- */
-  --c-line:          #dfe4ef;
-  --c-line-2:        #c4ccdd;
+  /* --- 例外の 2 色 ---
+     線の描き分けだけでは危ういところにだけ使う。面には使わない。 */
+  --c-hold:          #8A6D1F;  /* 保留・注意（細線と文字だけ） */
+  --c-void:          #63686C;  /* 無効・未着手（墨の薄い方） */
 
-  /* --- ブランド --- */
-  --c-brand:         #5b5bf0;
-  --c-brand-2:       #4646d8;
-  --c-brand-soft:    #ecedff;
-  --c-brand-ink:     #2d2da8;
+  /* --- コード面（白地。暗い IDE 風にはしない） --- */
+  --c-code-bg:       #F4F5F2;
+  --c-code-gutter:   #63686C;  /* 行番号。紙の上で 5:1 以上 */
+  --c-code-ink:      #16181A;
+  --c-code-keyword:  #A32B1E;
+  --c-code-string:   #2F6B3A;
+  --c-code-number:   #1F4E79;
+  --c-code-comment:  #5A5F63;
+  --c-code-line:     #E2E4DE;
 
-  /* --- モードごとの色 --- */
-  --c-blocks:        #7254eb;
-  --c-problems:      #286cd4;
-  --c-drawing:       #0b7e71;
-  --c-guide:         #aa5b08;
+  /* --- 書体 ---
+     BIZ UD 系は、日本の教材と役所の文書のための書体。この題材の世界の物。
+     Archivo Narrow は番号と凡例のための、詰まったグロテスク。 */
+  --font-sans: 'BIZ UDPGothic', 'Hiragino Sans', 'Noto Sans JP', sans-serif;
+  --font-grid: 'BIZ UDGothic', 'Hiragino Sans', monospace;  /* 全角がマスに揃う */
+  --font-label: 'Archivo Narrow', 'BIZ UDGothic', sans-serif;
+  --font-mono: 'Sometype Mono', 'BIZ UDGothic', ui-monospace, monospace;
 
-  /* --- 状態 --- */
-  --c-ok:            #12813b;
-  --c-ok-soft:       #e6f7ec;
-  --c-warn:          #e08700;
-  --c-warn-soft:     #fff3e0;
-  --c-bad:           #ce353a;
-  --c-bad-soft:      #ffecec;
+  /* --- 文字の大きさ ---
+     段差は 1.25 以上。教室の後ろからも読めるよう、下は 12px で止める。 */
+  --text-2xs:  0.75rem;   /* 12px 凡例・番号 */
+  --text-xs:   0.8125rem; /* 13px 補助 */
+  --text-sm:   0.875rem;  /* 14px 画面の部品 */
+  --text-base: 1rem;      /* 16px 本文 */
+  --text-lg:   1.25rem;   /* 20px 小見出し */
+  --text-xl:   1.5rem;    /* 24px 見出し */
+  --text-2xl:  2rem;      /* 32px */
+  --text-3xl:  2.75rem;   /* 44px */
 
-  /* --- 暗い面（トップバー・コード） --- */
-  --c-shell:         #0e1424;
-  --c-shell-2:       #182036;
-  --c-code-bg:       #10182b;
-  --c-code-bg-2:     #182238;
-  --c-code-ink:      #dbe3f5;
-  --c-code-line:     #26314a;
-  --c-code-gutter:   #7b8ab5;  /* 行番号。暗い背景でも 5:1 以上になる明るさ */
-  --c-code-keyword:  #ff8ab3;
-  --c-code-string:   #7ee2a8;
-  --c-code-number:   #ffd166;
-  --c-code-comment:  #8b97b8;  /* コメント。暗い背景でも読める明るさ（6:1） */
-  --c-code-builtin:  #6fc3ff;
-  --c-code-def:      #b79bff;
-  --c-code-op:       #9fb0d8;
+  /* --- 間隔：4px の格子。方眼のマスに揃える --- */
+  --sp-1: 4px;
+  --sp-2: 8px;
+  --sp-3: 16px;
+  --sp-4: 24px;
+  --sp-5: 32px;
+  --sp-6: 48px;
+  --sp-7: 64px;
 
-  /* 色は「白い文字をのせても読める」ところまで暗くしてある。
-     （日本語の細い字でも見分けられるよう、小さい文字で 4.5:1 以上） */
-
-  /* --- 文字 --- */
-  --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI',
-               'Hiragino Sans', 'Hiragino Kaku Gothic ProN', 'Noto Sans JP',
-               'Yu Gothic UI', Meiryo, sans-serif;
-  --font-mono: 'JetBrains Mono', 'SFMono-Regular', Consolas, Menlo, monospace;
-
-  --text-2xs:  0.6875rem; /* 11px */
-  --text-xs:   0.75rem;   /* 12px */
-  --text-sm:   0.8125rem; /* 13px */
-  --text-md:   0.875rem;  /* 14px */
-  --text-base: 1rem;
-  --text-lg:   1.125rem;
-  --text-xl:   1.375rem;
-  --text-2xl:  1.75rem;
-  --text-3xl:  2.375rem;
-
-  /* --- 余白 --- */
-  --sp-1: 0.25rem;
-  --sp-2: 0.5rem;
-  --sp-3: 0.75rem;
-  --sp-4: 1rem;
-  --sp-5: 1.5rem;
-  --sp-6: 2rem;
-  --sp-7: 3rem;
-
-  /* --- 角丸 --- */
-  --r-sm:   6px;
-  --r-md:   10px;
-  --r-lg:   14px;
-  --r-xl:   20px;
+  /* --- 角：ほぼ立てる。角丸のカードを重ねない --- */
+  --r-sm: 2px;
+  --r-md: 3px;
+  --r-lg: 4px;
+  --r-xl: 4px;
   --r-full: 999px;
 
-  /* --- 影 --- */
-  --sh-1: 0 1px 2px rgba(16, 22, 42, 0.05), 0 1px 3px rgba(16, 22, 42, 0.04);
-  --sh-2: 0 2px 6px rgba(16, 22, 42, 0.06), 0 8px 20px rgba(16, 22, 42, 0.07);
-  --sh-3: 0 10px 34px rgba(16, 22, 42, 0.16), 0 2px 8px rgba(16, 22, 42, 0.08);
+  /* --- 影：面を浮かせない。線で分ける --- */
+  --sh-1: none;
+  --sh-2: 0 1px 0 var(--c-rule);
+  --sh-3: 0 2px 0 var(--c-rule);
 
   /* --- 動き --- */
-  --t-fast: 110ms;
-  --t-base: 200ms;
-  --ease:   cubic-bezier(0.2, 0.8, 0.3, 1);
+  --t-fast: 90ms;
+  --t-base: 160ms;
+  --ease: cubic-bezier(0.2, 0, 0, 1);
 
-  /* --- レイアウト --- */
-  --topbar-h: 56px;
-  --ring: 0 0 0 3px rgba(91, 91, 240, 0.32);
+  --topbar-h: 52px;
+  --gutter: 16px;      /* 両端に必ず残す余白。何もここまで伸びない */
+  --ring: 0 0 0 2px var(--c-paper), 0 0 0 4px var(--c-mark);
 
-  /* 現在のモード色（各ページで上書きする） */
-  --c-accent: var(--c-brand);
+  --c-accent: var(--c-mark);
+
+  /* 旧い名前（少しずつ置きかえる。ここで受け止めて壊さない） */
+  --c-canvas:     var(--c-paper);
+  --c-surface:    var(--c-paper);
+  --c-surface-2:  var(--c-paper-2);
+  --c-surface-3:  var(--c-paper-3);
+  --c-line:       var(--c-rule);
+  --c-line-2:     var(--c-rule);
+  --c-brand:      var(--c-mark);
+  --c-brand-2:    var(--c-mark-deep);
+  --c-brand-soft: var(--c-mark-faint);
+  --c-brand-ink:  var(--c-mark-deep);
+  --c-ink-on-dark: var(--c-ink);
+  --c-blocks:   var(--c-mark);
+  --c-problems: var(--c-mark);
+  --c-drawing:  var(--c-mark);
+  --c-guide:    var(--c-mark);
+  --c-ok:       var(--c-ink);
+  --c-ok-soft:  var(--c-paper-2);
+  --c-warn:     var(--c-hold);
+  --c-warn-soft: var(--c-paper-2);
+  --c-bad:      var(--c-mark);
+  --c-bad-soft: var(--c-mark-faint);
+  --c-shell:    var(--c-paper);
+  --c-code-bg-2: var(--c-paper-3);
+}
+
+/* 方眼。地そのものが罫でできている（背景画像ではなく、面の材質） */
+.grid-ground {
+  background-color: var(--c-paper);
+  background-image:
+    linear-gradient(to right, var(--c-rule-major) 1px, transparent 1px),
+    linear-gradient(to bottom, var(--c-rule-major) 1px, transparent 1px),
+    linear-gradient(to right, var(--c-rule-faint) 1px, transparent 1px),
+    linear-gradient(to bottom, var(--c-rule-faint) 1px, transparent 1px);
+  background-size: 32px 32px, 32px 32px, 8px 8px, 8px 8px;
 }
 
 /* ------------------------------------------------------------
@@ -145,31 +167,55 @@ body {
   margin: 0;
   font-family: var(--font-sans);
   font-size: var(--text-base);
-  line-height: 1.6;
+  line-height: 1.75;
   color: var(--c-ink);
-  background: var(--c-canvas);
+  background: var(--c-paper);
+  /* 地そのものが方眼。背景画像ではなく、面の材質として敷く */
+  background-image:
+    linear-gradient(to right, var(--c-rule-major) 1px, transparent 1px),
+    linear-gradient(to bottom, var(--c-rule-major) 1px, transparent 1px),
+    linear-gradient(to right, var(--c-rule-faint) 1px, transparent 1px),
+    linear-gradient(to bottom, var(--c-rule-faint) 1px, transparent 1px);
+  background-size: 32px 32px, 32px 32px, 8px 8px, 8px 8px;
 }
 
 h1, h2, h3, h4 {
   margin: 0 0 var(--sp-2);
-  line-height: 1.25;
+  line-height: 1.35;
   font-weight: 700;
-  letter-spacing: -0.015em;
+  letter-spacing: 0;
 }
 
 p { margin: 0 0 var(--sp-3); }
-a { color: var(--c-brand-2); }
+
+/* 下線は文字にぶつけない。紙に引いた線として少し離す */
+a {
+  color: var(--c-mark-deep);
+  text-decoration-thickness: 1px;
+  text-underline-offset: 0.22em;
+}
+a:hover { color: var(--c-mark); }
+
 code, kbd, pre, samp { font-family: var(--font-mono); }
 
-/* キーボードで進んだとき、今どこにいるかがはっきり分かるようにする。
-   うすい影だけだと白い背景でほとんど見えなかったので、線も足している。 */
-:focus-visible {
-  outline: 2px solid var(--c-brand-2);
-  outline-offset: 2px;
-  box-shadow: var(--ring);
-  border-radius: var(--r-sm);
+/* 数字は必ず桁をそろえる。番号つきレーンが揃わないと世界が崩れる */
+.lane, .panel-title .lane, .mode-switch .lane,
+table, .test-table, .mock-table, .CodeMirror-linenumber {
+  font-variant-numeric: tabular-nums;
 }
-::selection { background: var(--c-brand-soft); color: var(--c-brand-ink); }
+
+/* キーボードで進んだとき、今どこにいるかを朱で示す */
+:focus-visible {
+  outline: 2px solid var(--c-mark);
+  outline-offset: 2px;
+  border-radius: 0;
+}
+
+/* 描いていない部分にも、この世界を行きわたらせる */
+::selection { background: var(--c-mark); color: var(--c-ink-on-mark); }
+::marker { color: var(--c-ink-3); }
+input, textarea, select, button { font-family: inherit; }
+input::placeholder, textarea::placeholder { color: var(--c-ink-3); }
 
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after {
@@ -178,27 +224,27 @@ code, kbd, pre, samp { font-family: var(--font-mono); }
   }
 }
 
-* { scrollbar-width: thin; scrollbar-color: var(--c-line-2) transparent; }
+/* スクロールバーも罫として扱う。丸めない */
+* { scrollbar-width: thin; scrollbar-color: var(--c-ink-3) var(--c-paper-2); }
 ::-webkit-scrollbar { width: 10px; height: 10px; }
-::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-track { background: var(--c-paper-2); }
 ::-webkit-scrollbar-thumb {
-  background: var(--c-line-2);
-  border: 2px solid transparent;
-  background-clip: content-box;
-  border-radius: var(--r-full);
+  background: var(--c-ink-3);
+  border: 3px solid var(--c-paper-2);
+  border-radius: 0;
 }
-::-webkit-scrollbar-thumb:hover { background-color: var(--c-ink-3); background-clip: content-box; }
+::-webkit-scrollbar-thumb:hover { background: var(--c-ink-2); }
+::-webkit-scrollbar-corner { background: var(--c-paper-2); }
 
 /* キーボードのキー表示 */
 kbd {
   display: inline-block;
   min-width: 1.6em;
-  padding: 0.1em 0.45em;
-  border: 1px solid var(--c-line-2);
-  border-bottom-width: 2px;
+  padding: 0.05em 0.4em;
+  border: 1px solid var(--c-ink-3);
   border-radius: var(--r-sm);
-  background: var(--c-surface);
-  box-shadow: var(--sh-1);
+  background: var(--c-paper);
+  font-family: var(--font-label);
   font-size: var(--text-2xs);
   font-weight: 600;
   text-align: center;
@@ -208,54 +254,54 @@ kbd {
 /* ------------------------------------------------------------
  * 3. アプリシェル
  * ---------------------------------------------------------- */
+
+/* 上端の帯。紙の上に引いた太い罫。暗い面は使わない。 */
 .topbar {
   position: relative;
   z-index: 30;
   display: flex;
   align-items: center;
-  gap: var(--sp-3);
   height: var(--topbar-h);
-  padding: 0 var(--sp-3);
-  background: var(--c-shell);
-  color: var(--c-ink-on-dark);
-  box-shadow: var(--sh-2);
-}
-.topbar::after {
-  /* 今どのモードにいるかを示す下線 */
-  content: '';
-  position: absolute;
-  inset: auto 0 0 0;
-  height: 2px;
-  background: var(--c-accent);
+  padding: 0 var(--gutter);
+  background: var(--c-paper);
+  color: var(--c-ink);
+  border-bottom: 2px solid var(--c-ink);
 }
 
+/* 名前。押せるものではないので、四角い面にしない。
+   すぐ左のメニューは枠のある四角なので、ここを面にすると見分けがつかなくなる。
+   活字と、下に引いた 1 本の罫だけで置く。 */
 .brand {
   display: flex;
   align-items: center;
-  gap: var(--sp-2);
   flex: 0 0 auto;
+  padding: 0 var(--sp-3) 0 var(--sp-2);
   color: inherit;
-  font-size: var(--text-base);
-  font-weight: 800;
-  letter-spacing: -0.02em;
   text-decoration: none;
   white-space: nowrap;
 }
-.brand-mark {
-  display: grid;
-  place-items: center;
-  width: 30px;
-  height: 30px;
-  border-radius: 9px;
-  background: var(--c-accent);
-  font-size: 15px;
+.brand-name {
+  display: block;
+  font-family: var(--font-label);
+  font-size: var(--text-lg);
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  line-height: 1.1;
+  border-bottom: 2px solid var(--c-mark);
+  padding-bottom: 1px;
 }
+.brand:hover .brand-name { border-bottom-color: var(--c-ink); }
 .brand small {
   display: block;
+  border: 0;
+  padding: 0;
+  margin-top: 2px;
+  font-family: var(--font-label);
   font-size: var(--text-2xs);
   font-weight: 500;
-  letter-spacing: 0.06em;
-  color: rgba(255, 255, 255, 0.55);
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--c-ink-3);
 }
 
 .topbar-tools {
@@ -264,157 +310,254 @@ kbd {
   gap: var(--sp-2);
   flex: 1 1 auto;
   min-width: 0;
+  padding: 0 var(--sp-3);
   overflow-x: auto;
   scrollbar-width: none;
+  border-left: 1px solid var(--c-rule);
 }
 .topbar-tools::-webkit-scrollbar { display: none; }
-.topbar-end { display: flex; align-items: center; gap: var(--sp-2); flex: 0 0 auto; }
+.topbar-end { display: flex; align-self: stretch; align-items: stretch; flex: 0 0 auto; }
 
 .topbar-divider {
   width: 1px;
-  height: 22px;
   flex: 0 0 auto;
-  background: rgba(255, 255, 255, 0.14);
+  margin: var(--sp-2) var(--sp-1);
+  background: var(--c-rule);
 }
 
-/* --- モードスイッチ（セグメント） --- */
+/* --- モードの帯：番号つきレーン ---
+   01〜04 の番号は、この画面ぜんぶを貫く「行番号」の考えの入口。
+   いま開いているレーンは、朱の太い罫で示す。
+   朱の「面」は主となる操作（実行）だけに取っておく（1 画面に 1 つ）。 */
 .mode-switch {
-  position: relative;
   display: flex;
-  align-items: center;
-  gap: 2px;
-  padding: 3px;
-  border-radius: var(--r-full);
-  background: rgba(255, 255, 255, 0.08);
-  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.08);
+  align-items: stretch;
+  border-left: 1px solid var(--c-rule);
 }
 .mode-switch a {
   position: relative;
-  z-index: 1;
-  display: inline-flex;
-  align-items: center;
-  gap: 0.35em;
-  padding: 0.4em 0.85em;
-  border-radius: var(--r-full);
-  color: rgba(255, 255, 255, 0.68);
-  font-size: var(--text-sm);
-  font-weight: 600;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 1px;
+  min-width: 74px;
+  padding: 0 var(--sp-3);
+  border-right: 1px solid var(--c-rule);
+  color: var(--c-ink-2);
   text-decoration: none;
+  transition: background var(--t-fast) var(--ease), color var(--t-fast) var(--ease);
+}
+.mode-switch a:last-child { border-right: 0; }
+.mode-switch .lane {
+  font-family: var(--font-label);
+  font-size: var(--text-2xs);
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  color: var(--c-ink-3);
+}
+.mode-switch .label {
+  font-size: var(--text-sm);
+  font-weight: 700;
+  letter-spacing: 0.02em;
   white-space: nowrap;
-  transition: color var(--t-fast) var(--ease), background var(--t-fast) var(--ease);
 }
-.mode-switch a:hover { color: #fff; background: rgba(255, 255, 255, 0.09); }
+.mode-switch a:hover { background: var(--c-paper-2); color: var(--c-ink); }
 .mode-switch a[aria-current='page'] {
-  color: #fff;
-  background: var(--c-accent);
-  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.28);
+  background: var(--c-paper);
+  color: var(--c-ink);
+  font-weight: 700;
+  box-shadow: inset 0 -4px 0 var(--c-mark);
 }
-@media (max-width: 900px) {
-  .mode-switch a .label { display: none; }
-  .mode-switch a { padding: 0.4em 0.6em; }
+.mode-switch a[aria-current='page'] .lane { color: var(--c-mark-deep); font-weight: 700; }
 
-  /* 狭い画面では、道具の並びを2段にして重ならないようにする */
+@media (max-width: 900px) {
   .topbar {
     height: auto;
     flex-wrap: wrap;
+    align-items: center;
     padding-top: var(--sp-2);
-    padding-bottom: var(--sp-2);
+    padding-bottom: 0;
   }
-  .topbar-tools { order: 3; width: 100%; padding-bottom: 2px; }
+  .topbar-tools {
+    order: 3;
+    width: 100%;
+    padding: var(--sp-2) 0;
+    border-left: 0;
+    border-top: 1px solid var(--c-rule);
+  }
   .topbar-end { margin-left: auto; }
-}
-
-
+  .mode-switch a { min-width: 0; padding: var(--sp-2) var(--sp-2); }
 }
 
 /* ------------------------------------------------------------
  * 4. ボタン
+ *
+ * 面を浮かせない。線で囲み、押したら沈む。
+ * 主となる操作だけが朱の面に白抜きで、1 画面に 1 つ。
  * ---------------------------------------------------------- */
 .btn {
   display: inline-flex;
   align-items: center;
   justify-content: center;
   gap: 0.4em;
-  padding: 0.45em 0.9em;
-  border: 1px solid var(--c-line-2);
-  border-radius: var(--r-md);
-  background: var(--c-surface);
+  padding: 0.4em 0.85em;
+  border: 1px solid var(--c-ink-3);
+  border-radius: var(--r-sm);
+  background: var(--c-paper);
   color: var(--c-ink);
   font-family: inherit;
-  font-size: var(--text-md);
-  font-weight: 600;
-  line-height: 1.25;
+  font-size: var(--text-sm);
+  font-weight: 700;
+  line-height: 1.3;
   white-space: nowrap;
   text-decoration: none;
   cursor: pointer;
-  box-shadow: var(--sh-1);
   transition: background var(--t-fast) var(--ease), border-color var(--t-fast) var(--ease),
-              box-shadow var(--t-fast) var(--ease), transform var(--t-fast) var(--ease),
-              opacity var(--t-fast) var(--ease);
+              color var(--t-fast) var(--ease), opacity var(--t-fast) var(--ease);
 }
-.btn:hover:not(:disabled) { transform: translateY(-1px); box-shadow: var(--sh-2); }
-.btn:active:not(:disabled) { transform: translateY(0); box-shadow: var(--sh-1); }
-.btn:disabled, .btn[disabled] { opacity: 0.45; cursor: not-allowed; transform: none; box-shadow: none; }
+.btn:hover:not(:disabled) { border-color: var(--c-ink); background: var(--c-paper-2); }
+.btn:active:not(:disabled) { background: var(--c-paper-3); }
+.btn:disabled, .btn[disabled] {
+  border-color: var(--c-rule);
+  color: var(--c-void);
+  cursor: not-allowed;
+}
 
-.btn-primary { background: var(--c-brand); border-color: transparent; color: #fff; }
-.btn-primary:hover:not(:disabled) { background: var(--c-brand-2); }
-.btn-run     { background: var(--c-ok); border-color: transparent; color: #fff; }
-.btn-run:hover:not(:disabled) { background: #12873d; }
-.btn-accent  { background: var(--c-accent); border-color: transparent; color: #fff; }
-.btn-accent:hover:not(:disabled) { filter: brightness(1.08); }
-.btn-danger  { background: var(--c-bad); border-color: transparent; color: #fff; }
-.btn-danger:hover:not(:disabled) { background: #c62a2f; }
-.btn-quiet   { background: transparent; border-color: transparent; box-shadow: none; color: var(--c-ink-2); }
-.btn-quiet:hover:not(:disabled) { background: var(--c-surface-3); color: var(--c-ink); box-shadow: none; }
+/* 主となる操作。朱の面に白で抜く */
+.btn-primary,
+.btn-run,
+.btn-accent {
+  background: var(--c-mark);
+  border-color: var(--c-mark);
+  color: var(--c-ink-on-mark);
+}
+.btn-primary:hover:not(:disabled),
+.btn-run:hover:not(:disabled),
+.btn-accent:hover:not(:disabled) {
+  background: var(--c-mark-deep);
+  border-color: var(--c-mark-deep);
+}
+.btn-primary:disabled, .btn-run:disabled, .btn-accent:disabled {
+  background: var(--c-paper-2);
+  border-color: var(--c-rule);
+  color: var(--c-void);
+}
 
-.btn-sm { padding: 0.32em 0.7em; font-size: var(--text-sm); }
+/* 二番手の操作。朱だが面は塗らない。塗るのは 1 画面に 1 つだけ */
+.btn-mark {
+  border-color: var(--c-mark);
+  color: var(--c-mark-deep);
+  box-shadow: inset 0 -2px 0 var(--c-mark);
+}
+.btn-mark:hover:not(:disabled) { background: var(--c-mark-faint); border-color: var(--c-mark-deep); }
+.btn-mark:disabled { border-color: var(--c-rule); color: var(--c-void); box-shadow: none; }
+
+/* 取り消せない操作。端を丸で閉じる（結線表の open ring） */
+.btn-danger {
+  border-color: var(--c-mark);
+  color: var(--c-mark);
+  border-radius: var(--r-full);
+  padding-inline: 1.1em;
+}
+.btn-danger:hover:not(:disabled) { background: var(--c-mark-faint); border-color: var(--c-mark-deep); }
+
+.btn-quiet {
+  border-color: transparent;
+  background: transparent;
+  color: var(--c-ink-2);
+  font-weight: 400;
+}
+.btn-quiet:hover:not(:disabled) { background: var(--c-paper-2); border-color: var(--c-rule); color: var(--c-ink); }
+
+.btn-sm { padding: 0.28em 0.65em; font-size: var(--text-xs); }
 .btn-block { width: 100%; }
 
-/* トップバーの中のボタン */
+/* トップバーの中でも、地は紙のまま。横に並ぶ数が多いので少し詰める */
 .topbar .btn {
-  background: rgba(255, 255, 255, 0.1);
-  border-color: rgba(255, 255, 255, 0.14);
-  color: var(--c-ink-on-dark);
-  box-shadow: none;
+  background: var(--c-paper);
+  padding: 0.3em 0.6em;
+  font-size: var(--text-xs);
 }
-.topbar .btn:hover:not(:disabled) { background: rgba(255, 255, 255, 0.2); box-shadow: none; }
-.topbar .btn-run { background: var(--c-ok); border-color: transparent; }
-.topbar .btn-run:hover:not(:disabled) { background: #12873d; }
-.topbar .btn-primary { background: var(--c-brand); border-color: transparent; }
-.topbar .btn-primary:hover:not(:disabled) { background: var(--c-brand-2); }
-.topbar .btn-accent { background: var(--c-accent); border-color: transparent; }
+.topbar .btn .icon { width: 14px; height: 14px; }
+.topbar .btn:hover:not(:disabled) { background: var(--c-paper-2); }
+.topbar .btn-primary,
+.topbar .btn-run,
+.topbar .btn-accent { background: var(--c-mark); color: var(--c-ink-on-mark); }
 
-/* アイコンだけのボタン */
+/* 画面の分けかたを選ぶ並び。数字だけにして幅を稼ぐ */
+.layout-switch button { font-family: var(--font-label); letter-spacing: 0.04em; }
+
+/* 画面の分けかたを選ぶ並び。番号つきレーンとして扱う */
+.lane-switch {
+  display: inline-flex;
+  align-items: stretch;
+  border: 1px solid var(--c-rule);
+  background: var(--c-paper);
+}
+.lane-switch button {
+  padding: 0.3em 0.55em;
+  border: 0;
+  border-right: 1px solid var(--c-rule);
+  background: var(--c-paper);
+  color: var(--c-ink-2);
+  font-family: var(--font-label);
+  font-size: var(--text-2xs);
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  cursor: pointer;
+}
+.lane-switch button:last-child { border-right: 0; }
+.lane-switch button:hover { background: var(--c-paper-2); color: var(--c-ink); }
+.lane-switch button.is-on {
+  background: var(--c-paper);
+  color: var(--c-ink);
+  box-shadow: inset 0 -2px 0 var(--c-paper), inset 0 -4px 0 var(--c-mark), inset 0 -6px 0 var(--c-mark);
+}
+
+/* 図だけのボタン。中身は必ず描いた線画（絵文字は使わない） */
 .icon-btn {
   display: grid;
   place-items: center;
-  width: 34px;
-  height: 34px;
+  width: 30px;
+  height: 30px;
   flex: 0 0 auto;
-  border: 1px solid transparent;
-  border-radius: var(--r-md);
-  background: rgba(255, 255, 255, 0.1);
-  color: var(--c-ink-on-dark);
-  font-size: 16px;
-  line-height: 1;
+  border: 1px solid var(--c-ink-3);
+  border-radius: var(--r-sm);
+  background: var(--c-paper);
+  color: var(--c-ink);
   cursor: pointer;
-  transition: background var(--t-fast) var(--ease);
+  transition: background var(--t-fast) var(--ease), border-color var(--t-fast) var(--ease);
 }
-.icon-btn:hover { background: rgba(255, 255, 255, 0.22); }
-.icon-btn.is-on { background: var(--c-accent); }
+.icon-btn:hover { background: var(--c-paper-2); border-color: var(--c-ink); }
+.icon-btn.is-on { background: var(--c-paper); border-color: var(--c-mark); color: var(--c-mark); }
+.icon-btn svg { width: 16px; height: 16px; }
+
+/* 描いた線画。太さと角の処理をそろえる */
+.icon {
+  width: 1em;
+  height: 1em;
+  flex: 0 0 auto;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.6;
+  stroke-linecap: square;
+  stroke-linejoin: miter;
+}
 
 /* ------------------------------------------------------------
  * 5. パネル・タブ
+ *
+ * 角丸のカードを重ねない。面は罫で分ける。
+ * 区画の見出しには番号を振り、画面ぜんぶが「番号つきレーン」になる。
  * ---------------------------------------------------------- */
 .panel {
   display: flex;
   flex-direction: column;
   min-width: 0;
   min-height: 0;
-  background: var(--c-surface);
-  border: 1px solid var(--c-line);
-  border-radius: var(--r-lg);
-  box-shadow: var(--sh-1);
+  background: var(--c-paper);
+  border: 1px solid var(--c-rule);
+  border-radius: 0;
   overflow: hidden;
 }
 
@@ -424,109 +567,130 @@ kbd {
   justify-content: space-between;
   gap: var(--sp-2);
   flex: 0 0 auto;
-  min-height: 38px;
-  padding: var(--sp-1) var(--sp-2) var(--sp-1) var(--sp-3);
-  background: var(--c-surface-2);
-  border-bottom: 1px solid var(--c-line);
+  min-height: 34px;
+  padding: var(--sp-1) var(--sp-2);
+  background: var(--c-paper-2);
+  border-bottom: 1px solid var(--c-rule);
 }
 .panel-title {
   display: flex;
   align-items: center;
-  gap: 0.45em;
+  gap: 0.4em;
   min-width: 0;
   overflow: hidden;
-  font-size: var(--text-sm);
+  font-size: var(--text-xs);
   font-weight: 700;
+  letter-spacing: 0.04em;
   white-space: nowrap;
   text-overflow: ellipsis;
+}
+/* 区画の番号。凡例と同じ書体で、朱ではなく墨 */
+.panel-title .lane {
+  font-family: var(--font-label);
+  font-size: var(--text-2xs);
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  color: var(--c-ink-3);
 }
 .panel-tools { display: flex; align-items: center; gap: var(--sp-1); flex: 0 0 auto; }
 .panel-body { position: relative; flex: 1 1 auto; min-height: 0; overflow: hidden; }
 
-/* パネル見出しの小さなボタン */
+/* 区画の見出しの中の小さなボタン */
 .tool-btn {
   display: inline-flex;
   align-items: center;
   gap: 0.3em;
-  min-height: 26px;
-  padding: 0.2em 0.55em;
-  border: 1px solid var(--c-line);
+  min-height: 24px;
+  padding: 0.15em 0.5em;
+  border: 1px solid var(--c-rule);
   border-radius: var(--r-sm);
-  background: var(--c-surface);
+  background: var(--c-paper);
   color: var(--c-ink-2);
   font-family: inherit;
   font-size: var(--text-2xs);
-  font-weight: 600;
+  font-weight: 700;
   white-space: nowrap;
   cursor: pointer;
   transition: background var(--t-fast) var(--ease), color var(--t-fast) var(--ease),
               border-color var(--t-fast) var(--ease);
 }
-.tool-btn:hover { background: var(--c-brand-soft); border-color: var(--c-brand); color: var(--c-brand-ink); }
-.tool-btn.is-on { background: var(--c-accent); border-color: transparent; color: #fff; }
+.tool-btn:hover { border-color: var(--c-ink); color: var(--c-ink); }
+.tool-btn.is-on {
+  background: var(--c-paper);
+  border-color: var(--c-mark);
+  color: var(--c-ink);
+  box-shadow: inset 0 -3px 0 var(--c-mark);
+}
+.tool-btn .icon { width: 13px; height: 13px; }
 
+/* 状態の札。色ではなく、左の線の描き分けで意味を出す */
 .chip {
-  display: inline-block;
-  padding: 0.1em 0.55em;
-  border-radius: var(--r-full);
-  background: var(--c-surface-3);
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35em;
+  padding: 0.1em 0.5em 0.1em 0.45em;
+  border-left: 1px solid var(--c-ink-3);
+  background: var(--c-paper-2);
   color: var(--c-ink-2);
   font-size: var(--text-2xs);
-  font-weight: 600;
+  font-weight: 700;
   white-space: nowrap;
 }
-.chip.is-live { background: var(--c-ok-soft); color: #0e6f31; }
-.chip.is-warn { background: var(--c-warn-soft); color: #9a5b00; }
+/* 動いている：実線が途切れない */
+.chip.is-live { border-left-color: var(--c-ink); color: var(--c-ink); }
+/* 待っている：線に切れ目 */
+.chip.is-warn {
+  border-left: 0;
+  color: var(--c-hold);
+  background-image: linear-gradient(var(--c-hold) 0 0);
+  background-size: 1px 5px;
+  background-repeat: repeat-y;
+  background-position: left top;
+  padding-left: 0.45em;
+}
 
-/* --- タブ（ステージの切り替え） --- */
+/* --- タブ：番号つきレーンの見出し ---
+   丸い錠剤ではなく、罫で区切った札。選ばれたものだけ朱に白抜き。 */
 .tabs {
   display: flex;
-  align-items: center;
-  gap: 4px;
-  padding: 4px;
-  border: 1px solid var(--c-line-2);
-  border-radius: var(--r-full);
-  background: var(--c-surface);
-  box-shadow: var(--sh-1);
+  align-items: stretch;
+  border: 1px solid var(--c-rule);
+  background: var(--c-paper);
 }
 .tabs button {
   display: inline-flex;
   align-items: center;
-  gap: 0.4em;
-  padding: 0.42em 1em;
-  border: 1px solid var(--c-line);
-  border-radius: var(--r-full);
-  background: var(--c-surface-2);
+  gap: 0.35em;
+  padding: 0.3em 0.8em;
+  border: 0;
+  border-right: 1px solid var(--c-rule);
+  background: var(--c-paper);
   color: var(--c-ink-2);
   font-family: inherit;
-  font-size: var(--text-sm);
-  font-weight: 600;
+  font-size: var(--text-xs);
+  font-weight: 700;
   white-space: nowrap;
   cursor: pointer;
-  transition: background var(--t-fast) var(--ease), color var(--t-fast) var(--ease),
-              border-color var(--t-fast) var(--ease), transform var(--t-fast) var(--ease);
+  transition: background var(--t-fast) var(--ease), color var(--t-fast) var(--ease);
 }
-.tabs button:hover {
-  background: var(--c-brand-soft);
-  border-color: var(--c-brand);
-  color: var(--c-brand-ink);
-  transform: translateY(-1px);
-}
+.tabs button:last-child { border-right: 0; }
+.tabs button:hover { background: var(--c-paper-2); color: var(--c-ink); }
+/* いま開いているものは、面を朱で塗らずに二重罫で示す（朱の面は主となる操作だけ） */
 .tabs button[aria-selected='true'] {
-  background: var(--c-accent);
-  border-color: transparent;
-  color: #fff;
-  transform: none;
-  box-shadow: var(--sh-1);
+  background: var(--c-paper);
+  color: var(--c-ink);
+  box-shadow: inset 0 -3px 0 var(--c-paper), inset 0 -5px 0 var(--c-mark), inset 0 -8px 0 var(--c-mark);
 }
-.tabs button[aria-selected='true']:hover { background: var(--c-accent); color: #fff; }
+.tabs button .icon { width: 14px; height: 14px; }
 
 /* タブの前に置く「何を選ぶのか」のラベル */
 .tabs-label {
+  font-family: var(--font-label);
   font-size: var(--text-2xs);
-  font-weight: 700;
-  letter-spacing: 0.08em;
-  color: var(--c-ink-2);
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--c-ink-3);
   white-space: nowrap;
 }
 
@@ -544,7 +708,7 @@ input[type='text'], input[type='password'], input[type='search'], select, textar
   background: var(--c-surface);
   color: var(--c-ink);
   font-family: inherit;
-  font-size: var(--text-md);
+  font-size: var(--text-base);
   transition: border-color var(--t-fast) var(--ease), box-shadow var(--t-fast) var(--ease);
 }
 input:focus, select:focus, textarea:focus {
@@ -568,8 +732,9 @@ input[type='range'] { accent-color: var(--c-accent); }
   overflow-y: auto;
   background: var(--c-surface-2);
   border-right: 1px solid var(--c-line);
-  transition: flex-basis var(--t-base) var(--ease), width var(--t-base) var(--ease),
-              padding var(--t-base) var(--ease), opacity var(--t-base) var(--ease);
+  /* 幅を animate すると、開閉のたびに画面ぜんぶを組み直すことになる。
+     開いた／閉じたが分かればよいので、動かさない。 */
+  transition: opacity var(--t-fast) var(--ease);
 }
 .sidebar:not(.is-open) {
   flex-basis: 0;
@@ -591,60 +756,48 @@ input[type='range'] { accent-color: var(--c-accent); }
 
 /* 開閉できるまとまり */
 .expander {
-  border: 1px solid var(--c-line-2);
-  border-radius: var(--r-md);
-  background: var(--c-surface);
-  box-shadow: var(--sh-1);
+  border: 1px solid var(--c-rule);
+  border-radius: 0;
+  background: var(--c-paper);
   overflow: hidden;
-  transition: border-color var(--t-fast) var(--ease), box-shadow var(--t-fast) var(--ease);
 }
-.expander:hover { border-color: var(--c-brand); box-shadow: var(--sh-2); }
+.expander:hover { border-color: var(--c-ink-3); }
 
 .expander > summary {
   display: flex;
   align-items: center;
   gap: 0.5em;
-  padding: 0.65em 0.7em;
-  background: var(--c-surface-2);
-  font-size: var(--text-md);
+  padding: 0.55em 0.7em;
+  background: var(--c-paper-2);
+  font-size: var(--text-sm);
   font-weight: 700;
   cursor: pointer;
   list-style: none;
   user-select: none;
-  transition: background var(--t-fast) var(--ease), color var(--t-fast) var(--ease);
+  transition: background var(--t-fast) var(--ease);
 }
 .expander > summary::-webkit-details-marker { display: none; }
 
-/* 「押すと開く」と分かるように、丸いボタンのしるしを付ける */
+/* 開くしるしは、結線表の線。閉じている＝切れ目、開いている＝つながった線。 */
 .expander > summary::after {
-  content: '▾';
-  display: grid;
-  place-items: center;
+  content: '';
   flex: 0 0 auto;
-  width: 22px;
-  height: 22px;
+  width: 16px;
+  height: 2px;
   margin-left: auto;
-  border: 1px solid var(--c-line-2);
-  border-radius: var(--r-full);
-  background: var(--c-surface);
-  color: var(--c-ink-2);
-  font-size: 10px;
-  line-height: 1;
-  transition: transform var(--t-fast) var(--ease), background var(--t-fast) var(--ease),
-              border-color var(--t-fast) var(--ease), color var(--t-fast) var(--ease);
+  background-image: linear-gradient(var(--c-ink-2) 0 0);
+  background-size: 5px 2px;
+  background-repeat: repeat-x;
+  transition: background-size var(--t-fast) var(--ease);
 }
-.expander > summary:hover { background: var(--c-brand-soft); color: var(--c-brand-ink); }
-.expander > summary:hover::after {
-  background: var(--c-brand);
-  border-color: var(--c-brand);
-  color: #fff;
-}
-.expander[open] > summary { border-bottom: 1px solid var(--c-line); }
-.expander[open] > summary::after { transform: rotate(180deg); }
+.expander > summary:hover { background: var(--c-paper-3); }
+.expander[open] > summary { border-bottom: 1px solid var(--c-rule); }
+.expander[open] > summary::after { background-size: 16px 2px; }
 
 .expander-body {
-  padding: 0.75em;
-  font-size: var(--text-md);
+  padding: 0.7em;
+  font-size: var(--text-sm);
+  line-height: 1.8;
   color: var(--c-ink-2);
 }
 .expander-body > *:last-child { margin-bottom: 0; }
@@ -657,89 +810,95 @@ input[type='range'] { accent-color: var(--c-accent); }
 
 /* ------------------------------------------------------------
  * 8. コード面
+ *
+ * 暗い IDE 風にはしない。教室で映す前提なので、紙の上に書いたものとして扱う。
+ * 行番号は、この画面ぜんぶを貫く「レーン番号」そのもの。
  * ---------------------------------------------------------- */
 .CodeMirror {
   height: 100%;
-  font-family: var(--font-mono);
-  font-size: 13px;
-  line-height: 1.65;
   background: var(--c-code-bg);
   color: var(--c-code-ink);
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+  line-height: 1.7;
 }
-.CodeMirror-gutters { background: var(--c-code-bg); border-right: 1px solid var(--c-code-line); }
-.CodeMirror-linenumber { color: var(--c-code-gutter); }
-.CodeMirror-cursor { border-left: 2px solid #8ea2ff; }
-.CodeMirror-activeline-background { background: rgba(255, 255, 255, 0.035); }
-.CodeMirror-selected { background: rgba(91, 91, 240, 0.32) !important; }
-.CodeMirror-focused .CodeMirror-selected { background: rgba(91, 91, 240, 0.45) !important; }
-.cm-indent-guide { border-left: 1px solid rgba(255, 255, 255, 0.075); }
+.CodeMirror-gutters {
+  background: var(--c-code-bg);
+  border-right: 1px solid var(--c-rule);
+}
+.CodeMirror-linenumber {
+  color: var(--c-code-gutter);
+  font-family: var(--font-label);
+  font-variant-numeric: tabular-nums;
+}
+.CodeMirror-cursor { border-left: 2px solid var(--c-mark); }
+.CodeMirror-selected { background: var(--c-mark-faint) !important; }
+.CodeMirror-activeline-background { background: var(--c-paper-3); }
 
-.cm-s-default .cm-keyword  { color: var(--c-code-keyword); font-weight: 600; }
+/* 字下げの目安。方眼の罫と同じ細さ */
+.cm-indent-guide { border-left: 1px solid var(--c-code-line); }
+
+.cm-s-default .cm-keyword  { color: var(--c-code-keyword); font-weight: 700; }
 .cm-s-default .cm-string   { color: var(--c-code-string); }
 .cm-s-default .cm-number   { color: var(--c-code-number); }
 .cm-s-default .cm-comment  { color: var(--c-code-comment); font-style: italic; }
-.cm-s-default .cm-builtin  { color: var(--c-code-builtin); }
-.cm-s-default .cm-def      { color: var(--c-code-def); }
-.cm-s-default .cm-variable { color: var(--c-code-ink); }
-.cm-s-default .cm-operator,
-.cm-s-default .cm-bracket  { color: var(--c-code-op); }
 
-/* ステップ実行の現在行 */
-.CodeMirror-linebackground.step-line { background: rgba(255, 209, 102, 0.2); }
+/* 共通テスト表記のブロックを示す縦線。飾りではなく構造なので、読める濃さで引く */
+.cm-s-default .cm-comment.cm-ktph-rule,
+.CodeMirror .cm-comment { font-style: normal; }
+.cm-s-default .cm-builtin,
+.cm-s-default .cm-def      { color: var(--c-ink); font-weight: 700; }
+.cm-s-default .cm-operator { color: var(--c-ink-2); }
+.cm-s-default .cm-variable,
+.cm-s-default .cm-variable-2 { color: var(--c-code-ink); }
+
+/* いま動いている行。朱の細い帯で示す（面は塗りつぶさない） */
+.CodeMirror-linebackground.step-line {
+  background: var(--c-mark-faint);
+  box-shadow: inset 2px 0 0 var(--c-mark);
+}
 
 /* 補完 */
-.inline-suggestion { color: var(--c-ink-3); opacity: 0.72; font-style: italic; }
+.inline-suggestion { color: var(--c-ink-3); font-style: italic; }
 .code-completion-popup {
   position: absolute;
-  z-index: 500;
-  min-width: 250px;
-  max-width: 430px;
-  max-height: 264px;
+  z-index: 60;
+  min-width: 220px;
+  max-height: 240px;
   overflow-y: auto;
-  background: var(--c-code-bg-2);
-  border: 1px solid var(--c-code-line);
-  border-radius: var(--r-md);
-  box-shadow: var(--sh-3);
-  color: var(--c-code-ink);
+  background: var(--c-paper);
+  border: 1px solid var(--c-ink-3);
+  border-radius: 0;
 }
 .completion-item {
   display: flex;
   align-items: baseline;
-  gap: var(--sp-3);
-  padding: 0.35em 0.7em;
+  gap: var(--sp-2);
+  padding: 0.3em 0.6em;
+  border-bottom: 1px solid var(--c-rule-faint);
   cursor: pointer;
 }
-.completion-item .completion-label {
-  font-family: var(--font-mono);
-  font-size: var(--text-sm);
-  white-space: nowrap;
-}
-.completion-item .completion-detail {
-  margin-left: auto;
-  overflow: hidden;
-  color: var(--c-code-gutter);
-  font-size: var(--text-2xs);
-  white-space: nowrap;
-  text-overflow: ellipsis;
-}
-.completion-item:hover, .completion-item.selected { background: var(--c-brand); color: #fff; }
-.completion-item:hover .completion-detail,
-.completion-item.selected .completion-detail { color: rgba(255, 255, 255, 0.82); }
+.completion-item:last-child { border-bottom: 0; }
+.completion-item.selected { background: var(--c-mark); color: var(--c-ink-on-mark); }
+.completion-label { font-family: var(--font-mono); font-size: var(--text-sm); font-weight: 700; }
+.completion-detail { font-size: var(--text-2xs); color: var(--c-ink-3); }
+.completion-item.selected .completion-detail { color: rgba(255, 255, 255, 0.78); }
 
-/* 実行結果のコンソール */
+/* 実行結果。紙の上の観察窓 */
 .console {
   margin: 0;
   padding: var(--sp-3);
+  height: 100%;
   overflow: auto;
+  background: var(--c-paper);
+  color: var(--c-ink);
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+  line-height: 1.7;
   white-space: pre-wrap;
   word-break: break-word;
-  background: var(--c-code-bg);
-  color: var(--c-code-ink);
-  font-family: var(--font-mono);
-  font-size: 13px;
-  line-height: 1.6;
 }
-.console .is-error { color: #ff9aa2; }
+.console .is-error { color: var(--c-mark); }
 
 /* ------------------------------------------------------------
  * 9. ブロックエディタ（Blockly の見た目調整）
@@ -753,8 +912,8 @@ input[type='range'] { accent-color: var(--c-accent); }
 .blocklyTreeRow {
   margin-bottom: 4px;
   padding: 7px 10px 7px 8px !important;
-  border-radius: var(--r-md);
-  border-left-width: 6px !important;
+  border-radius: 0;
+  border-left-width: 1px !important;
   line-height: 1.25;
   transition: background var(--t-fast) var(--ease);
 }
@@ -762,7 +921,7 @@ input[type='range'] { accent-color: var(--c-accent); }
 .blocklyTreeSelected { background: var(--c-brand-soft) !important; }
 .blocklyTreeLabel {
   font-family: var(--font-sans) !important;
-  font-size: 13px !important;
+  font-size: var(--text-xs) !important;
   font-weight: 700 !important;
   color: var(--c-ink) !important;
 }
@@ -771,9 +930,8 @@ input[type='range'] { accent-color: var(--c-accent); }
 
 /* ステップ実行で「今動いているブロック」を光らせる */
 .blocklyBlockCanvas .step-block > .blocklyPath {
-  stroke: var(--c-warn) !important;
+  stroke: var(--c-mark) !important;
   stroke-width: 4px !important;
-  filter: drop-shadow(0 0 7px rgba(224, 135, 0, 0.65));
 }
 .blocklyMainBackground { stroke: none; }
 
@@ -789,10 +947,10 @@ dialog.dialog {
   box-shadow: var(--sh-3);
   color: var(--c-ink);
 }
-dialog.dialog::backdrop { background: rgba(16, 22, 42, 0.45); }
+dialog.dialog::backdrop { background: rgba(22, 24, 26, 0.45); }
 .dialog-body { padding: var(--sp-5) var(--sp-5) var(--sp-3); }
 .dialog-body h3 { font-size: var(--text-lg); }
-.dialog-body p { margin: 0; color: var(--c-ink-2); font-size: var(--text-md); white-space: pre-wrap; }
+.dialog-body p { margin: 0; color: var(--c-ink-2); font-size: var(--text-base); white-space: pre-wrap; }
 .dialog-actions {
   display: flex;
   justify-content: flex-end;
@@ -800,17 +958,30 @@ dialog.dialog::backdrop { background: rgba(16, 22, 42, 0.45); }
   padding: var(--sp-3) var(--sp-5) var(--sp-5);
 }
 
+/* 知らせ。色ではなく、左の線の描き分けで種類を示す。
+   実線＝うまくいった／点線＝待っている／二重線＝直すところ。 */
 .note {
-  padding: var(--sp-3);
-  border-left: 3px solid var(--c-brand);
-  border-radius: var(--r-sm);
-  background: var(--c-brand-soft);
-  color: var(--c-brand-ink);
-  font-size: var(--text-md);
+  padding: var(--sp-2) var(--sp-3);
+  border-left: 2px solid var(--c-ink);
+  background: var(--c-paper-2);
+  color: var(--c-ink);
+  font-size: var(--text-sm);
+  line-height: 1.7;
 }
-.note.is-ok   { border-color: var(--c-ok);   background: var(--c-ok-soft);   color: #0e6f31; }
-.note.is-warn { border-color: var(--c-warn); background: var(--c-warn-soft); color: #9a5b00; }
-.note.is-bad  { border-color: var(--c-bad);  background: var(--c-bad-soft);  color: #a72226; }
+.note p { margin: 0 0 var(--sp-1); }
+.note p:last-child { margin-bottom: 0; }
+.note.is-ok { border-left-style: solid; border-left-color: var(--c-ink); }
+.note.is-warn {
+  border-left-style: dashed;
+  border-left-color: var(--c-hold);
+  color: var(--c-ink);
+}
+.note.is-bad {
+  border-left-color: var(--c-mark);
+  background: var(--c-mark-faint);
+  /* 「直すところ」は、下にもう 1 本引いて他と見分ける（帯を太らせない） */
+  box-shadow: inset 0 -1px 0 var(--c-mark);
+}
 
 .empty-state {
   display: grid;
@@ -818,25 +989,24 @@ dialog.dialog::backdrop { background: rgba(16, 22, 42, 0.45); }
   gap: 0.4em;
   padding: var(--sp-6) var(--sp-4);
   color: var(--c-ink-3);
-  font-size: var(--text-md);
+  font-size: var(--text-base);
   text-align: center;
   line-height: 1.8;
 }
-.empty-state .big { font-size: 1.8rem; }
+.empty-state .big { font-size: var(--text-xl); }
 
 /* ステップ実行の変数一覧 */
 .var-list { display: flex; flex-direction: column; gap: var(--sp-2); }
 .var-card {
   padding: var(--sp-2);
-  border: 1px solid var(--c-line);
-  border-left: 3px solid var(--c-line-2);
-  border-radius: var(--r-md);
+  border: 1px solid var(--c-rule);
+  border-radius: 0;
   background: var(--c-surface);
 }
-.var-card.is-changed { border-left-color: var(--c-warn); background: var(--c-warn-soft); }
-.var-card.is-focus { border-left-color: var(--c-brand); box-shadow: var(--ring); }
+.var-card.is-changed { border-left: 3px solid var(--c-mark); background: var(--c-mark-faint); }
+.var-card.is-focus { border-left: 3px double var(--c-ink); }
 .var-head { display: flex; align-items: center; gap: var(--sp-2); }
-.var-name { font-family: var(--font-mono); font-size: var(--text-md); font-weight: 700; }
+.var-name { font-family: var(--font-mono); font-size: var(--text-base); font-weight: 700; }
 .var-type {
   padding: 0.05em 0.5em;
   border-radius: var(--r-full);
@@ -846,14 +1016,7 @@ dialog.dialog::backdrop { background: rgba(16, 22, 42, 0.45); }
   font-weight: 700;
   white-space: nowrap;
 }
-.var-type.is-list  { background: #e4f1ff; color: #16548f; }
-.var-type.is-dict  { background: #efe6ff; color: #5b32ab; }
-.var-type.is-tuple { background: #e2f6f1; color: #10685c; }
-.var-type.is-set   { background: #fdeef7; color: #97316f; }
-.var-type.is-str   { background: #e9f7ec; color: #1a6b34; }
-.var-type.is-int,
-.var-type.is-float { background: #fff2dc; color: #8a5300; }
-.var-type.is-bool  { background: #ffe9e9; color: #9c2b2f; }
+/* 型は名前がそのまま書いてある。色で言い直さない（朱 1 色を守る） */
 
 .var-value {
   margin-top: 0.3em;
@@ -875,9 +1038,9 @@ dialog.dialog::backdrop { background: rgba(16, 22, 42, 0.45); }
   font-size: var(--text-2xs);
 }
 .var-item.is-changed {
-  border-color: var(--c-warn);
-  background: #fff6e5;
-  box-shadow: 0 0 0 2px rgba(224, 135, 0, 0.18);
+  border-color: var(--c-mark);
+  background: var(--c-mark-faint);
+  box-shadow: inset 0 -2px 0 var(--c-mark);
 }
 .var-item.is-more { color: var(--c-ink-3); font-family: var(--font-sans); }
 .var-key { color: var(--c-ink-3); }
@@ -894,7 +1057,7 @@ dialog.dialog::backdrop { background: rgba(16, 22, 42, 0.45); }
   border-radius: var(--r-md);
   background: var(--c-shell);
   color: var(--c-ink-on-dark);
-  font-size: var(--text-md);
+  font-size: var(--text-base);
   box-shadow: var(--sh-3);
   opacity: 0;
   transform: translateY(8px);
@@ -917,7 +1080,7 @@ dialog.dialog::backdrop { background: rgba(16, 22, 42, 0.45); }
   gap: var(--sp-4);
   background: var(--c-canvas);
   color: var(--c-ink-2);
-  font-size: var(--text-md);
+  font-size: var(--text-base);
 }
 .spinner {
   width: 40px;
@@ -964,6 +1127,16 @@ dialog.dialog::backdrop { background: rgba(16, 22, 42, 0.45); }
   .btn { min-height: 40px; }
   .btn-sm { min-height: 36px; }
   .icon-btn { width: 40px; height: 40px; }
-  .mode-switch a { min-height: 40px; padding: 0 0.7em; }
+  .mode-switch a { min-height: 40px; padding: var(--sp-1) 0.7em; }
   .tabs button { min-height: 40px; }
+  .tool-btn { min-height: 34px; }
+
+  /* 狭い画面では、区画の見出しを 2 段にする。
+     1 段に詰めると、見出しの文字が「A <> P」まで潰れて読めなくなる。 */
+  .panel-head { flex-wrap: wrap; row-gap: var(--sp-1); padding: var(--sp-2); }
+  .panel-title { flex: 1 0 100%; }
+  .panel-tools { flex-wrap: wrap; row-gap: var(--sp-1); }
+  /* 一覧の項目も、指で押せる高さにする */
+  .lesson-item { min-height: 40px; }
+  .course-head { min-height: 40px; }
 }

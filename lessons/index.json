@@ -3,38 +3,38 @@
     {
       "id": "intro",
       "title": "入門",
-      "icon": "🐣",
       "file": "intro.json",
-      "summary": "はじめての人へ。読んで、動かして、書いてみる"
+      "summary": "はじめての人へ。読んで、動かして、書いてみる",
+      "lane": "01"
     },
     {
       "id": "basic",
       "title": "基礎練習",
-      "icon": "📚",
       "file": "basic.json",
-      "summary": "入門で覚えたことを 20 問で練習する"
+      "summary": "入門で覚えたことを 20 問で練習する",
+      "lane": "02"
     },
     {
       "id": "kyotsu",
       "title": "共通テスト対策",
-      "icon": "📝",
       "file": "kyotsu.json",
-      "summary": "共通テスト用プログラム表記で読む・埋める"
+      "summary": "共通テスト用プログラム表記で読む・埋める",
+      "lane": "03"
     },
     {
       "id": "niji",
       "title": "二次試験対策",
-      "icon": "✍️",
       "file": "niji.json",
-      "summary": "自分で書く。いくつかのテストで自動採点"
+      "summary": "自分で書く。いくつかのテストで自動採点",
+      "lane": "04"
     },
     {
       "id": "moshi",
       "title": "模試",
-      "icon": "🏁",
       "file": "moshi.json",
       "kind": "mock",
-      "summary": "まとめて解いて点数を出す"
+      "summary": "まとめて解いて点数を出す",
+      "lane": "05"
     }
   ]
 }

@@ -4,5 +4,9 @@
   "input": "",
   "expected": "良",
   "template": "# 点数を変数に代入\nscore = 75\n\n# if-elif-else文を使って評価を判定\n",
-  "solution": "score = 75\nif score >= 90:\n    print(\"優\")\nelif score >= 70:\n    print(\"良\")\nelif score >= 60:\n    print(\"可\")\nelse:\n    print(\"不可\")\n"
+  "solution": "score = 75\nif score >= 90:\n    print(\"優\")\nelif score >= 70:\n    print(\"良\")\nelif score >= 60:\n    print(\"可\")\nelse:\n    print(\"不可\")\n",
+  "hint": [
+    "上から順に調べます。いちばん厳しい条件から書きます。",
+    "90 以上 → 70 以上 → 60 以上 → それ以外、の順に `if` `elif` `elif` `else` を並べます。"
+  ]
 }

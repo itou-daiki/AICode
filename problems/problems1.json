@@ -4,5 +4,6 @@
   "input": "",
   "expected": "Hello, World!",
   "template": "# print関数を使って「Hello, World!」と出力してください\n",
-  "solution": "print(\"Hello, World!\")\n"
+  "solution": "print(\"Hello, World!\")\n",
+  "hint": "`print()` のかっこの中に、`\"` で囲んで文字を書きます。"
 }

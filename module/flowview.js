@@ -15,12 +15,12 @@ export function setupMermaid() {
     startOnLoad: false,
     securityLevel: 'strict',
     theme: 'base',
-    fontFamily: 'Inter, "Hiragino Sans", "Noto Sans JP", sans-serif',
+    fontFamily: '"BIZ UDPGothic", "Hiragino Sans", sans-serif',
     themeVariables: {
-      primaryColor: '#ffffff',
-      primaryBorderColor: '#c4ccdd',
-      primaryTextColor: '#10162a',
-      lineColor: '#69738c',
+      primaryColor: '#FCFCFA',
+      primaryBorderColor: '#4A4E52',
+      primaryTextColor: '#16181A',
+      lineColor: '#4A4E52',
       fontSize: '13px',
     },
     flowchart: { htmlLabels: true, curve: 'linear', useMaxWidth: true, padding: 10 },
@@ -53,7 +53,7 @@ export async function renderFlowchart(container, python, options = {}) {
     empty.className = 'empty-state';
     const icon = document.createElement('span');
     icon.className = 'big';
-    icon.textContent = '🔀';
+    icon.textContent = '';
     empty.append(icon, document.createTextNode(result.message || 'コードを書くと流れが図になります'));
     container.appendChild(empty);
     return { lineByNode: {}, message: result.message };
@@ -81,7 +81,7 @@ export async function renderFlowchart(container, python, options = {}) {
     failed.className = 'empty-state';
     const icon = document.createElement('span');
     icon.className = 'big';
-    icon.textContent = '🤔';
+    icon.textContent = '';
     failed.append(icon, document.createTextNode('このコードは図にできませんでした'));
     container.appendChild(failed);
     return { lineByNode: {}, message: null };
@@ -100,7 +100,7 @@ export async function renderFlowchart(container, python, options = {}) {
  * @param {number} [options.minScale] これより小さくはしない（字が読めなくなるため）
  */
 export function fitFlowchart(container, options = {}) {
-  const { fit = true, minScale = 0.8 } = options;
+  const { fit = true, minScale = 0.75 } = options;
   const svg = container && container.querySelector('svg');
   if (!svg) return;
 

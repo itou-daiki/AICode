@@ -247,10 +247,10 @@ export function explainError(info, code = '') {
   if (!info) return '';
 
   // 時間切れは、それ自体がすでに日本語の案内
-  if (info.type === 'TimeoutError') return `⏱ ${info.message}`;
+  if (info.type === 'TimeoutError') return `× ${info.message}`;
 
   const lines = [];
-  lines.push(info.line ? `❌ ${info.line} 行目でエラーが起きました` : '❌ エラーが起きました');
+  lines.push(info.line ? `× ${info.line} 行目でエラーが起きました` : '× エラーが起きました');
 
   if (info.line && code) {
     const target = code.split('\n')[info.line - 1];
@@ -262,7 +262,7 @@ export function explainError(info, code = '') {
   const hint = detailedHint(info) || HINTS[info.type];
   if (hint) {
     const name = info.name || guessName(info);
-    lines.push(`👉 ${hint.replace('{name}', name || 'その名前')}`);
+    lines.push(`→ ${hint.replace('{name}', name || 'その名前')}`);
   }
 
   return lines.join('\n');

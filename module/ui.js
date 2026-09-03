@@ -1,3 +1,4 @@
+import { iconHtml, setIconLabel } from './icons.js';
 // module/ui.js
 // 画面まわりの共通部品。全モードで同じ操作感になるようにまとめている。
 //
@@ -186,7 +187,7 @@ export function initMaximize(onChange) {
 
     document.querySelectorAll('.panel-max').forEach(button => {
       const on = maximize && button.dataset.panel === panelId;
-      button.textContent = on ? '⤡' : '⛶';
+      button.innerHTML = iconHtml(on ? 'cross' : 'maximize');
       button.title = on ? '元の大きさに戻す' : 'このパネルを大きく表示';
       button.classList.toggle('is-on', Boolean(on));
     });
@@ -363,13 +364,13 @@ export function showShareDialog(url) {
     shareElement.className = 'dialog';
     shareElement.innerHTML = `
       <div class="dialog-body">
-        <h3>🔗 共有リンク</h3>
+        <h3>共有リンク</h3>
         <p>このリンクを開くと、今のコードがそのまま入った状態で始められます。</p>
         <input type="text" data-role="url" readonly style="margin-top:0.75rem;font-family:var(--font-mono);font-size:var(--text-xs);">
       </div>
       <div class="dialog-actions">
         <button class="btn btn-quiet" data-role="close">閉じる</button>
-        <button class="btn btn-primary" data-role="copy">📋 コピー</button>
+        <button class="btn btn-mark" data-role="copy">${iconHtml('copy')}コピー</button>
       </div>`;
     document.body.appendChild(shareElement);
 

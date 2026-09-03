@@ -4,5 +4,9 @@
   "input": "",
   "expected": "1\n2\n3\n4\n5",
   "template": "# for文を使って1から5まで出力\n",
-  "solution": "for i in range(1, 6):\n    print(i)\n"
+  "solution": "for i in range(1, 6):\n    print(i)\n",
+  "hint": [
+    "`for` と `range` を使います。1 から 5 まで出したいので、終わりの数に注意します。",
+    "`range(1, 6)` は 1, 2, 3, 4, 5 です。6 そのものは入りません。"
+  ]
 }

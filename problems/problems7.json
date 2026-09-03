@@ -4,5 +4,6 @@
   "input": "",
   "expected": "<class 'int'>\n<class 'float'>\n<class 'str'>",
   "template": "# 整数100の型を確認\nnum1 = 100\n\n\n# 小数3.14の型を確認\nnum2 = 3.14\n\n\n# 文字列「Python」の型を確認\ntext = \"Python\"\n",
-  "solution": "num1 = 100\nprint(type(num1))\nnum2 = 3.14\nprint(type(num2))\ntext = \"Python\"\nprint(type(text))\n"
+  "solution": "num1 = 100\nprint(type(num1))\nnum2 = 3.14\nprint(type(num2))\ntext = \"Python\"\nprint(type(text))\n",
+  "hint": "`type()` のかっこに変数を入れて、それを `print()` で出します。"
 }

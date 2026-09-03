@@ -3,16 +3,16 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>easyCode - ブロックモード</title>
+  <title>easyCode - 01 実験</title>
   <link rel="icon" type="image/svg+xml" href="favicon.svg">
   <link rel="alternate icon" href="favicon.ico">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=BIZ+UDPGothic:wght@400;700&family=BIZ+UDGothic:wght@400;700&family=Archivo+Narrow:wght@400;500;600;700&family=Sometype+Mono:wght@400;500;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/codemirror@5.65.16/lib/codemirror.css" />
   <link rel="stylesheet" href="css/theme.css">
   <style>
-    /* ブロックモードのレイアウト（色や文字は css/theme.css のトークンを使う） */
+    /* 01 実験のレイアウト（色や文字は css/theme.css のトークンを使う） */
     :root { --c-accent: var(--c-blocks); }
     html, body { height: 100%; overflow: hidden; }
 
@@ -76,23 +76,6 @@
     #step-chip { display: none; }
     body.step-mode #step-chip { display: inline-block; }
 
-    /* トップバーの中の切り替えは、暗い背景に合わせる */
-    .topbar .tabs {
-      background: rgba(255, 255, 255, 0.08);
-      border-color: rgba(255, 255, 255, 0.16);
-      box-shadow: none;
-    }
-    .topbar .tabs button {
-      background: transparent;
-      border-color: transparent;
-      color: rgba(255, 255, 255, 0.7);
-    }
-    .topbar .tabs button:hover { background: rgba(255, 255, 255, 0.14); color: #fff; }
-    .topbar .tabs button[aria-selected='true'] {
-      background: var(--c-accent);
-      color: #fff;
-    }
-
     /* ===== パネルの拡大 ===== */
     body.has-max #workspace {
       grid-template-columns: 1fr;
@@ -121,9 +104,8 @@
     }
     #flowchart svg { max-width: 100%; height: auto; }
     #flowchart g.node.step-active > :is(rect, polygon, circle, ellipse, path) {
-      stroke: var(--c-warn) !important;
+      stroke: var(--c-mark) !important;
       stroke-width: 3px !important;
-      filter: drop-shadow(0 0 7px rgba(224, 135, 0, 0.6));
     }
 
     /* ===== 実行結果 ===== */
@@ -169,8 +151,15 @@
       font-size: var(--text-sm);
       white-space: pre-wrap;
     }
-    #predict-result.is-hit { border-left: 3px solid var(--c-ok); color: #146c33; }
-    #predict-result.is-miss { border-left: 3px solid var(--c-warn); color: #8a5300; }
+    /* 予想が合ったか。色ではなく、下に引く線の描き分けで示す */
+    #predict-result.is-hit { box-shadow: inset 0 -2px 0 var(--c-ink); }
+    #predict-result.is-miss {
+      box-shadow: inset 0 -2px 0 var(--c-hold);
+      background-image: linear-gradient(var(--c-hold) 0 0);
+      background-size: 6px 2px;
+      background-repeat: repeat-x;
+      background-position: bottom;
+    }
 
     #step-inputs { display: none; padding: var(--sp-2); border-top: 1px solid var(--c-line); }
     #step-inputs.is-visible { display: block; }
@@ -222,38 +211,36 @@
   </div>
 
   <header class="topbar">
+    <button id="toggle-sidebar" class="icon-btn" aria-expanded="false" title="ヒントを開く"><svg viewBox="0 0 20 20" class="icon" aria-hidden="true"><path d="M4 4h5a2 2 0 0 1 2 2v10a2 2 0 0 0-2-2H4z"/><path d="M16 4h-5a2 2 0 0 0-2 2v10a2 2 0 0 1 2-2h5z"/></svg></button>
     <a class="brand" href="index.html">
-      <span class="brand-mark">🧩</span>
-      <span>easyCode<small>ブロックモード</small></span>
+      <span class="brand-name">easyCode<small>01 実験</small></span>
     </a>
-
-    <button id="toggle-sidebar" class="icon-btn" aria-expanded="false" title="ヒントを開く">📖</button>
     <span class="topbar-divider"></span>
 
     <div class="topbar-tools">
-      <button id="run-btn" class="btn btn-run" disabled>▶ 実行</button>
-      <button id="step-btn" class="btn btn-primary" disabled>⏯ ステップ実行</button>
+      <button id="run-btn" class="btn btn-run" disabled><svg viewBox="0 0 20 20" class="icon" aria-hidden="true"><path d="M6 4l10 6-10 6z"/></svg>実行</button>
+      <button id="step-btn" class="btn btn-mark" disabled><svg viewBox="0 0 20 20" class="icon" aria-hidden="true"><path d="M5 4l7 6-7 6z"/><path d="M15 4v12"/></svg>ステップ実行</button>
       <span class="topbar-divider"></span>
-      <button id="think-btn" class="btn" title="補完をひかえめにして、自分で考える時間をつくります">🧠 じっくりモード</button>
+      <button id="think-btn" class="btn" title="補完をひかえめにして、自分で考える時間をつくります"><svg viewBox="0 0 20 20" class="icon" aria-hidden="true"><path d="M10 3a5 5 0 0 0-3 9v2h6v-2a5 5 0 0 0-3-9z"/><path d="M8 17h4"/></svg>じっくり</button>
       <span class="topbar-divider"></span>
       <div class="tabs layout-switch" id="layout-switch" role="tablist" aria-label="画面の分け方">
         <button type="button" data-layout="4" role="tab" aria-selected="true"
-                title="コード・フローチャート・ブロック・実行結果をすべて表示">⊞ 4画面</button>
+                title="コード・フローチャート・ブロック・実行結果をすべて表示">4面</button>
         <button type="button" data-layout="3" role="tab" aria-selected="false"
-                title="コード・フローチャート・実行結果（ブロックは隠す）">⊟ 3画面</button>
+                title="コード・フローチャート・実行結果（ブロックは隠す）">3面</button>
         <button type="button" data-layout="2" role="tab" aria-selected="false"
-                title="左は切り替え表示、右は実行結果">◫ 2画面</button>
+                title="左は切り替え表示、右は実行結果">2面</button>
       </div>
-      <button id="share-btn" class="btn" title="今のコードが入ったリンクを作ります">🔗 共有</button>
-      <button id="clear-btn" class="btn">🗑 全消去</button>
+      <button id="share-btn" class="btn" title="今のコードが入ったリンクを作ります"><svg viewBox="0 0 20 20" class="icon" aria-hidden="true"><path d="M6 10a2 2 0 1 1-4 0 2 2 0 0 1 4 0z"/><path d="M18 5a2 2 0 1 1-4 0 2 2 0 0 1 4 0z"/><path d="M18 15a2 2 0 1 1-4 0 2 2 0 0 1 4 0z"/><path d="m6 9 8-3M6 11l8 3"/></svg>共有</button>
+      <button id="clear-btn" class="btn"><svg viewBox="0 0 20 20" class="icon" aria-hidden="true"><path d="M4 6h12"/><path d="M7 6V4h6v2"/><path d="M6 6l1 11h6l1-11"/></svg>全消去</button>
     </div>
 
     <div class="topbar-end">
-      <nav class="mode-switch" aria-label="モード切り替え">
-        <a href="index.html" aria-current="page">🧩<span class="label">ブロック</span></a>
-        <a href="lessons.html">📚<span class="label">レッスン</span></a>
-        <a href="drawing.html">🎨<span class="label">描画</span></a>
-        <a href="python-guide.html">📘<span class="label">ガイド</span></a>
+      <nav class="mode-switch" aria-label="モードの切り替え">
+        <a href="index.html" aria-current="page" title="コードとブロックと図を行き来して、試す"><span class="lane">01</span><span class="label">実験</span></a>
+        <a href="lessons.html" title="入門から模試まで、順に解く"><span class="lane">02</span><span class="label">レッスン</span></a>
+        <a href="drawing.html" title="p5.js で絵を描き、動かす"><span class="lane">03</span><span class="label">スケッチ</span></a>
+        <a href="python-guide.html" title="Python の文法と共通テスト表記の早見表"><span class="lane">04</span><span class="label">早見表</span></a>
       </nav>
     </div>
   </header>
@@ -264,7 +251,7 @@
       <p class="sidebar-title">ヒント</p>
 
       <details class="expander" open>
-        <summary>⌨️ キーボード操作</summary>
+        <summary><svg viewBox="0 0 20 20" class="icon" aria-hidden="true"><path d="M3 5h3M3 10h3M3 15h3"/><path d="M9 5h8M9 10h8M9 15h8"/></svg>キーボード操作</summary>
         <div class="expander-body keylist">
           <div><span class="keys"><kbd>Tab</kbd></span><span>字下げ（スペース4つ）／補完の確定</span></div>
           <div><span class="keys"><kbd>Shift</kbd><kbd>Tab</kbd></span><span>字下げを1段もどす</span></div>
@@ -278,7 +265,7 @@
       </details>
 
       <details class="expander">
-        <summary>💡 コード補完の使い方</summary>
+        <summary><svg viewBox="0 0 20 20" class="icon" aria-hidden="true"><path d="M10 3a5 5 0 0 0-3 9v2h6v-2a5 5 0 0 0-3-9z"/><path d="M8 17h4"/></svg>コード補完の使い方</summary>
         <div class="expander-body stack">
           <p>APIキーが無くても使えます。書いたコードを読み取って候補を出します。</p>
           <ul style="margin:0; padding-left:1.2em;">
@@ -303,7 +290,7 @@
       </details>
 
       <details class="expander">
-        <summary>🧩 ブロックとコードの関係</summary>
+        <summary><svg viewBox="0 0 20 20" class="icon" aria-hidden="true"><path d="M3 4h6v4H3z"/><path d="M5 8v3h8V8"/><path d="M11 11h6v4h-6z"/></svg>ブロックとコードの関係</summary>
         <div class="expander-body stack">
           <p>ブロックを動かすとコードが変わり、コードを書き換えるとブロックが組み直されます。</p>
           <p>ブロックにできない書き方は「Python」ブロックとしてそのまま残るので、どんなコードでも往復できます。</p>
@@ -312,7 +299,7 @@
       </details>
 
       <details class="expander">
-        <summary>🧠 じっくりモードとは</summary>
+        <summary><svg viewBox="0 0 20 20" class="icon" aria-hidden="true"><path d="M10 3a5 5 0 0 0-3 9v2h6v-2a5 5 0 0 0-3-9z"/><path d="M8 17h4"/></svg>じっくりモードとは</summary>
         <div class="expander-body stack">
           <p>すぐに答えが出てしまうと、考える時間がなくなってしまいます。じっくりモードでは：</p>
           <ul style="margin:0; padding-left:1.2em;">
@@ -341,22 +328,22 @@
         <span class="chip is-warn" id="step-chip">⏯ ステップ実行中</span>
         <span class="tabs-label">左に表示</span>
         <div class="tabs" role="tablist">
-          <button type="button" data-stage="panel-code" role="tab" aria-selected="true">🐍 コード</button>
-          <button type="button" data-stage="panel-flow" role="tab" aria-selected="false">🔀 フローチャート</button>
-          <button type="button" data-stage="panel-blocks" role="tab" aria-selected="false">🧩 ブロック</button>
+          <button type="button" data-stage="panel-code" role="tab" aria-selected="true"><svg viewBox="0 0 20 20" class="icon" aria-hidden="true"><path d="M7 6 3 10l4 4"/><path d="m13 6 4 4-4 4"/></svg>コード</button>
+          <button type="button" data-stage="panel-flow" role="tab" aria-selected="false"><svg viewBox="0 0 20 20" class="icon" aria-hidden="true"><path d="M7 3h6v3H7z"/><path d="M10 6v3"/><path d="M10 9l3 2.5-3 2.5-3-2.5z"/><path d="M10 14v3"/></svg>フローチャート</button>
+          <button type="button" data-stage="panel-blocks" role="tab" aria-selected="false"><svg viewBox="0 0 20 20" class="icon" aria-hidden="true"><path d="M3 4h6v4H3z"/><path d="M5 8v3h8V8"/><path d="M11 11h6v4h-6z"/></svg>ブロック</button>
         </div>
-        <button id="stage-exit" class="btn btn-danger btn-sm" title="ふだんの画面に戻ります">⏹ ステップ実行を終わる</button>
+        <button id="stage-exit" class="btn btn-danger btn-sm" title="ふだんの画面に戻ります"><svg viewBox="0 0 20 20" class="icon" aria-hidden="true"><path d="M5 5h10v10H5z"/></svg>ステップ実行を終わる</button>
       </div>
 
       <!-- 左上: Python コード -->
       <section class="panel" id="panel-code" data-stage>
         <div class="panel-head">
-          <span class="panel-title">🐍 Python コード <span class="chip is-live" id="sync-chip">ブロックと同期中</span></span>
+          <span class="panel-title"><span class="lane">A</span><svg viewBox="0 0 20 20" class="icon" aria-hidden="true"><path d="M7 6 3 10l4 4"/><path d="m13 6 4 4-4 4"/></svg>Python コード <span class="chip is-live" id="sync-chip">ブロックと同期中</span></span>
           <span class="panel-tools">
-            <button class="tool-btn" id="code-indent" title="字下げをそろえます">⇥ 自動インデント</button>
-            <button class="tool-btn" id="code-format" title="記号まわりの空白や空行も整えます">✨ コード整形</button>
-            <button class="tool-btn" id="code-copy" title="コードをコピー">📋 コピー</button>
-            <button class="tool-btn panel-max" data-panel="panel-code" title="このパネルを大きく表示">⛶</button>
+            <button class="tool-btn" id="code-indent" title="字下げをそろえます"><svg viewBox="0 0 20 20" class="icon" aria-hidden="true"><path d="M3 5h14M7 10h10M7 15h10"/><path d="M3 8l2 2-2 2"/></svg>自動インデント</button>
+            <button class="tool-btn" id="code-format" title="記号まわりの空白や空行も整えます"><svg viewBox="0 0 20 20" class="icon" aria-hidden="true"><path d="M3 5h14M3 10h9M3 15h12"/></svg>コード整形</button>
+            <button class="tool-btn" id="code-copy" title="コードをコピー"><svg viewBox="0 0 20 20" class="icon" aria-hidden="true"><path d="M7 3h8v10H7z"/><path d="M4 7v10h8"/></svg>コピー</button>
+            <button class="tool-btn panel-max" data-panel="panel-code" title="このパネルを大きく表示"><svg viewBox="0 0 20 20" class="icon" aria-hidden="true"><path d="M4 8V4h4M16 12v4h-4"/></svg></button>
           </span>
         </div>
         <div class="panel-body"><textarea id="code"></textarea></div>
@@ -365,29 +352,29 @@
       <!-- 右上: フローチャート -->
       <section class="panel" id="panel-flow" data-stage>
         <div class="panel-head">
-          <span class="panel-title">🔀 フローチャート</span>
+          <span class="panel-title"><span class="lane">B</span><svg viewBox="0 0 20 20" class="icon" aria-hidden="true"><path d="M7 3h6v3H7z"/><path d="M10 6v3"/><path d="M10 9l3 2.5-3 2.5-3-2.5z"/><path d="M10 14v3"/></svg>フローチャート</span>
           <span class="panel-tools">
-            <button class="tool-btn is-on" id="flow-language" title="ラベルの書き方を切り替えます">🈁 やさしい日本語</button>
-            <button class="tool-btn is-on" id="flow-fit" title="図の大きさを切り替えます">🗜 見やすい大きさ</button>
-          <button class="tool-btn" id="flow-ktph" title="いま書いているコードを、共通テストの表記で見ます">📝 共通テスト表記</button>
-          <button class="tool-btn" id="flow-refresh" title="描き直します">🔄 更新</button>
-            <button class="tool-btn panel-max" data-panel="panel-flow" title="このパネルを大きく表示">⛶</button>
+            <button class="tool-btn is-on" id="flow-language" title="ラベルの書き方を切り替えます"><svg viewBox="0 0 20 20" class="icon" aria-hidden="true"><path d="M4 4h12"/><path d="M6 4v12"/><path d="M9 8h7M9 12h5"/></svg>やさしい日本語</button>
+            <button class="tool-btn is-on" id="flow-fit" title="図の大きさを切り替えます"><svg viewBox="0 0 20 20" class="icon" aria-hidden="true"><path d="M4 8V4h4M16 12v4h-4"/></svg>見やすい大きさ</button>
+          <button class="tool-btn" id="flow-ktph" title="いま書いているコードを、共通テストの表記で見ます"><svg viewBox="0 0 20 20" class="icon" aria-hidden="true"><path d="M4 4h12"/><path d="M6 4v12"/><path d="M9 8h7M9 12h5"/></svg>共通テスト表記</button>
+          <button class="tool-btn" id="flow-refresh" title="描き直します"><svg viewBox="0 0 20 20" class="icon" aria-hidden="true"><path d="M16 8A6 6 0 1 0 16 12"/><path d="M16 4v4h-4"/></svg>更新</button>
+            <button class="tool-btn panel-max" data-panel="panel-flow" title="このパネルを大きく表示"><svg viewBox="0 0 20 20" class="icon" aria-hidden="true"><path d="M4 8V4h4M16 12v4h-4"/></svg></button>
           </span>
         </div>
         <div class="panel-body" id="flow-body">
-          <div id="flowchart"><div class="empty-state"><span class="big">🔀</span>コードを書くと流れが図になります</div></div>
+          <div id="flowchart"><div class="empty-state"><span class="big"><svg viewBox="0 0 20 20" class="icon" aria-hidden="true"><path d="M7 3h6v3H7z"/><path d="M10 6v3"/><path d="M10 9l3 2.5-3 2.5-3-2.5z"/><path d="M10 14v3"/></svg></span>コードを書くと流れが図になります</div></div>
         </div>
       </section>
 
       <!-- 左下: ブロックエディタ -->
       <section class="panel" id="panel-blocks" data-stage>
         <div class="panel-head">
-          <span class="panel-title">🧩 ブロックエディタ</span>
+          <span class="panel-title"><span class="lane">C</span><svg viewBox="0 0 20 20" class="icon" aria-hidden="true"><path d="M3 4h6v4H3z"/><path d="M5 8v3h8V8"/><path d="M11 11h6v4h-6z"/></svg>ブロックエディタ</span>
           <span class="panel-tools">
-            <button class="tool-btn" id="blocks-undo" title="元に戻す">↶</button>
-            <button class="tool-btn" id="blocks-redo" title="やり直す">↷</button>
-            <button class="tool-btn" id="blocks-tidy" title="ブロックを整列して画面に収めます">📐 整列</button>
-            <button class="tool-btn panel-max" data-panel="panel-blocks" title="このパネルを大きく表示">⛶</button>
+            <button class="tool-btn" id="blocks-undo" title="元に戻す"><svg viewBox="0 0 20 20" class="icon" aria-hidden="true"><path d="M4 9h8a4 4 0 1 1 0 8H8"/><path d="M7 6 4 9l3 3"/></svg></button>
+            <button class="tool-btn" id="blocks-redo" title="やり直す"><svg viewBox="0 0 20 20" class="icon" aria-hidden="true"><path d="M16 9H8a4 4 0 1 0 0 8h4"/><path d="m13 6 3 3-3 3"/></svg></button>
+            <button class="tool-btn" id="blocks-tidy" title="ブロックを整列して画面に収めます"><svg viewBox="0 0 20 20" class="icon" aria-hidden="true"><path d="M3 4h14M3 10h14M3 16h14"/><path d="M6 4v12M14 4v12"/></svg>整列</button>
+            <button class="tool-btn panel-max" data-panel="panel-blocks" title="このパネルを大きく表示"><svg viewBox="0 0 20 20" class="icon" aria-hidden="true"><path d="M4 8V4h4M16 12v4h-4"/></svg></button>
           </span>
         </div>
         <div class="panel-body"><div id="blockly-area"></div></div>
@@ -396,27 +383,27 @@
       <!-- 右下: 実行結果 -->
       <section class="panel" id="panel-output">
         <div class="panel-head">
-          <span class="panel-title">▶ 実行結果</span>
+          <span class="panel-title"><span class="lane">D</span><svg viewBox="0 0 20 20" class="icon" aria-hidden="true"><path d="M6 4l10 6-10 6z"/></svg>実行結果</span>
           <span class="panel-tools">
-            <button class="tool-btn" id="output-clear" title="実行結果を消す">🧹 消去</button>
-            <button class="tool-btn panel-max" data-panel="panel-output" title="このパネルを大きく表示">⛶</button>
+            <button class="tool-btn" id="output-clear" title="実行結果を消す"><svg viewBox="0 0 20 20" class="icon" aria-hidden="true"><path d="M3 16h14"/><path d="M6 13 12 4l4 3-6 9z"/></svg>消去</button>
+            <button class="tool-btn panel-max" data-panel="panel-output" title="このパネルを大きく表示"><svg viewBox="0 0 20 20" class="icon" aria-hidden="true"><path d="M4 8V4h4M16 12v4h-4"/></svg></button>
           </span>
         </div>
         <div class="panel-body" id="output-body">
           <div id="step-panel" hidden>
             <div class="step-bar">
-              <button id="step-first" class="btn btn-quiet btn-sm" title="最初へ">⏮</button>
-              <button id="step-prev" class="btn btn-quiet btn-sm" title="1つ戻る">◀</button>
-              <button id="step-next" class="btn btn-primary btn-sm" title="1つ進む">▶</button>
+              <button id="step-first" class="btn btn-quiet btn-sm" title="最初へ"><svg viewBox="0 0 20 20" class="icon" aria-hidden="true"><path d="M15 4l-7 6 7 6z"/><path d="M5 4v12"/></svg></button>
+              <button id="step-prev" class="btn btn-quiet btn-sm" title="1つ戻る"><svg viewBox="0 0 20 20" class="icon" aria-hidden="true"><path d="M13 4l-7 6 7 6z"/></svg></button>
+              <button id="step-next" class="btn btn-mark btn-sm" title="1つ進む"><svg viewBox="0 0 20 20" class="icon" aria-hidden="true"><path d="M6 4l10 6-10 6z"/></svg></button>
               <input type="range" id="step-slider" min="0" max="0" value="0" aria-label="ステップ位置">
               <span class="chip" id="step-label">0 / 0</span>
-              <button id="step-exit" class="btn btn-danger btn-sm" title="ふだんの画面に戻ります">⏹ 終わる</button>
+              <button id="step-exit" class="btn btn-danger btn-sm" title="ふだんの画面に戻ります"><svg viewBox="0 0 20 20" class="icon" aria-hidden="true"><path d="M5 5h10v10H5z"/></svg>終わる</button>
             </div>
             <div id="step-vars"></div>
           </div>
 
           <div id="predict-panel" hidden>
-            <label for="predict-input">🧠 実行する前に、出力がどうなるか予想してみましょう</label>
+            <label for="predict-input">実行する前に、出力がどうなるか予想してみましょう</label>
             <textarea id="predict-input" rows="3" placeholder="ここに予想を書いてから「▶ 実行」を押します"></textarea>
             <div id="predict-result"></div>
           </div>
@@ -433,7 +420,7 @@
           <div id="runtime-input-container">
             <label for="runtime-input" id="runtime-input-label">値を入力</label>
             <input type="text" id="runtime-input" placeholder="入力してください">
-            <button id="runtime-input-submit" class="btn btn-primary btn-sm">送信</button>
+            <button id="runtime-input-submit" class="btn btn-mark btn-sm">送信</button>
           </div>
         </div>
       </section>

@@ -4,5 +4,6 @@
   "input": "",
   "expected": "太郎\n16",
   "template": "# 変数nameに「太郎」を代入\n\n\n# 変数ageに16を代入\n\n\n# nameを出力\n\n\n# ageを出力\n",
-  "solution": "name = \"太郎\"\nage = 16\nprint(name)\nprint(age)\n"
+  "solution": "name = \"太郎\"\nage = 16\nprint(name)\nprint(age)\n",
+  "hint": "`=` の左に名前、右に中身を書きます。文字は `\"` で囲み、数は囲みません。"
 }

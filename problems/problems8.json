@@ -4,5 +4,9 @@
   "input": "",
   "expected": "成人です",
   "template": "# 年齢を変数に代入\nage = 20\n\n# if文を使って判定\n",
-  "solution": "age = 20\nif age >= 18:\n    print(\"成人です\")\nelse:\n    print(\"未成年です\")\n"
+  "solution": "age = 20\nif age >= 18:\n    print(\"成人です\")\nelse:\n    print(\"未成年です\")\n",
+  "hint": [
+    "`if` の行の終わりに `:` を書き、その下の行を 4 つ分下げます。",
+    "「18 以上」は `>=` を使います。"
+  ]
 }

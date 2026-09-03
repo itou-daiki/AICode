@@ -4,5 +4,6 @@
   "input": "",
   "expected": "りんご\nみかん\nぶどう",
   "template": "# 果物のリストを作成\nfruits = ['りんご', 'みかん', 'ぶどう']\n\n# for文を使って各要素を出力\n",
-  "solution": "fruits = ['りんご', 'みかん', 'ぶどう']\nfor fruit in fruits:\n    print(fruit)\n"
+  "solution": "fruits = ['りんご', 'みかん', 'ぶどう']\nfor fruit in fruits:\n    print(fruit)\n",
+  "hint": "`for fruit in fruits:` と書くと、中身を 1 つずつ取り出せます。"
 }

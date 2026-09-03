@@ -8,6 +8,15 @@
         "value": "inter",
         "createdAt": "2026-09-03T10:00:52.653Z",
         "reason": "既存の index/problems/drawing/python-guide の4ページがすべて Inter を読み込んでおり、lessons.html だけ別の書体にすると同じアプリ内で不揃いになる。書体を変えるなら5ページ一括で判断すべき事項。"
+      },
+      {
+        "rule": "codex-grid-background",
+        "value": "*",
+        "files": [
+          "css/theme.css"
+        ],
+        "createdAt": "2026-09-03T15:58:50.297Z",
+        "reason": "方眼の地は、利用者が選んだ世界（結線表を白地に移す）の材質そのもの。飾りではなく、番号つきレーンと区画がここに吸着する土台。THESIS と OWN-WORLD に明記してある。"
       }
     ]
   }

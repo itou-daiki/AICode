@@ -4,5 +4,9 @@
   "input": "",
   "expected": "1\n2\n3\n4\n5",
   "template": "# カウンター変数を初期化\ncount = 1\n\n# while文を使って出力\n",
-  "solution": "count = 1\nwhile count <= 5:\n    print(count)\n    count = count + 1\n"
+  "solution": "count = 1\nwhile count <= 5:\n    print(count)\n    count = count + 1\n",
+  "hint": [
+    "`while` の条件が正しい間、くり返します。",
+    "中で `count` を 1 ずつ増やさないと、いつまでも終わりません。"
+  ]
 }

@@ -30,6 +30,7 @@ import {
 } from './lessons-progress.js';
 import { recordTrace, changedVariables, changedItems, namesInLine } from './stepper.js';
 import * as ai from './ai.js';
+import { icon, iconHtml, setIconLabel } from './icons.js';
 
 const $ = (id) => document.getElementById(id);
 
@@ -42,6 +43,8 @@ let editorPy = null;
 let editorKtph = null;
 let completion = null;
 let tabs = null;
+/** 左の一覧の開け閉め。狭い画面で問題を開くときに閉じる */
+let nav = null;
 
 /** コース一覧とその中身 */
 const courses = {};
@@ -176,7 +179,8 @@ const syncViews = debounce(() => {
   if (warnings.length) {
     const lines = [...new Set(warnings.map(w => w.line))].join(', ');
     warnBox.textContent = `${lines} 行目は、共通テスト用の表記には無い書き方です（試験では問題文の中で説明されます）。`;
-    warnBox.style.display = tabs && tabs.current() === 'ktph' ? '' : 'none';
+    const showing = tabs && (tabs.current() === 'ktph' || tabs.current() === 'pair');
+    warnBox.style.display = showing ? '' : 'none';
   } else {
     warnBox.style.display = 'none';
   }
@@ -202,7 +206,9 @@ function renderNav() {
     const head = document.createElement('button');
     head.type = 'button';
     head.className = 'course-head';
-    head.innerHTML = `<span>${entry.icon}</span><span>${entry.title}</span>`;
+    // STORY:「左の凡例で今どこにいるかを知り」。開いている問題のコースを示す
+    if (current && current.courseId === entry.id) head.setAttribute('aria-current', 'true');
+    head.innerHTML = `<span class="lane">${entry.lane || ''}</span><span>${entry.title}</span>`;
 
     if (entry.kind === 'mock') {
       const count = document.createElement('span');
@@ -224,7 +230,7 @@ function renderNav() {
         item.type = 'button';
         item.className = 'lesson-item';
         item.innerHTML =
-          `<span class="mark">🏁</span><span class="name">${set.title}</span>` +
+          `<span class="mark" data-state="mock"></span><span class="name">${set.title}</span>` +
           `<span class="kind">${best ? `最高 ${best.score}点` : '未受験'}</span>`;
         item.addEventListener('click', () => startMock(set.id));
         list.appendChild(item);
@@ -263,9 +269,13 @@ function renderNav() {
         item.type = 'button';
         item.className = 'lesson-item';
         item.dataset.ref = ref;
-        if (current && problemRef(current) === ref) item.setAttribute('aria-current', 'true');
+        if (current && problemRef(current) === ref) {
+          item.setAttribute('aria-current', 'true');
+          // 凡例は長い。今いる場所が畳まれた外にあると「どこにいるか」が分からない
+          requestAnimationFrame(() => item.scrollIntoView({ block: 'nearest' }));
+        }
         item.innerHTML =
-          `<span class="mark">${isSolved(ref) ? '✅' : '・'}</span>` +
+          `<span class="mark" data-state="${isSolved(ref) ? 'done' : 'todo'}"></span>` +
           `<span class="name"></span>` +
           `<span class="kind">${kindLabel(problem.type)}</span>`;
         item.querySelector('.name').textContent = problem.title || problem.id;
@@ -314,6 +324,9 @@ function openProblem(ref) {
   // 共通テスト対策は、試験と同じ見た目（表記）から見せる
   tabs.select(problem.view === 'ktph' ? 'ktph' : 'python');
 
+  // 狭い画面では一覧が第一画面を占めてしまうので、開いたら閉じる
+  if (window.matchMedia('(max-width: 1000px)').matches && nav) nav.toggle(false);
+
   renderProblem(problem);
   renderNav();
   rememberLast(ref);
@@ -331,7 +344,8 @@ function renderProblem(problem) {
   kind.style.display = problem.type ? '' : 'none';
 
   const level = $('problem-level');
-  level.textContent = '★'.repeat(problem.difficulty || 1);
+  const difficulty = Math.max(1, Math.min(5, problem.difficulty || 1));
+  level.innerHTML = `難しさ ${difficulty}<span class="of"> / 5</span>`;
   level.style.display = problem.difficulty ? '' : 'none';
 
   $('current-label').textContent = mock
@@ -354,10 +368,7 @@ function renderProblem(problem) {
   renderAnswerArea(problem);
 
   // ヒントと解説（模試の間は出さない）
-  const hintBox = $('hint-box');
-  hintBox.style.display = !mock && problem.hint ? '' : 'none';
-  hintBox.open = false;
-  $('hint-text').innerHTML = toSafeHtml(problem.hint || '');
+  renderHints(problem);
 
   const explainBox = $('explain-box');
   explainBox.style.display = !mock && problem.explanation ? '' : 'none';
@@ -371,11 +382,63 @@ function renderProblem(problem) {
 
   // ボタンの見せ方
   $('check-btn').style.display = problem.type === 'read' ? 'none' : '';
-  $('check-btn').textContent = mock ? '記録して次へ ›' : '✅ 答え合わせ';
+  if (mock) { setIconLabel($('check-btn'), 'next', '記録して次へ'); }
+  else { setIconLabel($('check-btn'), 'check', '答え合わせ'); }
   updateRunAvailability();
 
-  $('output').textContent = '「▶ 実行」で動かせます';
+  $('output').textContent = '「実行」で動かせます';
   $('runtime-input-container').style.display = 'none';
+}
+
+/**
+ * ヒントを出す
+ *
+ * ヒントは 1 つずつ出す。はじめから全部見せると、
+ * 「少しだけ助けがほしい人」にも答えに近いところまで見せてしまう。
+ * 1 つ目は着眼点、2 つ目でやり方まで踏みこむ、という順に書いてある。
+ */
+function renderHints(problem) {
+  const box = $('hint-box');
+  const body = $('hint-text');
+  const steps = Array.isArray(problem.hint) ? problem.hint
+    : (problem.hint ? [problem.hint] : []);
+
+  box.style.display = !mock && steps.length ? '' : 'none';
+  box.open = false;
+  body.innerHTML = '';
+  if (!steps.length) return;
+
+  let shown = 0;
+
+  const more = document.createElement('button');
+  more.className = 'btn btn-sm';
+  more.type = 'button';
+
+  const reveal = () => {
+    const step = document.createElement('div');
+    step.className = 'hint-step';
+    if (steps.length > 1) {
+      const mark = document.createElement('span');
+      mark.className = 'lane';
+      mark.textContent = String(shown + 1);
+      step.appendChild(mark);
+    }
+    const text = document.createElement('div');
+    text.innerHTML = toSafeHtml(steps[shown]);
+    step.appendChild(text);
+    body.insertBefore(step, more);
+    shown += 1;
+
+    if (shown >= steps.length) {
+      more.remove();
+    } else {
+      more.textContent = `もう少し詳しく（あと ${steps.length - shown}）`;
+    }
+  };
+
+  body.appendChild(more);
+  more.addEventListener('click', reveal);
+  reveal();
 }
 
 /** 型ごとの答え方を出す */
@@ -615,8 +678,8 @@ async function checkCurrent() {
 
     const result = gradeTrace(current, given);
     finishAnswer(ref, result.ok,
-      result.ok ? '✅ 正解です！' :
-        '❌ ちがいます。「▶ 実行」で実際に動かして、どこがちがうか確かめてみましょう。');
+      result.ok ? '正解です。' :
+        'ちがいます。「実行」で実際に動かして、どこがちがうか確かめてみましょう。');
     return;
   }
 
@@ -628,9 +691,9 @@ async function checkCurrent() {
     }
     for (const [key, ok] of Object.entries(result.perBlank)) {
       const judge = document.querySelector(`.judge[data-key="${key}"]`);
-      if (judge) judge.textContent = mock ? '' : (ok ? '✅' : '❌');
+      if (judge) judge.innerHTML = mock ? '' : iconHtml(ok ? 'check' : 'cross');
     }
-    finishAnswer(ref, result.ok, result.ok ? '✅ 正解です！' : '❌ もう一度考えてみましょう。');
+    finishAnswer(ref, result.ok, result.ok ? '正解です。' : 'もう一度考えてみましょう。');
     return;
   }
 
@@ -658,11 +721,11 @@ async function checkCurrent() {
         <td class="mono">${escapeHtml(row.input || '(なし)')}</td>
         <td class="mono">${escapeHtml(row.expected)}</td>
         <td class="mono">${escapeHtml(row.error ? row.error.type + ': ' + row.error.message : row.actual)}</td>
-        <td>${row.ok ? '✅' : '❌'}</td>
+        <td>${iconHtml(row.ok ? 'check' : 'cross')}</td>
       </tr>`).join('');
 
     showNote('check-result', summary.ok ? 'ok' : 'bad', `
-      <p><strong>${summary.ok ? '✅ 全部通りました！' : `❌ ${summary.passed} / ${summary.total} 通りました`}</strong></p>
+      <p><strong>${summary.ok ? '全部通りました。' : `${summary.passed} / ${summary.total} 通りました`}</strong></p>
       <table class="test-table">
         <tr><th>#</th><th>入力</th><th>期待</th><th>実際</th><th>判定</th></tr>
         ${rows}
@@ -725,6 +788,62 @@ async function startStepMode() {
   }
 }
 
+/* ------------------------------------------------------------
+ * 並べて結ぶ（THESIS：同じ 1 本のプログラムを、同じ行番号で結ぶ）
+ *
+ * エディタは 1 つずつしか無いので、並べるときは stage の箱ごと
+ * 左右の枠に移し、離れるときは元の場所へ戻す。
+ * ---------------------------------------------------------- */
+
+/** 並べる／戻す */
+function layoutPair(on) {
+  const body = $('program-body');
+  const py = $('stage-python');
+  const kt = $('stage-ktph');
+  if (!body || !py || !kt) return;
+
+  if (on) {
+    $('pair-left').appendChild(py);
+    $('pair-right').appendChild(kt);
+    py.classList.add('is-shown');
+    kt.classList.add('is-shown');
+  } else if (py.parentElement !== body) {
+    body.insertBefore(kt, body.firstChild);
+    body.insertBefore(py, kt.nextSibling);
+  }
+}
+
+/**
+ * 左右の同じ行を朱の 1 本でつなぐ。
+ * 2 つのエディタは同じ行の高さなので、上からの距離も必ず一致する。
+ * @param {number} [line] 1 から数えた行。省くと線を消す
+ */
+function drawPairMark(line = step.active ? (step.list[step.index] || {}).line : 0) {
+  const rail = $('pair-rail');
+  const mark = $('pair-mark');
+  if (!rail || !mark || !editorPy) return;
+
+  // 罫の間隔を、実際の行の高さから取る（書体が変わっても崩れない）
+  const height = editorPy.defaultTextHeight();
+  const top = editorPy.charCoords({ line: 0, ch: 0 }, 'local').top;
+  // まだ並べ替えた直後で寸法が出ていないことがある。次の描画で測り直す
+  if (height <= 2) {
+    requestAnimationFrame(() => drawPairMark(line));
+    return;
+  }
+  rail.style.setProperty('--pair-line', `${height}px`);
+  rail.style.setProperty('--pair-top', `${top}px`);
+
+  if (!line || line < 1 || line > editorPy.lineCount()) {
+    mark.hidden = true;
+    return;
+  }
+  const y = editorPy.charCoords({ line: line - 1, ch: 0 }, 'local').top
+    - editorPy.getScrollInfo().top + height / 2;
+  mark.hidden = false;
+  mark.style.top = `${Math.round(y)}px`;
+}
+
 function showStep(index) {
   if (!step.active) return;
   step.index = Math.max(0, Math.min(index, step.list.length - 1));
@@ -747,6 +866,7 @@ function showStep(index) {
     }
   }
   if (tabs.current() === 'flow') highlightFlowLine($('flowchart'), flowLines, state.line);
+  drawPairMark(state.line);
 
   renderStepVars(state, previous);
 }
@@ -821,6 +941,7 @@ function exitStepMode() {
     for (let i = 0; i < editor.lineCount(); i++) editor.removeLineClass(i, 'background', 'step-line');
   }
   highlightFlowLine($('flowchart'), flowLines, 0);
+  drawPairMark(0);
 }
 
 /* ============================================================
@@ -838,7 +959,7 @@ function startMock(setId) {
 function showMockIntro(set, best) {
   mock = null;
   $('mock-chip').style.display = 'none';
-  $('problem-title').textContent = `🏁 ${set.title}`;
+  $('problem-title').textContent = set.title;
   $('problem-kind').style.display = 'none';
   $('problem-level').style.display = 'none';
   $('ktph-note').style.display = 'none';
@@ -851,7 +972,7 @@ function showMockIntro(set, best) {
   area.innerHTML = '';
   const start = document.createElement('button');
   start.className = 'btn btn-primary';
-  start.textContent = '▶ 始める';
+  setIconLabel(start, 'run', '始める');
   start.addEventListener('click', () => beginMock(set));
   area.appendChild(start);
 
@@ -895,7 +1016,7 @@ function finishMock() {
     return `<tr>
       <td>${escapeHtml(problem ? problem.title : row.ref)}</td>
       <td>${row.points} 点</td>
-      <td>${row.ok ? '✅' : '❌'}</td>
+      <td>${iconHtml(row.ok ? 'check' : 'cross')}</td>
       <td><button class="btn btn-sm" data-open="${escapeHtml(row.ref)}">解説を見る</button></td>
     </tr>`;
   }).join('');
@@ -904,7 +1025,7 @@ function finishMock() {
   mock = null;
   $('mock-chip').style.display = 'none';
 
-  $('problem-title').textContent = '🏁 結果';
+  $('problem-title').textContent = '結果';
   $('problem-kind').style.display = 'none';
   $('problem-level').style.display = 'none';
   $('ktph-note').style.display = 'none';
@@ -982,19 +1103,19 @@ function setupChat() {
 
     const box = $('chat-messages');
     const mine = document.createElement('p');
-    mine.textContent = '🙋 ' + message;
+    mine.textContent = 'あなた: ' + message;
     box.appendChild(mine);
 
     const reply = document.createElement('p');
-    reply.textContent = '🤖 …';
+    reply.textContent = 'AI: …';
     box.appendChild(reply);
 
     try {
-      reply.textContent = '🤖 ' + await ai.chatWithAI(message, {
+      reply.textContent = 'AI: ' + await ai.chatWithAI(message, {
         code: currentCode(), problem: current, free: false,
       });
     } catch (e) {
-      reply.textContent = '🤖 ' + e.message;
+      reply.textContent = 'AI: ' + e.message;
     }
   };
   $('chat-send').addEventListener('click', send);
@@ -1061,28 +1182,32 @@ async function init() {
       tabsId: 'program-tabs',
       initial: 'python',
       onChange: (stage) => {
-        for (const name of ['ktph', 'python', 'flow']) {
+        layoutPair(stage === 'pair');
+        for (const name of ['ktph', 'python', 'flow', 'pair']) {
           $(`stage-${name}`).classList.toggle('is-shown', name === stage);
         }
         $('ktph-warning').style.display =
-          stage === 'ktph' && $('ktph-warning').textContent ? '' : 'none';
+          (stage === 'ktph' || stage === 'pair') && $('ktph-warning').textContent ? '' : 'none';
         requestAnimationFrame(() => {
-          if (stage === 'python') editorPy.refresh();
-          if (stage === 'ktph') editorKtph.refresh();
+          if (stage === 'python' || stage === 'pair') editorPy.refresh();
+          if (stage === 'ktph' || stage === 'pair') editorKtph.refresh();
+          if (stage === 'pair') drawPairMark();
           if (stage === 'flow') syncViews();
         });
       },
     });
 
-    initSidebar({
+    nav = initSidebar({
       sidebarId: 'course-nav',
       toggleId: 'toggle-nav',
       storageKey: 'easycode_lessons_sidebar',
-      // どんな問題があるか見えた方がよいので、はじめは開いておく
-      defaultOpen: true,
+      // 広い画面では、どんな問題があるか見えた方がよいので開いておく。
+      // 狭い画面では一覧だけで第一画面が埋まるので、閉じた状態から始める。
+      defaultOpen: !window.matchMedia('(max-width: 1000px)').matches,
       onToggle: () => requestAnimationFrame(() => {
         editorPy.refresh();
         fitFlowchart($('flowchart'));
+        drawPairMark();
       }),
     });
 
