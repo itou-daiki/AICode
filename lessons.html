@@ -89,8 +89,8 @@
       border-right: 1px solid var(--c-line);
     }
     #problem-head { display: flex; align-items: center; gap: var(--sp-2); flex-wrap: wrap; }
-    #problem-title { margin: 0; font-size: var(--text-lg); }
-    #problem-text { font-size: var(--text-md); line-height: 1.75; }
+    #problem-title { margin: 0; font-size: var(--text-xl); line-height: 1.35; }
+    #problem-text { font-size: var(--text-base); line-height: 1.8; }
     #problem-text p { margin: 0 0 var(--sp-2); }
     #problem-text ul { margin: 0 0 var(--sp-2); padding-left: 1.4em; }
     #problem-text code { padding: 1px 5px; border-radius: var(--r-sm); background: var(--c-surface-3); font-size: 0.92em; }
@@ -106,19 +106,21 @@
     }
     #problem-text pre code { padding: 0; background: none; }
 
+    /* ずっと出ている「表記のきまり」。
+       .note（何かが起きたときの知らせ）とは役割がちがうので、
+       同じ強さで目立たせない。落ちついた囲みだけにする。 */
     .ktph-note {
-      padding: var(--sp-2);
+      padding: var(--sp-2) var(--sp-3);
       border: 1px solid var(--c-line);
-      border-left: 3px solid var(--c-accent);
-      border-radius: var(--r-sm);
+      border-radius: var(--r-md);
       background: var(--c-surface-2);
-      font-size: var(--text-2xs);
-      line-height: 1.7;
+      font-size: var(--text-xs);
+      line-height: 1.8;
       color: var(--c-ink-2);
     }
 
     #answer-area { display: flex; flex-direction: column; gap: var(--sp-2); }
-    .answer-question { font-weight: 600; }
+    .answer-question { font-size: var(--text-base); font-weight: 600; }
     .answer-row { display: flex; align-items: center; gap: var(--sp-2); flex-wrap: wrap; }
     .answer-row input[type='text'] { flex: 1 1 200px; min-width: 0; }
     .choice-list { display: flex; flex-direction: column; gap: var(--sp-1); }
@@ -148,7 +150,7 @@
     .blank-row select { flex: 1 1 200px; min-width: 0; font-family: var(--font-mono); }
     .blank-row .judge { flex: 0 0 auto; width: 1.4em; text-align: center; }
 
-    .task-list { margin: 0; padding-left: 1.3em; font-size: var(--text-sm); line-height: 1.8; }
+    .task-list { margin: 0; padding-left: 1.3em; font-size: var(--text-base); line-height: 1.9; }
 
     /* ===== 右: エディタと結果 ===== */
     #work-col { flex: 1 1 60%; min-width: 0; display: flex; flex-direction: column; gap: var(--sp-2); padding: var(--sp-2); }

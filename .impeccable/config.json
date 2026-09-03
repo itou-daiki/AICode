@@ -1,0 +1,14 @@
+{
+  "detector": {
+    "ignoreRules": [],
+    "ignoreFiles": [],
+    "ignoreValues": [
+      {
+        "rule": "overused-font",
+        "value": "inter",
+        "createdAt": "2026-09-03T10:00:52.653Z",
+        "reason": "既存の index/problems/drawing/python-guide の4ページがすべて Inter を読み込んでおり、lessons.html だけ別の書体にすると同じアプリ内で不揃いになる。書体を変えるなら5ページ一括で判断すべき事項。"
+      }
+    ]
+  }
+}
