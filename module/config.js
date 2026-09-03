@@ -67,7 +67,9 @@ export const STORAGE_KEYS = {
  */
 export const UI_CONFIG = {
   // 問題読み込みのパス
-  PROBLEMS_INDEX_PATH: 'problems/index.json',
+  LESSONS_INDEX_PATH: 'lessons/index.json',
+  LESSONS_DIR: 'lessons',
+  // 基礎練習は、もとからある problems/*.json を lessons/basic.json から参照している
   PROBLEMS_DIR: 'problems',
 
   // アニメーション時間

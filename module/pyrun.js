@@ -75,7 +75,17 @@ def _easycode_error_info(exc):
     return info
 
 
-async def _easycode_run(code, element=None, seconds=10.0, use_globals=False):
+def _easycode_describe(value):
+    """変数の値を、画面に出せる短い文字にする"""
+    try:
+        text = repr(value)
+    except Exception:
+        return '<表示できません>'
+    return text if len(text) <= 200 else text[:200] + '…'
+
+
+async def _easycode_run(code, element=None, seconds=10.0, use_globals=False,
+                        prelude=None, capture=None):
     out = _EasycodeOut(element)
     info = None
     orig_out, orig_err = sys.stdout, sys.stderr
@@ -94,6 +104,18 @@ async def _easycode_run(code, element=None, seconds=10.0, use_globals=False):
         helper = globals().get('custom_input')
         if helper is not None:
             namespace['custom_input'] = helper
+
+    # 前置き（乱数の種を固定する、問題文で説明される関数を用意する など）。
+    # 学習者のコードとは別のファイル名で読みこむので、
+    # エラーの行番号がずれることはない。
+    if prelude:
+        try:
+            exec(compile(prelude, '<easycode-prelude>', 'exec'), namespace)
+        except BaseException as exc:
+            return json.dumps({
+                'output': '',
+                'error': {'type': 'PreludeError', 'message': str(exc), 'line': None, 'name': None},
+            })
 
     _easycode_state['deadline'] = time.time() + seconds
     _easycode_state['ticks'] = 0
@@ -115,7 +137,18 @@ async def _easycode_run(code, element=None, seconds=10.0, use_globals=False):
         sys.settrace(None)
         sys.stdout, sys.stderr = orig_out, orig_err
 
-    return json.dumps({'output': out.buffer.getvalue(), 'error': info})
+    # 「変数の最終値」を問う問題のために、名指しされた変数だけ取り出す
+    variables = {}
+    if capture:
+        for name in json.loads(capture):
+            if name in namespace:
+                variables[name] = _easycode_describe(namespace[name])
+
+    return json.dumps({
+        'output': out.buffer.getvalue(),
+        'error': info,
+        'variables': variables,
+    })
 `;
 
 const installed = new WeakSet();
@@ -138,18 +171,38 @@ function ensureRunner(pyodide) {
  * @param {HTMLElement} [options.element] 出力をその場で書き足したい要素
  * @param {number} [options.seconds] 打ち切りまでの秒数
  * @param {boolean} [options.useGlobals] 定義したものを次の実行にも残す（描画モード用）
- * @returns {Promise<{output: string, error: object|null}>}
+ * @param {string} [options.prelude] 先に読みこむ Python（乱数の種の固定など）
+ * @param {string[]} [options.capture] 実行のあと値を見たい変数の名前
+ * @returns {Promise<{output: string, error: object|null, variables: object}>}
  */
 export async function runUserCode(pyodide, code, options = {}) {
   ensureRunner(pyodide);
-  const { element = null, seconds = RUN_LIMIT_SECONDS, useGlobals = false } = options;
+  const {
+    element = null, seconds = RUN_LIMIT_SECONDS, useGlobals = false,
+    prelude = null, capture = null,
+  } = options;
+
   const run = pyodide.globals.get('_easycode_run');
   try {
-    const json = await run(code, element, seconds, useGlobals);
-    return JSON.parse(json);
+    const json = await run(code, element, seconds, useGlobals, prelude,
+      capture ? JSON.stringify(capture) : null);
+    const result = JSON.parse(json);
+    if (!result.variables) result.variables = {};
+    return result;
   } finally {
     if (run && run.destroy) run.destroy();
   }
+}
+
+/**
+ * input() を、ブラウザの入力欄で受け取れる形に置きかえる
+ *
+ * 行の数は変えないので、エラーの行番号はずれない。
+ * @param {string} code
+ * @returns {string}
+ */
+export function withBrowserInput(code) {
+  return code.replace(/\binput\(/g, 'await custom_input(');
 }
 
 /* ============================================================

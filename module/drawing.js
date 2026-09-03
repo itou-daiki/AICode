@@ -11,9 +11,9 @@ import {
   takeCodeFromUrl, makeShareUrl, showShareDialog,
 } from './ui.js';
 import { callGemini, chatWithAI } from './ai.js';
-import { appState } from './state.js';
 import { PYODIDE_CONFIG } from './config.js';
 import { runUserCode, explainError } from './pyrun.js';
+import { toKtph } from './ktph.js';
 
 const STORAGE_KEY = 'easycode_drawing_workspace_v2';
 
@@ -235,6 +235,9 @@ deltaTime = 0
 p5.frame_count = 0
 p5.start_time = time.time()
 p5._last_time = time.time()
+# 前に動かしたプログラムの frameRate() が残らないよう、p5.js の既定にもどす
+p5._target_fps = 60
+p5._recent_fps = 0
 `);
 
   // 学習者のコードを読みこんで、setup() があれば一度だけ呼ぶ。
@@ -263,11 +266,32 @@ p5._last_time = time.time()
   setCanvasState('アニメーション中', true);
   output.textContent += 'アニメーション実行中…（⏹ 停止 で止まります）\n';
 
+  // p5.js と同じく、1 秒あたりのコマ数をそろえる。
+  // そろえないと、図形の少ないプログラムは速く、多いプログラムは遅く動いてしまい、
+  // 同じコードでも見え方が変わってしまう。frameRate(30) で変えられる。
+  let nextFrameAt = 0;
+  let targetFps = 60;
+
+  // 画面の書きかえの合間にわずかな時間しかないと、1コマ飛ばしてしまい
+  // 60 のつもりが 30 になる。少し早めでも描くようにして取りこぼしを防ぐ。
+  const TOLERANCE_MS = 4;
+
   const loop = async () => {
     if (!animating) return;
     try {
-      // 1コマぶんの下ごしらえ（座標系をもどし、frameCount を進める）
-      await pyodide.runPythonAsync(`
+      const now = performance.now();
+      if (targetFps > 0 && now < nextFrameAt - TOLERANCE_MS) {
+        animationId = requestAnimationFrame(loop);
+        return;
+      }
+      // 間隔ぶん進める。遅れが積もったときは、今を起点にして追いつこうとしない
+      const interval = targetFps > 0 ? 1000 / targetFps : 0;
+      nextFrameAt = Math.max(now + interval, nextFrameAt + interval);
+
+      // 1コマぶんの下ごしらえ（座標系をもどし、frameCount を進める）。
+      // 目標のコマ数も、この 1 回のやりとりで受け取る
+      // （毎コマ 2 回 Python を呼ぶと、それだけで遅くなってしまう）
+      const reported = await pyodide.runPythonAsync(`
 import time
 
 # p5.js と同じく、毎フレーム座標系をもどしてから draw() を呼ぶ
@@ -278,7 +302,10 @@ p5.frame_count = frameCount
 _now = time.time()
 deltaTime = (_now - p5._last_time) * 1000 if p5._last_time else 0
 p5._last_time = _now
+p5._recent_fps = (1000 / deltaTime) if deltaTime > 0 else 0
+p5._target_fps
 `);
+      targetFps = Number(reported) || 0;
 
       const frame = await runUserCode(pyodide, 'draw()', { useGlobals: true, seconds: 3 });
 
@@ -466,6 +493,40 @@ function setupControls() {
 
   $('flow-refresh').addEventListener('click', () => bench.renderFlowchart(true));
 
+  // いま書いているコードを、共通テストの表記で見せる。
+  // ふだんの Python が、試験ではどう書かれるのかを見くらべられる。
+  $('flow-ktph').addEventListener('click', () => {
+    const button = $('flow-ktph');
+    const showing = button.classList.toggle('is-on');
+    const container = $('flowchart');
+
+    if (!showing) { bench.renderFlowchart(true); return; }
+
+    // コードを直した直後は、図の描き直しが控えている。
+    // それが後から走ると、せっかく出した表記を上書きしてしまうので、
+    // 先に済ませてから差しかえる。
+    if (bench.scheduleFlowchart && bench.scheduleFlowchart.cancel) {
+      bench.scheduleFlowchart.cancel();
+    }
+
+    const { text, warnings } = toKtph(bench.getCode());
+    container.innerHTML = '';
+    const box = document.createElement('pre');
+    box.className = 'console';
+    box.style.margin = '0';
+    box.style.width = '100%';
+    box.textContent = text || 'コードを書くと、ここに共通テストの表記で出ます';
+    container.appendChild(box);
+
+    if (warnings.length) {
+      const note = document.createElement('div');
+      note.className = 'note is-warn';
+      const lines = [...new Set(warnings.map(w => w.line))].join(', ');
+      note.textContent = `${lines} 行目は、共通テスト用の表記には無い書き方です。`;
+      container.appendChild(note);
+    }
+  });
+
   $('flow-fit').addEventListener('click', (e) => {
     const fit = !bench.isFlowFit();
     bench.setFlowFit(fit);
@@ -522,7 +583,6 @@ async function init() {
       extraApi: completionApi(),
       onStatus: showSyncState,
     });
-    appState.setEditor(bench.editor);
     const shared = await takeCodeFromUrl();
     bench.restore(shared);
     if (shared) toast('共有されたコードを読み込みました');
@@ -574,7 +634,6 @@ async function init() {
     pyodide = await loadPyodide({ indexURL: PYODIDE_CONFIG.INDEX_URL });
     pyodide.globals.set('js', window);
     await pyodide.runPythonAsync(P5_PYTHON_LIBRARY);
-    appState.setPyodide(pyodide);
 
     $('run-btn').disabled = false;
     loader.style.display = 'none';

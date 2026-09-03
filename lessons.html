@@ -1,0 +1,404 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>easyCode - レッスンモード</title>
+  <link rel="icon" type="image/svg+xml" href="favicon.svg">
+  <link rel="alternate icon" href="favicon.ico">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/codemirror@5.65.16/lib/codemirror.css" />
+  <link rel="stylesheet" href="css/theme.css">
+  <style>
+    /* レッスンモードのレイアウト（色や文字は css/theme.css のトークンを使う） */
+    :root { --c-accent: var(--c-problems); }
+    html, body { height: 100%; overflow: hidden; }
+
+    #shell { display: flex; height: calc(100vh - var(--topbar-h)); overflow: hidden; }
+
+    /* ===== 左: コースと問題の一覧 ===== */
+    #course-nav {
+      flex: 0 0 260px;
+      width: 260px;
+      overflow-y: auto;
+      padding: var(--sp-3);
+      gap: var(--sp-3);
+    }
+    #course-nav:not(.is-open) { flex-basis: 0; width: 0; padding: 0; }
+
+    .course-block { margin-bottom: var(--sp-3); }
+    .course-head {
+      display: flex;
+      align-items: center;
+      gap: var(--sp-2);
+      width: 100%;
+      padding: var(--sp-2);
+      border: 1px solid var(--c-line);
+      border-radius: var(--r-md);
+      background: var(--c-surface);
+      font-family: inherit;
+      font-size: var(--text-sm);
+      font-weight: 700;
+      color: var(--c-ink);
+      cursor: pointer;
+      text-align: left;
+    }
+    .course-head:hover { border-color: var(--c-brand); background: var(--c-brand-soft); }
+    .course-head .count { margin-left: auto; font-size: var(--text-2xs); color: var(--c-ink-2); font-weight: 600; }
+    .course-summary { margin: var(--sp-1) 0 0; font-size: var(--text-2xs); color: var(--c-ink-2); }
+
+    .lesson-title {
+      margin: var(--sp-2) 0 var(--sp-1);
+      font-size: var(--text-2xs);
+      font-weight: 700;
+      letter-spacing: 0.06em;
+      color: var(--c-ink-2);
+    }
+    .lesson-list { display: flex; flex-direction: column; gap: 2px; margin-bottom: var(--sp-2); }
+    .lesson-item {
+      display: flex;
+      align-items: center;
+      gap: var(--sp-2);
+      padding: 6px var(--sp-2);
+      border: 1px solid transparent;
+      border-radius: var(--r-sm);
+      background: none;
+      font-family: inherit;
+      font-size: var(--text-sm);
+      color: var(--c-ink);
+      cursor: pointer;
+      text-align: left;
+    }
+    .lesson-item:hover { background: var(--c-surface-2); border-color: var(--c-line); }
+    .lesson-item[aria-current='true'] { background: var(--c-accent); border-color: transparent; color: #fff; }
+    .lesson-item .mark { flex: 0 0 auto; width: 1.2em; text-align: center; }
+    .lesson-item .name { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .lesson-item .kind { flex: 0 0 auto; font-size: var(--text-2xs); opacity: 0.8; }
+
+    /* ===== 中: 問題文と解答 ===== */
+    #problem-col {
+      flex: 1 1 40%;
+      min-width: 0;
+      display: flex;
+      flex-direction: column;
+      gap: var(--sp-3);
+      overflow-y: auto;
+      padding: var(--sp-3);
+      border-right: 1px solid var(--c-line);
+    }
+    #problem-head { display: flex; align-items: center; gap: var(--sp-2); flex-wrap: wrap; }
+    #problem-title { margin: 0; font-size: var(--text-lg); }
+    #problem-text { font-size: var(--text-md); line-height: 1.75; }
+    #problem-text p { margin: 0 0 var(--sp-2); }
+    #problem-text ul { margin: 0 0 var(--sp-2); padding-left: 1.4em; }
+    #problem-text code { padding: 1px 5px; border-radius: var(--r-sm); background: var(--c-surface-3); font-size: 0.92em; }
+    #problem-text pre {
+      margin: 0 0 var(--sp-2);
+      padding: var(--sp-2);
+      border-radius: var(--r-md);
+      background: var(--c-code-bg);
+      color: var(--c-ink-on-dark);
+      font-family: var(--font-mono);
+      font-size: var(--text-sm);
+      overflow-x: auto;
+    }
+    #problem-text pre code { padding: 0; background: none; }
+
+    .ktph-note {
+      padding: var(--sp-2);
+      border: 1px solid var(--c-line);
+      border-left: 3px solid var(--c-accent);
+      border-radius: var(--r-sm);
+      background: var(--c-surface-2);
+      font-size: var(--text-2xs);
+      line-height: 1.7;
+      color: var(--c-ink-2);
+    }
+
+    #answer-area { display: flex; flex-direction: column; gap: var(--sp-2); }
+    .answer-question { font-weight: 600; }
+    .answer-row { display: flex; align-items: center; gap: var(--sp-2); flex-wrap: wrap; }
+    .answer-row input[type='text'] { flex: 1 1 200px; min-width: 0; }
+    .choice-list { display: flex; flex-direction: column; gap: var(--sp-1); }
+    .choice-item {
+      display: flex;
+      align-items: baseline;
+      gap: var(--sp-2);
+      padding: var(--sp-2);
+      border: 1px solid var(--c-line);
+      border-radius: var(--r-md);
+      background: var(--c-surface);
+      cursor: pointer;
+    }
+    .choice-item:hover { border-color: var(--c-brand); background: var(--c-brand-soft); }
+    .choice-item code { font-family: var(--font-mono); font-size: var(--text-sm); }
+
+    .blank-row { display: flex; align-items: center; gap: var(--sp-2); flex-wrap: wrap; }
+    .blank-row .blank-key {
+      flex: 0 0 auto;
+      padding: 2px 8px;
+      border-radius: var(--r-sm);
+      background: var(--c-warn-soft);
+      color: #7a4a00;
+      font-weight: 700;
+      font-size: var(--text-sm);
+    }
+    .blank-row select { flex: 1 1 200px; min-width: 0; font-family: var(--font-mono); }
+    .blank-row .judge { flex: 0 0 auto; width: 1.4em; text-align: center; }
+
+    .task-list { margin: 0; padding-left: 1.3em; font-size: var(--text-sm); line-height: 1.8; }
+
+    /* ===== 右: エディタと結果 ===== */
+    #work-col { flex: 1 1 60%; min-width: 0; display: flex; flex-direction: column; gap: var(--sp-2); padding: var(--sp-2); }
+    #panel-program { flex: 1 1 60%; min-height: 220px; }
+    #panel-output { flex: 1 1 40%; min-height: 160px; }
+
+    #program-body { position: relative; }
+    .stage { position: absolute; inset: 0; display: none; }
+    .stage.is-shown { display: block; }
+    .stage .CodeMirror { position: absolute; inset: 0; height: auto; }
+    #stage-flow { overflow: auto; background: var(--c-surface-2); }
+    #flowchart { display: flex; align-items: flex-start; justify-content: center; padding: var(--sp-3); min-height: 100%; }
+    #flowchart svg { max-width: 100%; height: auto; }
+    #flowchart g.node.step-active > :is(rect, polygon, circle, ellipse, path) {
+      stroke: var(--c-warn) !important;
+      stroke-width: 3px !important;
+      filter: drop-shadow(0 0 7px rgba(224, 135, 0, 0.6));
+    }
+
+    #ktph-warning { margin: 0; border-radius: 0; border-width: 0 0 1px; }
+
+    #output-body { display: flex; flex-direction: column; }
+    #output { flex: 1 1 auto; }
+
+    #step-panel { flex: 0 0 auto; border-bottom: 1px solid var(--c-line); background: var(--c-surface-2); }
+    .step-bar { display: flex; align-items: center; gap: var(--sp-2); padding: var(--sp-2); }
+    .step-bar input[type='range'] { flex: 1 1 auto; min-width: 60px; }
+    #step-vars { max-height: 34vh; overflow: auto; padding: 0 var(--sp-2) var(--sp-2); }
+
+    #runtime-input-container {
+      display: none;
+      align-items: center;
+      gap: var(--sp-2);
+      flex: 0 0 auto;
+      padding: var(--sp-2);
+      border-top: 1px solid var(--c-line);
+      background: var(--c-surface-2);
+    }
+    #runtime-input-container label { font-size: var(--text-sm); font-weight: 600; }
+    #runtime-input { flex: 1 1 auto; min-width: 0; }
+
+    .test-table { width: 100%; border-collapse: collapse; font-size: var(--text-sm); }
+    .test-table th, .test-table td {
+      padding: 4px var(--sp-2);
+      border-bottom: 1px solid var(--c-line);
+      text-align: left;
+      vertical-align: top;
+    }
+    .test-table th { font-size: var(--text-2xs); color: var(--c-ink-2); font-weight: 700; }
+    .test-table td.mono { font-family: var(--font-mono); white-space: pre-wrap; word-break: break-all; }
+    .test-table tr.is-ng td { background: var(--c-bad-soft); }
+
+    /* ===== 模試 ===== */
+    .mock-score { font-size: var(--text-2xl); font-weight: 800; }
+    .mock-table { width: 100%; border-collapse: collapse; font-size: var(--text-sm); }
+    .mock-table th, .mock-table td { padding: 6px var(--sp-2); border-bottom: 1px solid var(--c-line); text-align: left; }
+
+    /* ===== 狭い画面 ===== */
+    @media (max-width: 1000px) {
+      html, body { overflow: auto; }
+      #shell { height: auto; flex-direction: column; }
+      #course-nav { flex-basis: auto; width: auto; border-right: none; border-bottom: 1px solid var(--c-line); }
+      #course-nav:not(.is-open) { display: none; }
+      #problem-col { border-right: none; border-bottom: 1px solid var(--c-line); overflow: visible; }
+      #work-col { min-height: 70vh; }
+    }
+  </style>
+</head>
+<body>
+  <div id="loader" class="loader">
+    <div class="spinner"></div>
+    <p>Python の実行環境を準備しています…</p>
+  </div>
+
+  <header class="topbar">
+    <a class="brand" href="index.html">
+      <span class="brand-mark">📚</span>
+      <span>easyCode<small>レッスンモード</small></span>
+    </a>
+
+    <button id="toggle-nav" class="icon-btn" aria-expanded="true" title="レッスンの一覧を開く／閉じる">☰</button>
+    <span class="topbar-divider"></span>
+
+    <div class="topbar-tools">
+      <button id="prev-problem" class="btn btn-sm">‹ 前</button>
+      <span class="chip" id="current-label">レッスン</span>
+      <button id="next-problem" class="btn btn-sm">次 ›</button>
+      <span class="topbar-divider"></span>
+      <button id="free-coding" class="btn btn-sm">✏️ 自由に書く</button>
+      <span class="chip is-warn" id="mock-chip" style="display:none;">🏁 模試の途中</span>
+    </div>
+
+    <div class="topbar-end">
+      <nav class="mode-switch" aria-label="モード切り替え">
+        <a href="index.html">🧩<span class="label">ブロック</span></a>
+        <a href="lessons.html" aria-current="page">📚<span class="label">レッスン</span></a>
+        <a href="drawing.html">🎨<span class="label">描画</span></a>
+        <a href="python-guide.html">📘<span class="label">ガイド</span></a>
+      </nav>
+    </div>
+  </header>
+
+  <div id="shell">
+    <!-- 左: コースと問題の一覧 -->
+    <aside id="course-nav" class="sidebar">
+      <p class="sidebar-title">レッスン</p>
+      <div id="nav-body"></div>
+
+      <details class="expander">
+        <summary>⚙ 設定</summary>
+        <div class="expander-body stack">
+          <div class="field">
+            <label for="completion-mode-select">コード補完</label>
+            <select id="completion-mode-select">
+              <option value="both">インライン ＋ 候補一覧</option>
+              <option value="popup-only">候補一覧だけ</option>
+              <option value="inline-only">インラインだけ</option>
+              <option value="none">使わない</option>
+            </select>
+            <p class="muted" id="completion-status"></p>
+            <p class="muted" id="completion-description"></p>
+          </div>
+
+          <div class="field" id="api-key-form">
+            <label for="api-key">Gemini API キー（省略できます）</label>
+            <input type="password" id="api-key" placeholder="AIza…">
+            <button id="save-api-key" class="btn btn-sm">保存</button>
+            <p class="muted" id="api-key-status"></p>
+            <p class="muted">キーが無くても、実行・答え合わせ・フローチャート・補完はすべて使えます。</p>
+          </div>
+
+          <button id="reset-progress" class="btn btn-sm btn-quiet">🗑 進み具合を消す</button>
+        </div>
+      </details>
+    </aside>
+
+    <!-- 中: 問題文と解答 -->
+    <section id="problem-col">
+      <div id="problem-head">
+        <h1 id="problem-title">レッスンを選んでください</h1>
+        <span class="chip" id="problem-kind" style="display:none;"></span>
+        <span class="chip" id="problem-level" style="display:none;"></span>
+      </div>
+
+      <div id="ktph-note" class="ktph-note" style="display:none;"></div>
+      <div id="problem-text"></div>
+      <div id="answer-area"></div>
+      <div id="check-result"></div>
+
+      <details class="expander" id="hint-box" style="display:none;">
+        <summary>💡 ヒント</summary>
+        <div class="expander-body" id="hint-text"></div>
+      </details>
+
+      <details class="expander" id="explain-box" style="display:none;">
+        <summary>📖 解説</summary>
+        <div class="expander-body" id="explain-text"></div>
+      </details>
+
+      <details class="expander" id="ai-box">
+        <summary>🤖 AI にきく</summary>
+        <div class="expander-body stack">
+          <button id="btn-explain" class="btn btn-sm btn-block">この問題の解説をもらう</button>
+          <div id="explanation" class="muted"></div>
+          <button id="btn-review" class="btn btn-sm btn-block">書いたコードを見てもらう</button>
+          <div id="review" class="muted"></div>
+        </div>
+      </details>
+
+      <details class="expander" id="chat-box">
+        <summary>💬 AI とチャット</summary>
+        <div class="expander-body stack">
+          <div id="chat-messages" class="stack"></div>
+          <div id="chat-input-container" class="row">
+            <input type="text" id="chat-input" placeholder="わからないことを聞いてみましょう" class="grow">
+            <button id="chat-send" class="btn btn-sm btn-primary">送信</button>
+          </div>
+        </div>
+      </details>
+    </section>
+
+    <!-- 右: プログラムと実行結果 -->
+    <section id="work-col">
+      <div class="panel" id="panel-program">
+        <div class="panel-head">
+          <span class="tabs-label">表示するもの</span>
+          <div class="tabs" id="program-tabs" role="tablist">
+            <button type="button" data-stage="ktph" role="tab" aria-selected="false">📝 共通テスト表記</button>
+            <button type="button" data-stage="python" role="tab" aria-selected="true">🐍 Python</button>
+            <button type="button" data-stage="flow" role="tab" aria-selected="false">🔀 フローチャート</button>
+          </div>
+          <span class="panel-tools">
+            <button class="tool-btn" id="code-indent" title="字下げをそろえます">⇥ 自動インデント</button>
+            <button class="tool-btn" id="code-format" title="記号まわりの空白も整えます">✨ コード整形</button>
+            <button class="tool-btn panel-max" data-panel="panel-program" title="このパネルを大きく表示">⛶</button>
+          </span>
+        </div>
+        <div class="note is-warn" id="ktph-warning" style="display:none;"></div>
+        <div class="panel-body" id="program-body">
+          <div class="stage" id="stage-ktph"><textarea id="code-ktph"></textarea></div>
+          <div class="stage is-shown" id="stage-python"><textarea id="code"></textarea></div>
+          <div class="stage" id="stage-flow"><div id="flowchart"></div></div>
+        </div>
+        <div class="button-group" style="display:flex; gap:var(--sp-2); padding:var(--sp-2); border-top:1px solid var(--c-line); flex-wrap:wrap;">
+          <button id="run-btn" class="btn btn-run" disabled>▶ 実行</button>
+          <button id="step-btn" class="btn btn-sm">⏯ ステップで確かめる</button>
+          <button id="check-btn" class="btn btn-primary">✅ 答え合わせ</button>
+          <button id="ai-fix-code" class="btn btn-sm">🤖 AI に直してもらう</button>
+        </div>
+      </div>
+
+      <div class="panel" id="panel-output">
+        <div class="panel-head">
+          <span class="panel-title">▶ 実行結果</span>
+          <span class="panel-tools">
+            <button class="tool-btn" id="output-clear">🧹 消去</button>
+            <button class="tool-btn panel-max" data-panel="panel-output" title="このパネルを大きく表示">⛶</button>
+          </span>
+        </div>
+        <div class="panel-body" id="output-body">
+          <div id="step-panel" style="display:none;">
+            <div class="step-bar">
+              <button id="step-first" class="btn btn-sm">⏮</button>
+              <button id="step-prev" class="btn btn-sm">◀</button>
+              <button id="step-next" class="btn btn-sm">▶</button>
+              <input type="range" id="step-slider" min="0" max="0" value="0">
+              <span class="chip" id="step-label">0 / 0</span>
+              <button id="step-exit" class="btn btn-sm btn-quiet">⏹ 終わる</button>
+            </div>
+            <div id="step-vars"></div>
+          </div>
+
+          <pre id="output" class="console">「▶ 実行」で動かせます</pre>
+
+          <div id="runtime-input-container">
+            <label for="runtime-input" id="runtime-input-label">値を入力</label>
+            <input type="text" id="runtime-input" placeholder="入力してください">
+            <button id="runtime-input-submit" class="btn btn-primary btn-sm">送信</button>
+          </div>
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/codemirror@5.65.16/lib/codemirror.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/codemirror@5.65.16/mode/python/python.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/codemirror@5.65.16/addon/comment/comment.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/codemirror@5.65.16/addon/display/rulers.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/mermaid@10.9.1/dist/mermaid.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/pyodide/v0.23.4/full/pyodide.js"></script>
+  <script type="module" src="module/lessons.js"></script>
+</body>
+</html>

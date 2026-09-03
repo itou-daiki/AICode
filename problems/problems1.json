@@ -3,5 +3,6 @@
   "description": "プログラミングの第一歩！「Hello, World!」と出力してみましょう。",
   "input": "",
   "expected": "Hello, World!",
-  "template": "# print関数を使って「Hello, World!」と出力してください\n"
+  "template": "# print関数を使って「Hello, World!」と出力してください\n",
+  "solution": "print(\"Hello, World!\")\n"
 }

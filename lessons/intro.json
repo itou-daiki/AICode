@@ -1,0 +1,572 @@
+{
+  "id": "intro",
+  "lessons": [
+    {
+      "id": "hello",
+      "title": "1. はじめてのプログラム",
+      "problems": [
+        {
+          "id": "print-basic",
+          "type": "read",
+          "title": "文字を出してみる",
+          "difficulty": 1,
+          "description": "プログラムは、書いたとおりに上から順に動きます。\n\n`print()` は、かっこの中のものを画面に出す命令です。文字を出すときは、`\"` で囲みます。\n\n右のエディタに見本が入っています。**▶ 実行** を押してみましょう。",
+          "program": "print(\"こんにちは\")\n",
+          "tasks": [
+            "▶ 実行 を押して、下に「こんにちは」が出ることを見る",
+            "「こんにちは」を自分の名前に変えて、もう一度実行する",
+            "行を増やして、2 つの文を出してみる"
+          ],
+          "explanation": "`print(\"こんにちは\")` の `\"こんにちは\"` の部分を変えれば、出てくる文字が変わります。`\"` を消すとエラーになります（文字だと分からなくなるためです）。"
+        },
+        {
+          "id": "print-two",
+          "type": "read",
+          "title": "2 行に分けて出す",
+          "difficulty": 1,
+          "description": "`print()` を 2 つ並べると、上から順に 2 行出ます。\n\nプログラムが **書いた順に動く** ことを、目で確かめましょう。",
+          "program": "print(\"おはよう\")\nprint(\"さようなら\")\n",
+          "tasks": [
+            "▶ 実行 を押して、2 行出ることを見る",
+            "2 つの行を入れかえて実行し、出る順番が変わることを見る"
+          ],
+          "expectedOutput": "おはよう\nさようなら",
+          "explanation": "プログラムは上から順に 1 行ずつ動きます。順番を変えれば、結果の順番も変わります。"
+        },
+        {
+          "id": "print-write",
+          "type": "code",
+          "title": "自分で書いてみる",
+          "difficulty": 1,
+          "description": "3 行に分けて、次のとおり出るプログラムを書きましょう。\n\n```\nいち\nに\nさん\n```",
+          "template": "# print を 3 回使って書いてみよう\n",
+          "tests": [
+            {
+              "input": "",
+              "expected": "いち\nに\nさん"
+            }
+          ],
+          "solution": "print(\"いち\")\nprint(\"に\")\nprint(\"さん\")\n",
+          "hint": "`print(\"いち\")` を 3 行ならべます。"
+        }
+      ]
+    },
+    {
+      "id": "variable",
+      "title": "2. 変数（値に名前をつける）",
+      "problems": [
+        {
+          "id": "var-basic",
+          "type": "read",
+          "title": "変数は名前つきの箱",
+          "difficulty": 1,
+          "description": "`namae = \"たろう\"` と書くと、`namae` という名前で「たろう」をしまっておけます。これを **変数** といいます。\n\nあとから `print(namae)` と書けば、しまった中身が出てきます。\n\n変数を出すときは `\"` で囲みません。囲むと、名前そのものが文字として出てしまいます。",
+          "program": "namae = \"たろう\"\nprint(namae)\nprint(\"namae\")\n",
+          "tasks": [
+            "▶ 実行 して、2 行目と 3 行目のちがいを見る",
+            "「たろう」を自分の名前に変えて実行する"
+          ],
+          "expectedOutput": "たろう\nnamae",
+          "explanation": "`print(namae)` は箱の中身、`print(\"namae\")` は「namae」という文字そのものを出します。"
+        },
+        {
+          "id": "var-trace",
+          "type": "trace",
+          "title": "入れ直すとどうなる？",
+          "difficulty": 1,
+          "description": "変数には、あとから入れ直すことができます。入れ直すと、前の中身は消えます。\n\n次のプログラムを実行すると、何が表示されるでしょうか。",
+          "program": "x = 3\nx = 8\nprint(x)\n",
+          "question": "表示される値を答えなさい。",
+          "check": {
+            "kind": "output"
+          },
+          "answer": "8",
+          "explanation": "`x = 8` で入れ直したので、`x` の中身は 8 になります。最後に入れた値だけが残ります。"
+        },
+        {
+          "id": "var-write",
+          "type": "code",
+          "title": "変数を使って書く",
+          "difficulty": 1,
+          "description": "`namae` に「はなこ」、`toshi` に 15 を入れて、次のとおり出るプログラムを書きましょう。\n\n```\nはなこ\n15\n```",
+          "template": "# 変数を 2 つ作って、それぞれ表示しよう\n",
+          "tests": [
+            {
+              "input": "",
+              "expected": "はなこ\n15"
+            }
+          ],
+          "solution": "namae = \"はなこ\"\ntoshi = 15\nprint(namae)\nprint(toshi)\n",
+          "hint": "数は `\"` で囲みません。`toshi = 15` と書きます。"
+        }
+      ]
+    },
+    {
+      "id": "calc",
+      "title": "3. 計算",
+      "problems": [
+        {
+          "id": "calc-basic",
+          "type": "read",
+          "title": "5 つの計算",
+          "difficulty": 1,
+          "description": "計算はふつうの記号で書けます。\n\n- `+` たす　`-` ひく　`*` かける　`/` わる\n- `//` わったときの **商**（整数の部分だけ）\n- `%` わったときの **あまり**\n\n`/` は 7 / 2 が 3.5 のように小数になります。`//` は 3 になります。",
+          "program": "print(7 + 2)\nprint(7 - 2)\nprint(7 * 2)\nprint(7 / 2)\nprint(7 // 2)\nprint(7 % 2)\n",
+          "tasks": [
+            "▶ 実行 して、6 つの答えを見くらべる",
+            "7 を別の数に変えて、`//` と `%` がどう変わるか見る"
+          ],
+          "expectedOutput": "9\n5\n14\n3.5\n3\n1",
+          "explanation": "`//` は商、`%` はあまりです。共通テストの表記では `//` を `÷` と書きます。"
+        },
+        {
+          "id": "calc-trace",
+          "type": "trace",
+          "title": "商とあまり",
+          "difficulty": 1,
+          "description": "17 個のあめを 5 人で同じ数ずつ分けます。\n\n次のプログラムは何を表示するでしょうか。",
+          "program": "ame = 17\nnin = 5\nprint(ame // nin, ame % nin)\n",
+          "question": "表示される 2 つの数を、空白で区切って答えなさい。",
+          "check": {
+            "kind": "output"
+          },
+          "answer": "3 2",
+          "explanation": "1 人 3 個ずつ配れて、2 個あまります。`//` が商、`%` があまりです。"
+        },
+        {
+          "id": "calc-write",
+          "type": "code",
+          "title": "おつりを計算する",
+          "difficulty": 2,
+          "description": "1000 円で 380 円のものを買ったときのおつりを計算して表示しましょう。\n\n```\n620\n```",
+          "template": "# ひき算で計算しよう\n",
+          "tests": [
+            {
+              "input": "",
+              "expected": "620"
+            }
+          ],
+          "solution": "print(1000 - 380)\n",
+          "hint": "`print(1000 - 380)` のように、計算をそのまま書けます。"
+        }
+      ]
+    },
+    {
+      "id": "types",
+      "title": "4. 文字と数のちがい",
+      "problems": [
+        {
+          "id": "type-basic",
+          "type": "read",
+          "title": "\"3\" と 3 はちがう",
+          "difficulty": 2,
+          "description": "`\"` で囲むと **文字**、囲まないと **数** になります。この 2 つは別ものです。\n\n- `3 + 4` は 7（数の足し算）\n- `\"3\" + \"4\"` は \"34\"（文字をつなげる）\n\n`str()` は数を文字に、`int()` は文字を数に変えます。",
+          "program": "print(3 + 4)\nprint(\"3\" + \"4\")\nprint(int(\"3\") + 4)\nprint(\"点数は\" + str(80) + \"点\")\n",
+          "tasks": [
+            "▶ 実行 して、1 行目と 2 行目のちがいを見る",
+            "4 行目の `str(80)` を `80` に変えると、エラーになることを確かめる"
+          ],
+          "expectedOutput": "7\n34\n7\n点数は80点",
+          "explanation": "文字と数は `+` でつなげません。`str()` か `int()` で種類をそろえます。"
+        },
+        {
+          "id": "type-trace",
+          "type": "trace",
+          "title": "どちらになる？",
+          "difficulty": 2,
+          "description": "次のプログラムを実行すると、何が表示されるでしょうか。",
+          "program": "a = \"5\"\nb = \"2\"\nprint(a + b)\nprint(int(a) + int(b))\n",
+          "question": "表示される 2 行を、そのまま改行で区切って答えなさい。",
+          "check": {
+            "kind": "output"
+          },
+          "answer": "52 7",
+          "explanation": "文字どうしの `+` はつなげるだけなので \"52\"、`int()` で数に直すと 7 になります。",
+          "hint": "1 行目は文字のつながり、2 行目は数の足し算です。"
+        },
+        {
+          "id": "type-write",
+          "type": "code",
+          "title": "文字と数をつなげる",
+          "difficulty": 2,
+          "description": "`ten` に 92 を入れて、次のとおり表示しましょう。\n\n```\n点数は92点です\n```",
+          "template": "ten = 92\n# str() を使ってつなげよう\n",
+          "tests": [
+            {
+              "input": "",
+              "expected": "点数は92点です"
+            }
+          ],
+          "solution": "ten = 92\nprint(\"点数は\" + str(ten) + \"点です\")\n",
+          "hint": "`\"点数は\" + str(ten) + \"点です\"` の形にします。"
+        }
+      ]
+    },
+    {
+      "id": "input",
+      "title": "5. 入力を受け取る",
+      "problems": [
+        {
+          "id": "input-basic",
+          "type": "read",
+          "title": "input() で受け取る",
+          "difficulty": 2,
+          "description": "`input()` は、使う人が打った文字を受け取ります。\n\n受け取った中身は **いつも文字** です。計算に使いたいときは `int()` で数に直します。\n\n実行すると入力欄が出るので、何か打って送信してみましょう。",
+          "program": "namae = input(\"名前は？\")\nprint(\"こんにちは \" + namae + \" さん\")\n",
+          "tasks": [
+            "▶ 実行 して、名前を打ってみる",
+            "問いかけの文を変えて、もう一度実行する"
+          ],
+          "explanation": "`input(\"名前は？\")` の中の文が、問いかけとして出ます。",
+          "input": "たろう"
+        },
+        {
+          "id": "input-trace",
+          "type": "trace",
+          "title": "int を忘れると",
+          "difficulty": 2,
+          "description": "このプログラムに **7** と入力しました。何が表示されるでしょうか。",
+          "program": "kazu = int(input())\nprint(kazu * 3)\n",
+          "input": "7",
+          "question": "表示される値を答えなさい。",
+          "check": {
+            "kind": "output"
+          },
+          "answer": "21",
+          "explanation": "`int()` で数に直したので `7 * 3` で 21 です。`int()` が無いと \"777\" のように文字が 3 回くり返されます。"
+        },
+        {
+          "id": "input-write",
+          "type": "code",
+          "title": "2 つの数を足す",
+          "difficulty": 2,
+          "description": "数を 2 つ受け取って、その合計を表示しましょう。\n\n3 と 4 を入力したら `7` と出るようにします。",
+          "template": "# int(input()) を 2 回使おう\n",
+          "tests": [
+            {
+              "input": "3\n4",
+              "expected": "7"
+            },
+            {
+              "input": "10\n-2",
+              "expected": "8"
+            },
+            {
+              "input": "0\n0",
+              "expected": "0"
+            }
+          ],
+          "solution": "a = int(input())\nb = int(input())\nprint(a + b)\n",
+          "hint": "`a = int(input())` を 2 行書いてから `print(a + b)` です。"
+        }
+      ]
+    },
+    {
+      "id": "branch",
+      "title": "6. 条件で分ける",
+      "problems": [
+        {
+          "id": "if-basic",
+          "type": "read",
+          "title": "もし〜なら",
+          "difficulty": 2,
+          "description": "`if` を使うと、条件に合うときだけ動かせます。\n\n`if` の行の終わりには `:` を書き、その下の行は **4 つ分下げます**。下げた行だけが「合うときにする こと」です。\n\n`else` を足すと、合わなかったときのことも書けます。",
+          "program": "ten = 75\nif ten >= 60:\n    print(\"合格\")\nelse:\n    print(\"もう少し\")\n",
+          "tasks": [
+            "▶ 実行 して「合格」が出ることを見る",
+            "`ten` を 40 に変えて実行し、出る文が変わることを見る",
+            "⏯ ステップで確かめる を押して、どの行を通るか目で追う"
+          ],
+          "expectedOutput": "合格",
+          "explanation": "`>=` は「以上」です。条件が正しいときは `if` の中、そうでないときは `else` の中を通ります。"
+        },
+        {
+          "id": "elif-blank",
+          "type": "blank",
+          "title": "3 つに分ける",
+          "difficulty": 3,
+          "description": "点数を「優」「良」「可」の 3 つに分けます。\n\n`elif` は「そうでなくて、もし〜なら」という意味です。**上から順に**調べて、はじめて合ったところだけを通ります。\n\n【ア】に入るものを選びましょう。",
+          "program": "ten = 75\nif ten >= 80:\n    print(\"優\")\nelif 【ア】:\n    print(\"良\")\nelse:\n    print(\"可\")\n",
+          "blanks": [
+            {
+              "key": "ア",
+              "choices": [
+                "ten >= 60",
+                "ten >= 80",
+                "ten < 60",
+                "ten >= 90"
+              ],
+              "answer": 0
+            }
+          ],
+          "expectedOutput": "良",
+          "explanation": "80 以上はすでに上の `if` で分かれているので、`elif` では「60 以上」だけを調べれば「良」になります。75 は 80 未満で 60 以上なので「良」です。",
+          "hint": "75 が「良」になる条件を選びます。"
+        },
+        {
+          "id": "if-write",
+          "type": "code",
+          "title": "偶数か奇数か",
+          "difficulty": 2,
+          "description": "数を 1 つ受け取り、偶数なら `偶数`、奇数なら `奇数` と表示しましょう。",
+          "template": "n = int(input())\n# 2 で割ったあまりで見分けよう\n",
+          "tests": [
+            {
+              "input": "4",
+              "expected": "偶数"
+            },
+            {
+              "input": "7",
+              "expected": "奇数"
+            },
+            {
+              "input": "0",
+              "expected": "偶数"
+            },
+            {
+              "input": "-3",
+              "expected": "奇数"
+            }
+          ],
+          "solution": "n = int(input())\nif n % 2 == 0:\n    print(\"偶数\")\nelse:\n    print(\"奇数\")\n",
+          "hint": "`n % 2 == 0` なら偶数です。"
+        }
+      ]
+    },
+    {
+      "id": "for",
+      "title": "7. くり返し（回数が決まっている）",
+      "problems": [
+        {
+          "id": "for-basic",
+          "type": "read",
+          "title": "for と range",
+          "difficulty": 2,
+          "description": "同じことを何回もするときは `for` を使います。\n\n`range(3)` は 0, 1, 2 の 3 つです。**終わりの数は入りません**。`range(1, 4)` なら 1, 2, 3 です。\n\n下げた行が、くり返される中身です。",
+          "program": "for i in range(3):\n    print(i)\n",
+          "tasks": [
+            "▶ 実行 して 0 1 2 が出ることを見る",
+            "`range(3)` を `range(1, 4)` に変えて実行する",
+            "⏯ ステップで確かめる で、i がどう変わるか見る"
+          ],
+          "expectedOutput": "0\n1\n2",
+          "explanation": "`range(3)` は 0 から始まって 3 の手前まで、つまり 0, 1, 2 です。共通テストの表記では「0 から 2 まで 1 ずつ増やしながら繰り返す」と書きます。"
+        },
+        {
+          "id": "for-trace",
+          "type": "trace",
+          "title": "何回くり返す？",
+          "difficulty": 2,
+          "description": "次のプログラムを実行すると、最後に何が表示されるでしょうか。",
+          "program": "goukei = 0\nfor i in range(1, 6):\n    goukei = goukei + i\nprint(goukei)\n",
+          "question": "表示される値を答えなさい。",
+          "check": {
+            "kind": "output"
+          },
+          "answer": "15",
+          "explanation": "1 + 2 + 3 + 4 + 5 = 15 です。`range(1, 6)` は 1 から 5 までで、6 は入りません。",
+          "hint": "i は 1, 2, 3, 4, 5 と変わります。"
+        },
+        {
+          "id": "for-write",
+          "type": "code",
+          "title": "1 から n までの合計",
+          "difficulty": 3,
+          "description": "数 n を受け取り、1 から n までの合計を表示しましょう。\n\n10 を入力したら `55` と出るようにします。",
+          "template": "n = int(input())\ngoukei = 0\n# for でたし合わせよう\n",
+          "tests": [
+            {
+              "input": "10",
+              "expected": "55"
+            },
+            {
+              "input": "1",
+              "expected": "1"
+            },
+            {
+              "input": "100",
+              "expected": "5050"
+            }
+          ],
+          "solution": "n = int(input())\ngoukei = 0\nfor i in range(1, n + 1):\n    goukei = goukei + i\nprint(goukei)\n",
+          "hint": "n も足したいので `range(1, n + 1)` にします。"
+        }
+      ]
+    },
+    {
+      "id": "while",
+      "title": "8. くり返し（条件が続く間）",
+      "problems": [
+        {
+          "id": "while-basic",
+          "type": "read",
+          "title": "while で条件が続く間",
+          "difficulty": 3,
+          "description": "回数が決まっていないときは `while` を使います。条件が正しい間、ずっとくり返します。\n\n中で **条件が変わるように書く** ことが大切です。変わらないと永遠に終わりません。",
+          "program": "n = 5\nwhile n > 0:\n    print(n)\n    n = n - 1\nprint(\"発射\")\n",
+          "tasks": [
+            "▶ 実行 して、5 から 1 まで出ることを見る",
+            "最後の `n = n - 1` を消すとどうなるか考えてから、実行して確かめる"
+          ],
+          "expectedOutput": "5\n4\n3\n2\n1\n発射",
+          "explanation": "`n = n - 1` があるので、いつか `n > 0` が成り立たなくなって止まります。これが無いと終わらないくり返しになります（10 秒で止めます）。"
+        },
+        {
+          "id": "while-blank",
+          "type": "blank",
+          "title": "終わらないくり返しを直す",
+          "difficulty": 3,
+          "description": "このプログラムは 3 回くり返して止まるはずですが、【ア】が抜けています。\n\n入るものを選びましょう。",
+          "program": "kaisu = 0\nwhile kaisu < 3:\n    print(\"やあ\")\n    【ア】\n",
+          "blanks": [
+            {
+              "key": "ア",
+              "choices": [
+                "kaisu = kaisu + 1",
+                "kaisu = 0",
+                "kaisu = kaisu - 1",
+                "print(kaisu)"
+              ],
+              "answer": 0
+            }
+          ],
+          "expectedOutput": "やあ\nやあ\nやあ",
+          "explanation": "`kaisu` を 1 ずつ増やすことで、いつか `kaisu < 3` が成り立たなくなって止まります。",
+          "hint": "条件 `kaisu < 3` が、いつか成り立たなくなる必要があります。"
+        },
+        {
+          "id": "while-write",
+          "type": "code",
+          "title": "何回で超える？",
+          "difficulty": 3,
+          "description": "1 から順に足していって、合計がはじめて 100 を超えるのは何個目までを足したときか、その個数を表示しましょう。",
+          "template": "goukei = 0\nkosu = 0\n# while で 100 を超えるまで足そう\n",
+          "tests": [
+            {
+              "input": "",
+              "expected": "14"
+            }
+          ],
+          "solution": "goukei = 0\nkosu = 0\nwhile goukei <= 100:\n    kosu = kosu + 1\n    goukei = goukei + kosu\nprint(kosu)\n",
+          "hint": "`while goukei <= 100:` の中で、個数を 1 増やしてから足します。"
+        }
+      ]
+    },
+    {
+      "id": "list",
+      "title": "9. リスト（たくさんの値をまとめる）",
+      "problems": [
+        {
+          "id": "list-basic",
+          "type": "read",
+          "title": "リストは 0 番目から",
+          "difficulty": 2,
+          "description": "たくさんの値をまとめて持つときは **リスト** を使います。`[ ]` で囲み、`,` で区切ります。\n\n何番目かを表す数（添字）は **0 から** 始まります。`len()` は個数を返します。\n\n共通テストの表記では、リストのことを配列といい、名前の先頭を大文字にします。",
+          "program": "Ten = [60, 75, 90]\nprint(Ten[0])\nprint(Ten[2])\nprint(len(Ten))\n",
+          "tasks": [
+            "▶ 実行 して、0 番目と 2 番目を見くらべる",
+            "`Ten[3]` にすると、どうなるか確かめる"
+          ],
+          "expectedOutput": "60\n90\n3",
+          "explanation": "3 個あるリストの添字は 0, 1, 2 です。最後は `len(Ten) - 1` 番目になります。"
+        },
+        {
+          "id": "list-trace",
+          "type": "trace",
+          "title": "リストの合計",
+          "difficulty": 2,
+          "description": "次のプログラムを実行すると、最後に何が表示されるでしょうか。",
+          "program": "Data = [3, 1, 4, 1, 5]\ngoukei = 0\nfor i in range(len(Data)):\n    goukei = goukei + Data[i]\nprint(goukei)\n",
+          "question": "表示される値を答えなさい。",
+          "check": {
+            "kind": "output"
+          },
+          "answer": "14",
+          "explanation": "3 + 1 + 4 + 1 + 5 = 14 です。`range(len(Data))` は 0 から 4 までを順に取り出します。"
+        },
+        {
+          "id": "list-write",
+          "type": "code",
+          "title": "いちばん大きい数を探す",
+          "difficulty": 3,
+          "description": "リスト `Data` の中でいちばん大きい数を表示しましょう。\n\n`max()` は使わずに、`for` で 1 つずつ見くらべてください。",
+          "template": "Data = [12, 45, 7, 89, 23]\nsaidai = Data[0]\n# for で 1 つずつ見くらべよう\n",
+          "tests": [
+            {
+              "input": "",
+              "expected": "89"
+            }
+          ],
+          "solution": "Data = [12, 45, 7, 89, 23]\nsaidai = Data[0]\nfor i in range(len(Data)):\n    if Data[i] > saidai:\n        saidai = Data[i]\nprint(saidai)\n",
+          "hint": "今まででいちばん大きい数より大きければ、入れ直します。"
+        }
+      ]
+    },
+    {
+      "id": "function",
+      "title": "10. 関数（まとまりに名前をつける）",
+      "problems": [
+        {
+          "id": "def-basic",
+          "type": "read",
+          "title": "def と return",
+          "difficulty": 3,
+          "description": "同じ手順を何度も使うときは、**関数** にまとめます。\n\n`def 名前(受け取るもの):` と書き、下げた行に中身を書きます。`return` で答えを返します。\n\n呼び出すときは `名前(値)` と書きます。",
+          "program": "def nibai(x):\n    return x * 2\n\nprint(nibai(5))\nprint(nibai(12))\n",
+          "tasks": [
+            "▶ 実行 して、2 つの答えを見る",
+            "`nibai` を 3 倍にする関数に変えてみる"
+          ],
+          "expectedOutput": "10\n24",
+          "explanation": "`nibai(5)` と書くと、`x` に 5 が入って `5 * 2` の 10 が返ってきます。関数は二次試験でよく使います。"
+        },
+        {
+          "id": "def-blank",
+          "type": "blank",
+          "title": "三角形の面積",
+          "difficulty": 3,
+          "description": "底辺と高さから三角形の面積を返す関数です。\n\n【ア】に入るものを選びましょう。",
+          "program": "def menseki(teihen, takasa):\n    return 【ア】\n\nprint(menseki(6, 4))\n",
+          "blanks": [
+            {
+              "key": "ア",
+              "choices": [
+                "teihen * takasa / 2",
+                "teihen * takasa",
+                "teihen + takasa",
+                "teihen / takasa"
+              ],
+              "answer": 0
+            }
+          ],
+          "expectedOutput": "12.0",
+          "explanation": "三角形の面積は 底辺 × 高さ ÷ 2 です。6 × 4 ÷ 2 = 12.0 になります（`/` を使うと小数になります）。"
+        },
+        {
+          "id": "def-write",
+          "type": "code",
+          "title": "偶数か調べる関数",
+          "difficulty": 3,
+          "description": "数を受け取り、偶数なら `True`、奇数なら `False` を返す関数 `is_even` を作りましょう。\n\n受け取った数を 1 つ入力から読んで、結果を表示します。",
+          "template": "def is_even(n):\n    # ここに書こう\n    pass\n\nn = int(input())\nprint(is_even(n))\n",
+          "tests": [
+            {
+              "input": "4",
+              "expected": "True"
+            },
+            {
+              "input": "7",
+              "expected": "False"
+            },
+            {
+              "input": "0",
+              "expected": "True"
+            }
+          ],
+          "solution": "def is_even(n):\n    return n % 2 == 0\n\nn = int(input())\nprint(is_even(n))\n",
+          "hint": "`return n % 2 == 0` と書くと、True か False が返ります。"
+        }
+      ]
+    }
+  ]
+}

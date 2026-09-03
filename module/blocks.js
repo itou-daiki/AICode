@@ -9,9 +9,9 @@ import {
   confirmDialog, toast, initSidebar, initTabs, initMaximize,
   takeCodeFromUrl, makeShareUrl, showShareDialog,
 } from './ui.js';
-import { appState } from './state.js';
 import { PYODIDE_CONFIG } from './config.js';
 import { runUserCode, explainError } from './pyrun.js';
+import { toKtph } from './ktph.js';
 
 const STORAGE_KEY = 'easycode_blocks_workspace_v2';
 const LAYOUT_KEY = 'easycode_layout';
@@ -518,6 +518,40 @@ function setupControls() {
 
   $('flow-refresh').addEventListener('click', () => bench.renderFlowchart(true));
 
+  // いま書いているコードを、共通テストの表記で見せる。
+  // ふだんの Python が、試験ではどう書かれるのかを見くらべられる。
+  $('flow-ktph').addEventListener('click', () => {
+    const button = $('flow-ktph');
+    const showing = button.classList.toggle('is-on');
+    const container = $('flowchart');
+
+    if (!showing) { bench.renderFlowchart(true); return; }
+
+    // コードを直した直後は、図の描き直しが控えている。
+    // それが後から走ると、せっかく出した表記を上書きしてしまうので、
+    // 先に済ませてから差しかえる。
+    if (bench.scheduleFlowchart && bench.scheduleFlowchart.cancel) {
+      bench.scheduleFlowchart.cancel();
+    }
+
+    const { text, warnings } = toKtph(bench.getCode());
+    container.innerHTML = '';
+    const box = document.createElement('pre');
+    box.className = 'console';
+    box.style.margin = '0';
+    box.style.width = '100%';
+    box.textContent = text || 'コードを書くと、ここに共通テストの表記で出ます';
+    container.appendChild(box);
+
+    if (warnings.length) {
+      const note = document.createElement('div');
+      note.className = 'note is-warn';
+      const lines = [...new Set(warnings.map(w => w.line))].join(', ');
+      note.textContent = `${lines} 行目は、共通テスト用の表記には無い書き方です。`;
+      container.appendChild(note);
+    }
+  });
+
   $('flow-fit').addEventListener('click', (e) => {
     const fit = !bench.isFlowFit();
     bench.setFlowFit(fit);
@@ -605,7 +639,6 @@ async function init() {
       starterCode: STARTER_CODE,
       onStatus: showSyncState,
     });
-    appState.setEditor(bench.editor);
 
     // ガイドの「試す」や共有リンクから渡ってきたコードがあれば、それを開く
     const shared = await takeCodeFromUrl();
@@ -663,7 +696,6 @@ async function init() {
 
     pyodide = await loadPyodide({ indexURL: PYODIDE_CONFIG.INDEX_URL });
     pyodide.globals.set('js', window);
-    appState.setPyodide(pyodide);
 
     $('run-btn').disabled = false;
     $('step-btn').disabled = false;

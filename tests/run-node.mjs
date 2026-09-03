@@ -12,6 +12,13 @@ import { pythonToMermaid, parsePython } from '../module/flowchart.js';
 import { getCompletions, analyzeCode } from '../module/pycomplete.js';
 import { explainError } from '../module/pyrun.js';
 import { sameOutput } from '../module/grade.js';
+import { toKtph } from '../module/ktph.js';
+import {
+  normalizeAnswer, sameAnswer, gradeTrace, gradeBlanks, gradeTests, scoreMock,
+} from '../module/grade.js';
+import {
+  normalizeProblem, findBlankKeys, fillBlanks, correctPicks, problemRef,
+} from '../module/lessons-data.js';
 
 /* ============================================================
  * 小さな検査の道具
@@ -588,6 +595,264 @@ section('答え合わせ');
   for (const [name, actual, expected] of different) {
     check(`答え合わせ: ${name} はちがうとみなす`, sameOutput(actual, expected) === false,
       `\n  ${JSON.stringify(actual)} と ${JSON.stringify(expected)}`);
+  }
+}
+
+
+/* ============================================================
+ * 5.7 共通テスト用プログラム表記への言いかえ
+ *
+ * 大学入試センターが公表している表記に合わせる。
+ * 1 行が 1 行のままであること（ステップ実行の光る行と、
+ * エラーの行番号を、表記側でも同じ行にするため）が要。
+ * ========================================================== */
+
+section('ktph（共通テスト用プログラム表記）');
+{
+  const ktph = (code) => toKtph(code).text;
+
+  const cases = [
+    ['表示する', 'print("こんにちは")', '表示する("こんにちは")'],
+    ['要素数', 'kazu = len(Data)', 'kazu = 要素数(Data)'],
+    ['整数と入力', 'atai = int(input())', 'atai = 【外部からの入力】'],
+    ['入力だけ', 'namae = input()', 'namae = 【外部からの入力】'],
+    ['整数の商', 'aida = (a + b) // 2', 'aida = (a + b) ÷ 2'],
+    ['あまり', 'amari = n % 3', 'amari = n % 3'],
+    ['べき乗', 'x = 2 ** 10', 'x = 2 ** 10'],
+    ['複数の文', 'x = 1; y = 2', 'x = 1 , y = 2'],
+    ['乱数', 'atai = random.random()', 'atai = 乱数()'],
+    ['文字列にする', 's = str(n)', 's = 文字列(n)'],
+  ];
+  for (const [name, code, want] of cases) {
+    equal(`ktph: ${name}`, ktph(code), want);
+  }
+
+  // 制御構文（中身がある形で確かめる）
+  equal('ktph: もし〜ならば', ktph('if x < 3:\n    x = x + 1'), 'もし x < 3 ならば:\n└ x = x + 1');
+  equal('ktph: そうでなければ',
+    ktph('if x < 3:\n    x = 1\nelse:\n    x = 2'),
+    'もし x < 3 ならば:\n│ x = 1\nそうでなければ:\n└ x = 2');
+  equal('ktph: そうでなくもし',
+    ktph('if x < 3:\n    x = 1\nelif x < 5:\n    x = 2\nelse:\n    x = 3'),
+    'もし x < 3 ならば:\n│ x = 1\nそうでなくもし x < 5 ならば:\n│ x = 2\nそうでなければ:\n└ x = 3');
+  equal('ktph: の間繰り返す', ktph('while n < 10:\n    n = n + 1'), 'n < 10 の間繰り返す:\n└ n = n + 1');
+
+  // 繰り返しの終了値は「含む」形に直す
+  const forCases = [
+    ['range 1つ', 'for x in range(10):\n    s = s + x', 'x を 0 から 9 まで 1 ずつ増やしながら繰り返す:'],
+    ['range 2つ', 'for i in range(1, 6):\n    s = s + i', 'i を 1 から 5 まで 1 ずつ増やしながら繰り返す:'],
+    ['range 3つ', 'for i in range(0, 10, 2):\n    s = s + i', 'i を 0 から 9 まで 2 ずつ増やしながら繰り返す:'],
+    ['変数 - 1', 'for i in range(0, kazu - 1):\n    s = s + i', 'i を 0 から kazu - 1-1 まで 1 ずつ増やしながら繰り返す:'],
+    ['変数 + 1 は打ち消す', 'for i in range(0, n + 1):\n    s = s + i', 'i を 0 から n まで 1 ずつ増やしながら繰り返す:'],
+    ['減らしながら', 'for i in range(9, -1, -1):\n    s = s + i', 'i を 9 から 0 まで 1 ずつ減らしながら繰り返す:'],
+  ];
+  for (const [name, code, wantHead] of forCases) {
+    equal(`ktph: ${name}`, ktph(code).split('\n')[0], wantHead);
+  }
+
+  // 文字列の中身は変えない
+  const strings = 'print("len( と // と % はそのまま")';
+  equal('ktph: 文字列の中身は変えない', ktph(strings), '表示する("len( と // と % はそのまま")');
+
+  // 配列名は先頭を大文字にし、あとの行でもそろえる
+  equal('ktph: 配列名を大文字にする',
+    ktph('data = [1, 2, 3]\nprint(data[0])'),
+    'Data = [1, 2, 3]\n表示する(Data[0])');
+
+  // 2 次元はカンマ区切り
+  equal('ktph: 2次元の添字', ktph('Hyo = [[1, 2], [3, 4]]\nprint(Hyo[1][0])'),
+    'Hyo = [[1, 2], [3, 4]]\n表示する(Hyo[1,0])');
+
+  // 穴埋めのしるしは壊さない
+  equal('ktph: 【ア】は壊れない', ktph('if Data[【ア】] == atai:\n    owari = 1'),
+    'もし Data[【ア】] == atai ならば:\n└ owari = 1');
+
+  // 表記に無い書き方は、そのまま残して知らせる
+  {
+    const result = toKtph('def tasu(a, b):\n    return a + b');
+    check('ktph: def は警告が出る', result.warnings.length === 2, `\n  実際: ${JSON.stringify(result.warnings)}`);
+    check('ktph: def はそのまま残る', result.text.includes('def tasu(a, b):'), `\n  実際: ${result.text}`);
+  }
+  {
+    const result = toKtph('for x in Data:\n    print(x)');
+    check('ktph: for x in リスト は警告が出る', result.warnings.some(w => w.line === 1),
+      `\n  実際: ${JSON.stringify(result.warnings)}`);
+  }
+
+  // コメントと空行はそのまま
+  equal('ktph: コメント', ktph('x = 1  # ここはコメント'), 'x = 1 # ここはコメント');
+  equal('ktph: 空行', ktph('x = 1\n\ny = 2'), 'x = 1\n\ny = 2');
+
+  // 行数が変わらない（これが崩れると光る行がずれる）
+  const programs = [
+    'print(1)',
+    'if a:\n    b = 1\nelse:\n    b = 2',
+    'for i in range(3):\n    for j in range(3):\n        print(i, j)',
+    '# コメントだけ\n\nx = 1\n',
+    'while True:\n    break',
+  ];
+  for (const code of programs) {
+    const out = toKtph(code).text;
+    check(`ktph: 行数が変わらない ${JSON.stringify(code.slice(0, 18))}`,
+      out.split('\n').length === code.split('\n').length,
+      `\n  ${code.split('\n').length} 行 → ${out.split('\n').length} 行`);
+  }
+
+  // 二分探索まるごと（公表資料の例と同じ形になること）
+  {
+    const python = [
+      'Data = [3, 18, 29, 33, 48, 52, 62, 77, 89, 97]',
+      'kazu = len(Data)',
+      'atai = int(input())',
+      'hidari = 0; migi = kazu - 1',
+      'owari = 0',
+      'while hidari <= migi and owari == 0:',
+      '    aida = (hidari + migi) // 2',
+      '    if Data[aida] == atai:',
+      '        print(atai, "は", aida, "番目にありました")',
+      '        owari = 1',
+      '    elif Data[aida] < atai:',
+      '        hidari = aida + 1',
+      '    else:',
+      '        migi = aida - 1',
+    ].join('\n');
+    const want = [
+      'Data = [3, 18, 29, 33, 48, 52, 62, 77, 89, 97]',
+      'kazu = 要素数(Data)',
+      'atai = 【外部からの入力】',
+      'hidari = 0 , migi = kazu - 1',
+      'owari = 0',
+      'hidari <= migi and owari == 0 の間繰り返す:',
+      '│ aida = (hidari + migi) ÷ 2',
+      '│ もし Data[aida] == atai ならば:',
+      '│ │ 表示する(atai, "は", aida, "番目にありました")',
+      '│ │ owari = 1',
+      '│ そうでなくもし Data[aida] < atai ならば:',
+      '│ │ hidari = aida + 1',
+      '│ そうでなければ:',
+      '└ └ migi = aida - 1',
+    ].join('\n');
+    equal('ktph: 二分探索まるごと', toKtph(python).text, want);
+  }
+
+  // 壊れた入力でも落ちない
+  for (const code of ['', '   ', '"閉じていない', 'if:', '(((', 'x'.repeat(500)]) {
+    let fine = true;
+    try { toKtph(code); } catch (e) { fine = false; failures.push({ name: 'ktph で例外', detail: `${JSON.stringify(code.slice(0, 20))}: ${e.message}` }); }
+    if (fine) passed++;
+  }
+}
+
+
+/* ============================================================
+ * 5.8 レッスンの答え合わせとデータ
+ * ========================================================== */
+
+section('レッスン（答え合わせとデータ）');
+{
+  // 書き方のゆれは同じ答えとみなす
+  equal('答え: 前後の空白', normalizeAnswer('  7  '), '7');
+  equal('答え: 全角の数字', normalizeAnswer('７'), '7');
+  equal('答え: 全角の空白', normalizeAnswer('a　b'), 'a b');
+  check('答え: 7 と ７ は同じ', sameAnswer('7', '７'));
+  check('答え: 7 と 8 はちがう', !sameAnswer('7', '8'));
+
+  // トレース（記述）
+  {
+    const problem = { answer: '3' };
+    check('トレース: 正解', gradeTrace(problem, '3').ok);
+    check('トレース: 全角でも正解', gradeTrace(problem, '３').ok);
+    check('トレース: 不正解', !gradeTrace(problem, '4').ok);
+  }
+  // トレース（選択）
+  {
+    const problem = { choices: ['2', '3', '4'], answerIndex: 1 };
+    check('トレース: 選択の正解', gradeTrace(problem, 1).ok);
+    check('トレース: 選択の不正解', !gradeTrace(problem, 0).ok);
+    equal('トレース: 選択の正解の中身', gradeTrace(problem, 0).expected, '3');
+  }
+
+  // 穴埋め
+  {
+    const problem = { blanks: [
+      { key: 'ア', choices: ['a', 'b'], answer: 1 },
+      { key: 'イ', choices: ['x', 'y'], answer: 0 },
+    ] };
+    check('穴埋め: 全部正解', gradeBlanks(problem, { ア: 1, イ: 0 }).ok);
+    const half = gradeBlanks(problem, { ア: 0, イ: 0 });
+    check('穴埋め: 1つ間違い', !half.ok && half.perBlank['ア'] === false && half.perBlank['イ'] === true);
+    const missing = gradeBlanks(problem, { ア: 1 });
+    check('穴埋め: 選んでいない空欄が分かる', missing.unanswered.join(',') === 'イ',
+      `\n  実際: ${JSON.stringify(missing.unanswered)}`);
+  }
+
+  // テストのまとめ
+  {
+    const all = gradeTests([{ ok: true }, { ok: true }]);
+    check('テスト: 全部通れば正解', all.ok && all.passed === 2 && all.total === 2);
+    check('テスト: 1つ落ちたら不正解', !gradeTests([{ ok: true }, { ok: false }]).ok);
+    check('テスト: 0件は正解にしない', !gradeTests([]).ok);
+  }
+
+  // 模試の点数
+  {
+    const set = { problems: [
+      { ref: 'a#1', points: 20 }, { ref: 'a#2', points: 30 }, { ref: 'b#1', points: 50 },
+    ] };
+    const result = scoreMock(set, { 'a#1': true, 'b#1': true });
+    equal('模試: 点数', result.score, 70);
+    equal('模試: 満点', result.total, 100);
+    check('模試: 行ごとの正誤', result.rows[1].ok === false && result.rows[2].got === 50);
+  }
+
+  // 古い形の問題を読みかえる
+  {
+    const old = { title: 'Hello', description: '…', input: '', expected: 'Hello, World!', template: '# …\n' };
+    const problem = normalizeProblem(old, 'basic', 'lesson1');
+    equal('データ: 古い問題は code になる', problem.type, 'code');
+    equal('データ: expected が tests になる', problem.tests[0].expected, 'Hello, World!');
+    equal('データ: 見せかたは python', problem.view, 'python');
+  }
+  {
+    const problem = normalizeProblem({ id: 'x', question: '何が出る？', program: 'print(1)' }, 'kyotsu', 'l1');
+    equal('データ: question があれば trace', problem.type, 'trace');
+    equal('データ: 共通テストは表記で見せる', problem.view, 'ktph');
+    equal('データ: check の既定', problem.check.kind, 'output');
+  }
+  {
+    const problem = normalizeProblem({ id: 'y', blanks: [{ key: 'ア', choices: ['a'], answer: 0 }] }, 'kyotsu', 'l1');
+    equal('データ: blanks があれば blank', problem.type, 'blank');
+  }
+  {
+    const problem = normalizeProblem({ id: 'z', program: 'print(1)', tasks: ['ためす'] }, 'intro', 'l1');
+    equal('データ: tasks があれば read', problem.type, 'read');
+  }
+  equal('データ: 問題を指す文字列',
+    problemRef(normalizeProblem({ id: 'bin-search' }, 'kyotsu', 'l1')), 'kyotsu#bin-search');
+
+  // 穴埋めの展開
+  {
+    const program = 'if Data[【ア】] == atai:\n    print(【イ】)';
+    equal('穴埋め: 空欄を出てくる順に拾う', findBlankKeys(program).join(','), 'ア,イ');
+
+    const blanks = [
+      { key: 'ア', choices: ['hidari', 'naka'], answer: 1 },
+      { key: 'イ', choices: ['naka', 'atai'], answer: 0 },
+    ];
+    equal('穴埋め: 正解で埋める',
+      fillBlanks(program, blanks, correctPicks({ blanks })),
+      'if Data[naka] == atai:\n    print(naka)');
+    equal('穴埋め: 選んでいない空欄は残る',
+      fillBlanks(program, blanks, { ア: 1 }),
+      'if Data[naka] == atai:\n    print(【イ】)');
+  }
+
+  // 埋めたプログラムが、表記に直しても壊れない
+  {
+    const filled = fillBlanks('if Data[【ア】] == atai:\n    owari = 1',
+      [{ key: 'ア', choices: ['naka'], answer: 0 }], { ア: 0 });
+    equal('穴埋め: 埋めたあと表記にできる',
+      toKtph(filled).text, 'もし Data[naka] == atai ならば:\n└ owari = 1');
   }
 }
 

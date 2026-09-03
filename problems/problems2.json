@@ -3,5 +3,6 @@
   "description": "文字列「Python」と数値「2024」をそれぞれ別の行に出力してください。",
   "input": "",
   "expected": "Python\n2024",
-  "template": "# 文字列「Python」を出力\n\n\n# 数値 2024 を出力\n"
+  "template": "# 文字列「Python」を出力\n\n\n# 数値 2024 を出力\n",
+  "solution": "print(\"Python\")\nprint(2024)\n"
 }

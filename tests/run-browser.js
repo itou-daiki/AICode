@@ -10,6 +10,10 @@ import { pythonToBlocks } from '../module/py2blocks.js';
 import { defineBlocks, buildToolbox } from '../module/blockdefs.js';
 import { P5_PYTHON_LIBRARY } from '../module/p5lib.js';
 import { runUserCode } from '../module/pyrun.js';
+import { toKtph } from '../module/ktph.js';
+import { loadIndex, loadCourse, loadMockSet, findByRef, fillBlanks, correctPicks, problemRef } from '../module/lessons-data.js';
+import { runProgram, runTests, traceGroundTruth, inputLines } from '../module/lessons-run.js';
+import { sameOutput, sameAnswer, gradeTests } from '../module/grade.js';
 import { recordTrace, changedVariables, changedItems, namesInLine } from '../module/stepper.js';
 import { makeShareUrl, takeCodeFromUrl } from '../module/ui.js';
 import { buildToolbox as buildToolboxAgain } from '../module/blockdefs.js';
@@ -298,6 +302,9 @@ for name, fn in [
     ('pop', lambda: p5.pop()),
     ('reset_matrix', lambda: p5.reset_matrix()),
     ('begin_frame', lambda: p5.begin_frame()),
+    ('frame_rate（設定）', lambda: frame_rate(30)),
+    ('frameRate（p5.js のつづり）', lambda: frameRate(60)),
+    ('frame_rate（読み取り）', lambda: frame_rate()),
     ('erase', lambda: p5.erase()),
     ('no_erase', lambda: p5.no_erase()),
     ('blend_mode(multiply)', lambda: p5.blend_mode('multiply')),
@@ -677,6 +684,114 @@ async function testP5BareNames() {
   equal('描画: Python の関数がそのまま使える', builtins.output.trim(), '5 3.14 1 9 1024');
 }
 
+
+/* ============================================================
+ * 3.8 レッスンの中身が、実際の実行結果と合っているか
+ *
+ * 問題文に書いた答えを人が手で計算すると、まちがいが混ざる。
+ * すべて実際に走らせて照らし合わせる。
+ * ========================================================== */
+
+async function testLessonContent() {
+  const index = await loadIndex('../lessons/');
+  const courses = {};
+  for (const entry of index.courses) {
+    if (entry.kind === 'mock') continue;
+    courses[entry.id] = await loadCourse(entry, '../lessons/');
+  }
+
+  const seen = new Set();
+  let checked = 0;
+
+  for (const [courseId, course] of Object.entries(courses)) {
+    for (const lesson of course.lessons) {
+      for (const problem of lesson.problems) {
+        const ref = problemRef(problem);
+        check(`レッスン: ${ref} の id が重ならない`, !seen.has(ref));
+        seen.add(ref);
+        checked++;
+
+        const prelude = problem.prelude || null;
+
+        // 乱数を使うのに種を決めていないと、実行のたびに答えが変わってしまう
+        const usesRandom = /random\s*\(|random\./.test(problem.program || problem.solution || '');
+        if (usesRandom) {
+          check(`レッスン: ${ref} は乱数の種を決めている`,
+            Boolean(prelude && prelude.includes('seed')),
+            '\n  乱数を使う問題は prelude で seed を決めてください');
+        }
+
+        if (problem.type === 'read') {
+          const run = await runProgram(pyodide, {
+            code: problem.program || '', prelude, inputs: problem.input, seconds: 6,
+          });
+          check(`レッスン: ${ref} の見本が動く`, !run.error,
+            `\n  ${run.error ? run.error.type + ': ' + run.error.message : ''}`);
+          if (problem.expectedOutput !== undefined) {
+            check(`レッスン: ${ref} の見本の出力が合う`, sameOutput(run.output, problem.expectedOutput),
+              `\n  実際: ${JSON.stringify(run.output)}\n  期待: ${JSON.stringify(problem.expectedOutput)}`);
+          }
+        }
+
+        if (problem.type === 'trace') {
+          const truth = await traceGroundTruth(pyodide, problem);
+          check(`レッスン: ${ref} が動く`, !truth.error,
+            `\n  ${truth.error ? truth.error.type + ': ' + truth.error.message : ''}`);
+          const want = Array.isArray(problem.choices)
+            ? problem.choices[problem.answerIndex] : problem.answer;
+          check(`レッスン: ${ref} の答えが実行結果と合う`, sameAnswer(truth.value, want),
+            `\n  実行: ${JSON.stringify(truth.value)}\n  答え: ${JSON.stringify(want)}`);
+        }
+
+        if (problem.type === 'blank') {
+          const filled = fillBlanks(problem.program, problem.blanks, correctPicks(problem));
+          const run = await runProgram(pyodide, {
+            code: filled, prelude, inputs: problem.input, seconds: 6,
+          });
+          check(`レッスン: ${ref} は正解で埋めると動く`, !run.error,
+            `\n  ${run.error ? run.error.type + ': ' + run.error.message : ''}`);
+          check(`レッスン: ${ref} の正解の出力が合う`, sameOutput(run.output, problem.expectedOutput),
+            `\n  実際: ${JSON.stringify(run.output)}\n  期待: ${JSON.stringify(problem.expectedOutput)}`);
+        }
+
+        if (problem.type === 'code' && problem.solution) {
+          const results = await runTests(pyodide, {
+            code: problem.solution, prelude, tests: problem.tests || [],
+          });
+          const summary = gradeTests(results);
+          check(`レッスン: ${ref} の解答例が全部通る`, summary.ok,
+            `\n  ${summary.passed} / ${summary.total}` +
+            results.filter(r => !r.ok).map(r =>
+              `\n  入力 ${JSON.stringify(r.input)}: 実際 ${JSON.stringify(r.actual)} / 期待 ${JSON.stringify(r.expected)}`).join(''));
+        }
+
+        // 共通テスト対策の問題は、表記に直せる書き方だけで書く
+        if (courseId === 'kyotsu' && problem.program) {
+          const { warnings } = toKtph(problem.program);
+          check(`レッスン: ${ref} は共通テスト表記に直せる`, warnings.length === 0,
+            `\n  ${JSON.stringify(warnings)}`);
+        }
+      }
+    }
+  }
+
+  // 模試の参照が、すべて実在するか
+  const mockEntry = index.courses.find(c => c.kind === 'mock');
+  const file = await fetch(`../lessons/${mockEntry.file}`).then(r => r.json());
+  for (const set of file.sets) {
+    const built = loadMockSet(set, courses);
+    check(`模試: ${set.id} の問題がすべて見つかる`,
+      built.entries.length === set.problems.length,
+      `\n  ${built.entries.length} / ${set.problems.length}`);
+    const total = set.problems.reduce((sum, p) => sum + p.points, 0);
+    check(`模試: ${set.id} の配点が 100 点`, total === 100, `\n  ${total} 点`);
+  }
+
+  const line = document.createElement('div');
+  line.textContent = `レッスンの問題 ${checked} 問を実行して照合`;
+  log.appendChild(line);
+}
+
 /* ============================================================
  * 4. 共有リンク
  * ========================================================== */
@@ -772,6 +887,9 @@ async function main() {
 
     group('p5.js のリファレンスどおりの書き方');
     await testP5BareNames();
+
+    group('レッスンの中身');
+    await testLessonContent();
 
     group('共有リンク');
     await testShareLink();

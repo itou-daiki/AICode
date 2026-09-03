@@ -100,13 +100,14 @@ export function toast(message, duration = 2200) {
  * @param {() => void} [options.onToggle] 開閉のたびに呼ばれる
  * @returns {{ toggle: (open?: boolean) => void, isOpen: () => boolean }}
  */
-export function initSidebar({ sidebarId, toggleId, storageKey, onToggle }) {
+export function initSidebar({ sidebarId, toggleId, storageKey, onToggle, defaultOpen = false }) {
   const sidebar = document.getElementById(sidebarId);
   const button = document.getElementById(toggleId);
   if (!sidebar || !button) return { toggle() {}, isOpen: () => false };
 
-  // 既定は閉じた状態。前に開いていた場合だけ開く。
-  const remembered = storageKey ? localStorage.getItem(storageKey) === '1' : false;
+  // 前に開いていたかを覚えておく。はじめて開いたときは defaultOpen にしたがう。
+  const saved = storageKey ? localStorage.getItem(storageKey) : null;
+  const remembered = saved === null ? defaultOpen : saved === '1';
 
   const apply = (open) => {
     sidebar.classList.toggle('is-open', open);

@@ -3,5 +3,6 @@
   "description": "変数scoreに50を代入し、その後30を加えて、最終的な値を出力してください。",
   "input": "",
   "expected": "80",
-  "template": "# 変数scoreに50を代入\n\n\n# scoreに30を加える\n\n\n# scoreの値を出力\n"
+  "template": "# 変数scoreに50を代入\n\n\n# scoreに30を加える\n\n\n# scoreの値を出力\n",
+  "solution": "score = 50\nscore = score + 30\nprint(score)\n"
 }

@@ -1,0 +1,90 @@
+{
+  "id": "basic",
+  "note": "入門で覚えたことを、20 問で練習します。答え合わせは出力を見くらべて行います。",
+  "lessons": [
+    {
+      "id": "output",
+      "title": "1. 出力と変数",
+      "problems": [
+        {
+          "ref": "problems/problems1.json"
+        },
+        {
+          "ref": "problems/problems2.json"
+        },
+        {
+          "ref": "problems/problems3.json"
+        },
+        {
+          "ref": "problems/problems4.json"
+        },
+        {
+          "ref": "problems/problems5.json"
+        },
+        {
+          "ref": "problems/problems6.json"
+        },
+        {
+          "ref": "problems/problems7.json"
+        }
+      ]
+    },
+    {
+      "id": "branch",
+      "title": "2. 条件で分ける",
+      "problems": [
+        {
+          "ref": "problems/problems8.json"
+        },
+        {
+          "ref": "problems/problems9.json"
+        }
+      ]
+    },
+    {
+      "id": "loop",
+      "title": "3. くり返しとリスト",
+      "problems": [
+        {
+          "ref": "problems/problems10.json"
+        },
+        {
+          "ref": "problems/problems11.json"
+        },
+        {
+          "ref": "problems/problems12.json"
+        },
+        {
+          "ref": "problems/problems13.json"
+        },
+        {
+          "ref": "problems/problems14.json"
+        }
+      ]
+    },
+    {
+      "id": "input",
+      "title": "4. 入力を使う",
+      "problems": [
+        {
+          "ref": "problems/problems15.json"
+        },
+        {
+          "ref": "problems/problems16.json"
+        },
+        {
+          "ref": "problems/problems17.json"
+        },
+        {
+          "ref": "problems/problems18.json"
+        },
+        {
+          "ref": "problems/problems19.json"
+        },
+        {
+          "ref": "problems/problems20.json"
+        }
+      ]
+    }
+  ]
+}

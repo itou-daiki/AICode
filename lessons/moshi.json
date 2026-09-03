@@ -1,0 +1,42 @@
+{
+  "id": "moshi",
+  "note": "まとめて解いて、点数を出します。途中では正誤を見せません。終わったあとに、まちがえた問題の解説を見られます。制限時間はありません。",
+  "sets": [
+    {
+      "id": "moshi-1",
+      "title": "第1回",
+      "summary": "共通テスト形式 4 問 ＋ 記述 1 問（100 点）",
+      "problems": [
+        { "ref": "kyotsu#sum-avg", "points": 20 },
+        { "ref": "kyotsu#linear-search", "points": 20 },
+        { "ref": "kyotsu#coins", "points": 20 },
+        { "ref": "kyotsu#bubble-1pass", "points": 20 },
+        { "ref": "niji#is-even", "points": 20 }
+      ]
+    },
+    {
+      "id": "moshi-2",
+      "title": "第2回",
+      "summary": "探索と度数分布を中心に（100 点）",
+      "problems": [
+        { "ref": "kyotsu#max-value", "points": 20 },
+        { "ref": "kyotsu#bin-search", "points": 20 },
+        { "ref": "kyotsu#freq-table", "points": 20 },
+        { "ref": "kyotsu#digit-sum", "points": 20 },
+        { "ref": "niji#palindrome", "points": 20 }
+      ]
+    },
+    {
+      "id": "moshi-3",
+      "title": "第3回",
+      "summary": "配列・整列・乱数（100 点）",
+      "problems": [
+        { "ref": "kyotsu#matrix-row-sum", "points": 20 },
+        { "ref": "kyotsu#selection-sort", "points": 20 },
+        { "ref": "kyotsu#gcd", "points": 20 },
+        { "ref": "kyotsu#dice-sim", "points": 20 },
+        { "ref": "niji#word-count", "points": 20 }
+      ]
+    }
+  ]
+}

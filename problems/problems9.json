@@ -3,5 +3,6 @@
   "description": "点数によって評価を出力します。80点以上なら「優」、60点以上なら「良」、それ以外は「可」と出力してください。",
   "input": "",
   "expected": "良",
-  "template": "# 点数を変数に代入\nscore = 75\n\n# if-elif-else文を使って評価を判定\n"
+  "template": "# 点数を変数に代入\nscore = 75\n\n# if-elif-else文を使って評価を判定\n",
+  "solution": "score = 75\nif score >= 90:\n    print(\"優\")\nelif score >= 70:\n    print(\"良\")\nelif score >= 60:\n    print(\"可\")\nelse:\n    print(\"不可\")\n"
 }

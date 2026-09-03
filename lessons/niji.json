@@ -1,0 +1,220 @@
+{
+  "id": "niji",
+  "note": "自分でプログラムを書く問題です。いくつかの入力で自動的に確かめます。すべて通れば正解です。",
+  "lessons": [
+    {
+      "id": "func",
+      "title": "1. 関数を作る",
+      "problems": [
+        {
+          "id": "is-even",
+          "type": "code",
+          "title": "偶数か調べる",
+          "difficulty": 2,
+          "description": "整数 n を受け取り、偶数なら `True`、奇数なら `False` を返す関数 `is_even(n)` を作りなさい。\n\n入力から 1 つ整数を読み、結果を表示します。",
+          "template": "def is_even(n):\n    # ここに書く\n    pass\n\nn = int(input())\nprint(is_even(n))\n",
+          "tests": [
+            { "input": "4", "expected": "True" },
+            { "input": "7", "expected": "False" },
+            { "input": "0", "expected": "True" },
+            { "input": "-3", "expected": "False" }
+          ],
+          "solution": "def is_even(n):\n    return n % 2 == 0\n\nn = int(input())\nprint(is_even(n))\n",
+          "hint": "`n % 2 == 0` の結果をそのまま `return` できます。",
+          "explanation": "比べた結果（`n % 2 == 0`）は、そのまま True か False になります。if を書かなくても返せます。"
+        },
+        {
+          "id": "factorial",
+          "type": "code",
+          "title": "階乗（自分を呼ぶ関数）",
+          "difficulty": 3,
+          "description": "n の階乗（1 × 2 × … × n）を返す関数 `kaijo(n)` を作りなさい。0 の階乗は 1 とします。\n\nくり返しでも、自分自身を呼ぶ形（再帰）でもかまいません。",
+          "template": "def kaijo(n):\n    # ここに書く\n    pass\n\nn = int(input())\nprint(kaijo(n))\n",
+          "tests": [
+            { "input": "5", "expected": "120" },
+            { "input": "0", "expected": "1" },
+            { "input": "1", "expected": "1" },
+            { "input": "10", "expected": "3628800" }
+          ],
+          "solution": "def kaijo(n):\n    if n <= 1:\n        return 1\n    return n * kaijo(n - 1)\n\nn = int(input())\nprint(kaijo(n))\n",
+          "hint": "n が 0 か 1 のときは 1。それ以外は n × (n-1 の階乗) です。",
+          "explanation": "自分自身を呼ぶときは、**必ず止まる条件**（ここでは n <= 1）を先に書きます。書き忘れると終わらなくなります。"
+        },
+        {
+          "id": "fib",
+          "type": "code",
+          "title": "フィボナッチ数",
+          "difficulty": 3,
+          "description": "1, 1, 2, 3, 5, 8, … と、前の 2 つを足していく数列の n 番目を返す関数 `fib(n)` を作りなさい。1 番目と 2 番目は 1 とします。",
+          "template": "def fib(n):\n    # ここに書く\n    pass\n\nn = int(input())\nprint(fib(n))\n",
+          "tests": [
+            { "input": "1", "expected": "1" },
+            { "input": "2", "expected": "1" },
+            { "input": "6", "expected": "8" },
+            { "input": "20", "expected": "6765" }
+          ],
+          "solution": "def fib(n):\n    a = 1\n    b = 1\n    for i in range(2, n):\n        a, b = b, a + b\n    return b if n >= 2 else a\n\nn = int(input())\nprint(fib(n))\n",
+          "hint": "2 つの変数を用意して、順に入れかえていくと速く書けます。",
+          "explanation": "再帰で書くと同じ計算を何度もするので、n が大きいと遅くなります。くり返しで 2 つの変数を進める方が速く終わります。"
+        },
+        {
+          "id": "gcd-func",
+          "type": "code",
+          "title": "最大公約数を返す",
+          "difficulty": 3,
+          "description": "2 つの正の整数の最大公約数を返す関数 `gcd(a, b)` を作りなさい。\n\n入力は 2 行で、1 行目が a、2 行目が b です。",
+          "template": "def gcd(a, b):\n    # ここに書く\n    pass\n\na = int(input())\nb = int(input())\nprint(gcd(a, b))\n",
+          "tests": [
+            { "input": "48\n18", "expected": "6" },
+            { "input": "17\n5", "expected": "1" },
+            { "input": "100\n100", "expected": "100" },
+            { "input": "12\n36", "expected": "12" }
+          ],
+          "solution": "def gcd(a, b):\n    while b != 0:\n        a, b = b, a % b\n    return a\n\na = int(input())\nb = int(input())\nprint(gcd(a, b))\n",
+          "hint": "「大きい方を、あまりに置きかえる」をくり返します（ユークリッドの互除法）。",
+          "explanation": "a と b を「b と a%b」に置きかえ続けると、b が 0 になったときの a が最大公約数です。"
+        }
+      ]
+    },
+    {
+      "id": "string",
+      "title": "2. 文字列と辞書",
+      "problems": [
+        {
+          "id": "palindrome",
+          "type": "code",
+          "title": "回文かどうか",
+          "difficulty": 3,
+          "description": "文字列を 1 行受け取り、前から読んでも後ろから読んでも同じなら `Yes`、ちがえば `No` と表示しなさい。",
+          "template": "s = input()\n# ここに書く\n",
+          "tests": [
+            { "input": "たけやぶやけた", "expected": "Yes" },
+            { "input": "abcba", "expected": "Yes" },
+            { "input": "python", "expected": "No" },
+            { "input": "a", "expected": "Yes" }
+          ],
+          "solution": "s = input()\nif s == s[::-1]:\n    print(\"Yes\")\nelse:\n    print(\"No\")\n",
+          "hint": "`s[::-1]` で逆さまの文字列が作れます。for で前後から見くらべてもかまいません。",
+          "explanation": "`s[::-1]` は文字列を逆順にしたものです。1 文字の文字列は、逆にしても同じなので回文です。"
+        },
+        {
+          "id": "word-count",
+          "type": "code",
+          "title": "文字の出てくる回数",
+          "difficulty": 3,
+          "description": "文字列を 1 行受け取り、いちばん多く出てくる文字と、その回数を空白で区切って表示しなさい。\n\n同じ回数のものが複数あるときは、**先に出てきた方** を答えます。",
+          "template": "s = input()\n# 辞書を使うと数えやすい\n",
+          "tests": [
+            { "input": "banana", "expected": "a 3" },
+            { "input": "aabbb", "expected": "b 3" },
+            { "input": "xyz", "expected": "x 1" }
+          ],
+          "solution": "s = input()\nkazoe = {}\nfor c in s:\n    if c in kazoe:\n        kazoe[c] = kazoe[c] + 1\n    else:\n        kazoe[c] = 1\nsaita = \"\"\nsaidai = 0\nfor c in s:\n    if kazoe[c] > saidai:\n        saidai = kazoe[c]\n        saita = c\nprint(saita, saidai)\n",
+          "hint": "辞書に「文字 → 回数」を入れて数え、そのあと元の文字列の順に見ていきます。",
+          "explanation": "先に出てきた方を選ぶには、**元の文字列の順に** 見ていき、より多いときだけ入れ直します。"
+        },
+        {
+          "id": "rle",
+          "type": "code",
+          "title": "同じ文字をまとめる",
+          "difficulty": 4,
+          "description": "文字列を 1 行受け取り、続いている同じ文字を「文字＋個数」にまとめて表示しなさい。\n\n例：`aaabbc` → `a3b2c1`",
+          "template": "s = input()\n# 続いている文字を数えよう\n",
+          "tests": [
+            { "input": "aaabbc", "expected": "a3b2c1" },
+            { "input": "abc", "expected": "a1b1c1" },
+            { "input": "aaaa", "expected": "a4" }
+          ],
+          "solution": "s = input()\nkotae = \"\"\ni = 0\nwhile i < len(s):\n    kosu = 1\n    while i + kosu < len(s) and s[i + kosu] == s[i]:\n        kosu = kosu + 1\n    kotae = kotae + s[i] + str(kosu)\n    i = i + kosu\nprint(kotae)\n",
+          "hint": "同じ文字が続く間だけ数を進め、そのあと位置をまとめて飛ばします。",
+          "explanation": "内側のくり返しで「同じ文字が何個続くか」を数え、その分だけ位置を進めます。"
+        },
+        {
+          "id": "caesar",
+          "type": "code",
+          "title": "文字をずらす",
+          "difficulty": 4,
+          "description": "英小文字だけの文字列と、ずらす数 n を受け取り、各文字を n 個うしろにずらして表示しなさい。z の次は a にもどります。\n\n1 行目が文字列、2 行目が n です。",
+          "template": "s = input()\nn = int(input())\n# ord() と chr() を使う\n",
+          "tests": [
+            { "input": "abc\n1", "expected": "bcd" },
+            { "input": "xyz\n3", "expected": "abc" },
+            { "input": "hello\n0", "expected": "hello" }
+          ],
+          "solution": "s = input()\nn = int(input())\nkotae = \"\"\nfor c in s:\n    zure = (ord(c) - ord(\"a\") + n) % 26\n    kotae = kotae + chr(ord(\"a\") + zure)\nprint(kotae)\n",
+          "hint": "`ord(c) - ord(\"a\")` で 0〜25 の番号にし、26 で割ったあまりを使うと、z の次が a になります。",
+          "explanation": "`% 26` を使うことで、はみ出した分が自然に先頭にもどります。"
+        }
+      ]
+    },
+    {
+      "id": "algo",
+      "title": "3. アルゴリズム",
+      "problems": [
+        {
+          "id": "primes-upto",
+          "type": "code",
+          "title": "n 以下の素数",
+          "difficulty": 4,
+          "description": "整数 n を受け取り、n 以下の素数を小さい順に空白区切りで 1 行に表示しなさい。素数が無いときは何も表示しません。",
+          "template": "n = int(input())\n# 2 から順に調べよう\n",
+          "tests": [
+            { "input": "10", "expected": "2 3 5 7" },
+            { "input": "2", "expected": "2" },
+            { "input": "1", "expected": "" },
+            { "input": "20", "expected": "2 3 5 7 11 13 17 19" }
+          ],
+          "solution": "n = int(input())\nSosu = []\nfor i in range(2, n + 1):\n    warikireru = 0\n    for j in range(2, i):\n        if i % j == 0:\n            warikireru = 1\n    if warikireru == 0:\n        Sosu.append(i)\nkotae = \"\"\nfor i in range(0, len(Sosu)):\n    if i > 0:\n        kotae = kotae + \" \"\n    kotae = kotae + str(Sosu[i])\nprint(kotae)\n",
+          "hint": "2 から n まで順に調べ、どれでも割り切れなければ素数です。",
+          "explanation": "n が 1 のときは素数が無いので、何も出さずに空行になります。テストでもそれを確かめています。"
+        },
+        {
+          "id": "bin-search-func",
+          "type": "code",
+          "title": "二分探索を関数にする",
+          "difficulty": 4,
+          "description": "小さい順にならんだ配列 `Data` から値 `atai` をさがし、その添字を返す関数 `sagasu(Data, atai)` を作りなさい。見つからなければ `-1` を返します。\n\n入力の 1 行目がさがす値です。",
+          "template": "Data = [3, 18, 29, 33, 48, 52, 62, 77, 89, 97]\n\ndef sagasu(Data, atai):\n    # ここに書く\n    pass\n\natai = int(input())\nprint(sagasu(Data, atai))\n",
+          "tests": [
+            { "input": "29", "expected": "2" },
+            { "input": "3", "expected": "0" },
+            { "input": "97", "expected": "9" },
+            { "input": "50", "expected": "-1" }
+          ],
+          "solution": "Data = [3, 18, 29, 33, 48, 52, 62, 77, 89, 97]\n\ndef sagasu(Data, atai):\n    hidari = 0\n    migi = len(Data) - 1\n    while hidari <= migi:\n        aida = (hidari + migi) // 2\n        if Data[aida] == atai:\n            return aida\n        elif Data[aida] < atai:\n            hidari = aida + 1\n        else:\n            migi = aida - 1\n    return -1\n\natai = int(input())\nprint(sagasu(Data, atai))\n",
+          "hint": "見つかったらすぐ `return` できるので、`owari` のような変数は要りません。",
+          "explanation": "関数の中では `return` でその場を抜けられるので、共通テストの表記より短く書けます。"
+        },
+        {
+          "id": "transpose",
+          "type": "code",
+          "title": "表の行と列を入れかえる",
+          "difficulty": 4,
+          "description": "3 行 2 列の表 `Hyo` の行と列を入れかえて（2 行 3 列にして）、1 行ずつ表示しなさい。\n\n各行は空白区切りで表示します。",
+          "template": "Hyo = [[1, 2], [3, 4], [5, 6]]\n# 行と列を入れかえて表示しよう\n",
+          "tests": [{ "input": "", "expected": "1 3 5\n2 4 6" }],
+          "solution": "Hyo = [[1, 2], [3, 4], [5, 6]]\nfor j in range(0, 2):\n    gyo = \"\"\n    for i in range(0, 3):\n        if i > 0:\n            gyo = gyo + \" \"\n        gyo = gyo + str(Hyo[i][j])\n    print(gyo)\n",
+          "hint": "外側のくり返しを列（j）、内側を行（i）にすると入れかわります。",
+          "explanation": "`Hyo[i][j]` の i と j を回す順番を入れかえるだけで、行と列が入れかわります。"
+        },
+        {
+          "id": "bracket-check",
+          "type": "code",
+          "title": "かっこの対応を調べる",
+          "difficulty": 4,
+          "description": "`(` と `)` だけからなる文字列を受け取り、かっこが正しく対応していれば `Yes`、していなければ `No` と表示しなさい。\n\n正しいとは、閉じかっこが先に来ず、最後に数がそろっていることです。",
+          "template": "s = input()\n# 開いた数を数えよう\n",
+          "tests": [
+            { "input": "(())", "expected": "Yes" },
+            { "input": "(()", "expected": "No" },
+            { "input": ")(", "expected": "No" },
+            { "input": "()()", "expected": "Yes" }
+          ],
+          "solution": "s = input()\nfukasa = 0\ndame = 0\nfor c in s:\n    if c == \"(\":\n        fukasa = fukasa + 1\n    else:\n        fukasa = fukasa - 1\n    if fukasa < 0:\n        dame = 1\nif dame == 0 and fukasa == 0:\n    print(\"Yes\")\nelse:\n    print(\"No\")\n",
+          "hint": "開いたら 1 増やし、閉じたら 1 減らします。**途中で負になったら** その時点でだめです。",
+          "explanation": "最後に 0 になるだけでは足りません。`)(` のように、途中で負になる場合も正しくないので、両方を調べます。"
+        }
+      ]
+    }
+  ]
+}

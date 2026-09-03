@@ -3,5 +3,6 @@
   "description": "1から5までの数字を順番に出力してください。",
   "input": "",
   "expected": "1\n2\n3\n4\n5",
-  "template": "# for文を使って1から5まで出力\n"
+  "template": "# for文を使って1から5まで出力\n",
+  "solution": "for i in range(1, 6):\n    print(i)\n"
 }

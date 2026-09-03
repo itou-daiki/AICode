@@ -136,6 +136,27 @@
     }
     .code-actions button:hover { background: var(--c-brand); border-color: var(--c-brand); color: #fff; }
 
+    /* Python と共通テスト表記の対応表 */
+    .ref-table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: var(--sp-3) 0;
+      font-size: var(--text-sm);
+    }
+    .ref-table th, .ref-table td {
+      padding: var(--sp-2);
+      border-bottom: 1px solid var(--c-line);
+      text-align: left;
+      vertical-align: top;
+    }
+    .ref-table th {
+      font-size: var(--text-2xs);
+      font-weight: 700;
+      color: var(--c-ink-2);
+      background: var(--c-surface-2);
+    }
+    .ref-table code { font-size: 0.95em; }
+
     .code-block {
       margin: 0;
       padding: var(--sp-4);
@@ -248,7 +269,7 @@
     <div class="topbar-end">
       <nav class="mode-switch" aria-label="モード切り替え">
         <a href="index.html">🧩<span class="label">ブロック</span></a>
-        <a href="problems.html">📚<span class="label">問題</span></a>
+        <a href="lessons.html">📚<span class="label">レッスン</span></a>
         <a href="drawing.html">🎨<span class="label">描画</span></a>
         <a href="python-guide.html" aria-current="page">📘<span class="label">ガイド</span></a>
       </nav>
@@ -780,13 +801,71 @@ print("保存されたTODO:", loaded_todos)
           • 実際のプロジェクトを作ってみる
         </div>
       </section>
+
+      <section id="ktph" class="section">
+        <h2>📝 共通テスト用プログラム表記</h2>
+
+        <p>
+          大学入学共通テスト『情報Ⅰ』では、Python ではなく
+          <strong>共通テスト用プログラム表記</strong>という書き方でプログラムが出ます。
+          考え方は Python と同じで、言葉が日本語になっただけです。
+        </p>
+
+        <div class="tip">
+          <strong>覚えておく 4 つのきまり</strong><br>
+          • 配列の添字は <strong>0 から</strong>始まる<br>
+          • 配列の名前は<strong>先頭が大文字</strong>（<code>Data</code>, <code>Tokuten</code>）<br>
+          • 繰り返しの「〜まで」は、<strong>その値を含む</strong>（Python の range とちがう）<br>
+          • <code>表示する(a, "は", b)</code> はカンマの間に<strong>空白が入る</strong>
+        </div>
+
+        <h3>Python と見くらべる</h3>
+        <table class="ref-table">
+          <tr><th>Python</th><th>共通テスト用プログラム表記</th></tr>
+          <tr><td><code>print("こんにちは")</code></td><td><code>表示する("こんにちは")</code></td></tr>
+          <tr><td><code>x = int(input())</code></td><td><code>x = 【外部からの入力】</code></td></tr>
+          <tr><td><code>kazu = len(Data)</code></td><td><code>kazu = 要素数(Data)</code></td></tr>
+          <tr><td><code>a // b</code>（商）</td><td><code>a ÷ b</code></td></tr>
+          <tr><td><code>a % b</code>（あまり）</td><td><code>a % b</code></td></tr>
+          <tr><td><code>if x &lt; 3:</code></td><td><code>もし x &lt; 3 ならば:</code></td></tr>
+          <tr><td><code>elif x &lt; 5:</code></td><td><code>そうでなくもし x &lt; 5 ならば:</code></td></tr>
+          <tr><td><code>else:</code></td><td><code>そうでなければ:</code></td></tr>
+          <tr><td><code>while n &lt; 10:</code></td><td><code>n &lt; 10 の間繰り返す:</code></td></tr>
+          <tr><td><code>for x in range(0, 10):</code></td><td><code>x を 0 から 9 まで 1 ずつ増やしながら繰り返す:</code></td></tr>
+          <tr><td><code>for i in range(9, -1, -1):</code></td><td><code>i を 9 から 0 まで 1 ずつ減らしながら繰り返す:</code></td></tr>
+          <tr><td><code>Hyo[1][2]</code>（2次元）</td><td><code>Hyo[1,2]</code></td></tr>
+          <tr><td>字下げ（スペース4つ）</td><td><code>│</code> と <code>└</code> でブロックの範囲を示す</td></tr>
+        </table>
+
+        <h3>同じプログラムを見くらべる</h3>
+        <p>合計を求めるプログラムです。左が Python、右が共通テストの表記です。</p>
+
+        <div class="code-block">Data = [3, 1, 4, 1, 5]
+goukei = 0
+for i in range(0, len(Data)):
+    goukei = goukei + Data[i]
+print(goukei)</div>
+
+        <div class="code-block">Data = [3, 1, 4, 1, 5]
+goukei = 0
+i を 0 から 要素数(Data)-1 まで 1 ずつ増やしながら繰り返す:
+└ goukei = goukei + Data[i]
+表示する(goukei)</div>
+
+        <div class="tip">
+          <strong>easyCode で見くらべられます</strong><br>
+          レッスンモードの「📝 共通テスト表記」タブを開くと、書いた Python が自動で表記に直ります。
+          行番号がそろっているので、見くらべながら読めます。
+          ブロックモードと描画モードでも、フローチャートの横の「📝 共通テスト表記」ボタンで見られます。
+        </div>
+      </section>
     </div>
 
     <footer>
       <h3>🎓 学習を続けよう！</h3>
       <p>このガイドはPythonの基礎をカバーしています。さらに学習を進めるには：</p>
       <div class="nav-buttons">
-        <a href="problems.html" class="nav-btn">easyCodeで実践</a>
+        <a href="lessons.html" class="nav-btn">レッスンで実践</a>
         <a href="index.html" class="nav-btn">ブロックモードを試す</a>
         <a href="drawing.html" class="nav-btn">描画モードを試す</a>
       </div>

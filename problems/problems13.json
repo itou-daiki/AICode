@@ -3,5 +3,6 @@
   "description": "果物のリスト['りんご', 'みかん', 'ぶどう']を作成し、各要素を1行ずつ出力してください。",
   "input": "",
   "expected": "りんご\nみかん\nぶどう",
-  "template": "# 果物のリストを作成\nfruits = ['りんご', 'みかん', 'ぶどう']\n\n# for文を使って各要素を出力\n"
+  "template": "# 果物のリストを作成\nfruits = ['りんご', 'みかん', 'ぶどう']\n\n# for文を使って各要素を出力\n",
+  "solution": "fruits = ['りんご', 'みかん', 'ぶどう']\nfor fruit in fruits:\n    print(fruit)\n"
 }

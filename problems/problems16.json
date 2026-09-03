@@ -3,5 +3,6 @@
   "description": "2つの数値を入力してもらい、その合計を出力してください。",
   "input": "10\n25",
   "expected": "35",
-  "template": "# 1つ目の数値を入力\nnum1 = int(input())\n\n# 2つ目の数値を入力\nnum2 = int(input())\n\n# 合計を計算して出力\n"
+  "template": "# 1つ目の数値を入力\nnum1 = int(input())\n\n# 2つ目の数値を入力\nnum2 = int(input())\n\n# 合計を計算して出力\n",
+  "solution": "num1 = int(input())\nnum2 = int(input())\nprint(num1 + num2)\n"
 }

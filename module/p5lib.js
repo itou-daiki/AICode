@@ -806,6 +806,28 @@ frameCount = 0  # グローバルなフレームカウント
 deltaTime = 0   # 前フレームからの経過時間（ミリ秒）
 
 
+# 1 秒あたり何コマ描くか。p5.js と同じく、はじめは 60。
+p5._target_fps = 60
+p5._recent_fps = 0.0
+
+
+def frame_rate(fps=None):
+    """1秒あたりのコマ数を決める（p5.js の frameRate と同じ）
+
+    frame_rate(30) … 1秒あたり30コマにする
+    frame_rate()   … 今のコマ数を返す
+    """
+    if fps is None:
+        return p5._recent_fps
+    p5._target_fps = float(fps) if fps and float(fps) > 0 else 0
+    return None
+
+
+def get_frame_rate():
+    """今のコマ数（p5.js の getTargetFrameRate ではなく、実測値）"""
+    return p5._recent_fps
+
+
 # p5.js のリファレンスは circle(200, 200, 80) のように前置きなしで書く。
 # 教材やチュートリアルもその形なので、そのまま写して動くようにしておく。
 # p5.circle(...) の書き方も今までどおり使える。
@@ -829,6 +851,18 @@ def _easycode_expose_p5():
         if not callable(value):
             continue
         globals().setdefault(name, value)
+        camel = _easycode_camel(name)
+        if camel != name:
+            globals().setdefault(camel, value)
+
+    # frame_rate や random_seed のように、この場で定義した関数にも
+    # p5.js と同じつづり（frameRate / randomSeed）を用意する。
+    for name in list(globals()):
+        if name.startswith('_') or '_' not in name or name in _EASYCODE_KEEP_BUILTINS:
+            continue
+        value = globals()[name]
+        if not callable(value):
+            continue
         camel = _easycode_camel(name)
         if camel != name:
             globals().setdefault(camel, value)
