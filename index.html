@@ -70,9 +70,6 @@
     body.layout-2 .panel[data-stage]:not(.is-stage) { display: none; }
     body.layout-2 .panel[data-stage].is-stage { display: flex; }
 
-    /* ステップ実行中は、終了ボタンも並べる */
-    #stage-exit { display: none; }
-    body.step-mode #stage-exit { display: inline-flex; }
     #step-chip { display: none; }
     body.step-mode #step-chip { display: inline-block; }
 
@@ -327,7 +324,7 @@
       </details>
 
       <details class="expander">
-        <summary>⏯ ステップ実行とは</summary>
+        <summary><svg viewBox="0 0 20 20" class="icon" aria-hidden="true"><path d="M5 4l7 6-7 6z"/><path d="M15 4v12"/></svg>ステップ実行とは</summary>
         <div class="expander-body stack">
           <p>プログラムを1行ずつたどって、そのときの変数の値と出力を確かめられます。</p>
           <p>実行中は画面が2つに分かれ、左側でコード・フローチャート・ブロックを切り替えられます。</p>
@@ -338,14 +335,13 @@
     <div id="workspace">
       <!-- ステップ実行中に出る、左側の切り替えタブ -->
       <div id="stage-tabs">
-        <span class="chip is-warn" id="step-chip">⏯ ステップ実行中</span>
+        <span class="chip is-warn" id="step-chip">ステップ実行中</span>
         <span class="tabs-label">左に表示</span>
         <div class="tabs" role="tablist">
           <button type="button" data-stage="panel-code" role="tab" aria-selected="true"><svg viewBox="0 0 20 20" class="icon" aria-hidden="true"><path d="M7 6 3 10l4 4"/><path d="m13 6 4 4-4 4"/></svg>コード</button>
           <button type="button" data-stage="panel-flow" role="tab" aria-selected="false"><svg viewBox="0 0 20 20" class="icon" aria-hidden="true"><path d="M7 3h6v3H7z"/><path d="M10 6v3"/><path d="M10 9l3 2.5-3 2.5-3-2.5z"/><path d="M10 14v3"/></svg>フローチャート</button>
           <button type="button" data-stage="panel-blocks" role="tab" aria-selected="false"><svg viewBox="0 0 20 20" class="icon" aria-hidden="true"><path d="M3 4h6v4H3z"/><path d="M5 8v3h8V8"/><path d="M11 11h6v4h-6z"/></svg>ブロック</button>
         </div>
-        <button id="stage-exit" class="btn btn-danger btn-sm" title="ふだんの画面に戻ります"><svg viewBox="0 0 20 20" class="icon" aria-hidden="true"><path d="M5 5h10v10H5z"/></svg>ステップ実行を終わる</button>
       </div>
 
       <!-- 左上: Python コード -->
@@ -417,15 +413,15 @@
 
           <div id="predict-panel" hidden>
             <label for="predict-input">実行する前に、出力がどうなるか予想してみましょう</label>
-            <textarea id="predict-input" rows="3" placeholder="ここに予想を書いてから「▶ 実行」を押します"></textarea>
+            <textarea id="predict-input" rows="3" placeholder="ここに予想を書いてから「実行」を押します"></textarea>
             <div id="predict-result"></div>
           </div>
 
-          <pre id="output" class="console">「▶ 実行」で動かし、「⏯ ステップ実行」で1行ずつ確かめられます</pre>
+          <pre id="output" class="console">「実行」で動かし、「ステップ実行」で1行ずつ確かめられます</pre>
 
           <div id="step-inputs">
             <label for="step-input-values" style="display:block;margin-bottom:var(--sp-1);font-size:var(--text-xs);font-weight:600;">
-              このプログラムは input() を使います。使う値を1行に1つ書いてください
+              ステップ実行で input() に使う値（1行に1つ）。実行のときに打った値は、ここに写ります
             </label>
             <textarea id="step-input-values" rows="2" placeholder="たろう&#10;12"></textarea>
           </div>

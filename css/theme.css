@@ -342,7 +342,8 @@ kbd {
   justify-content: center;
   gap: 1px;
   min-width: 74px;
-  padding: 0 var(--sp-3);
+  /* 下に朱の罫を引くので、字がぶつからないだけの余白を空けておく */
+  padding: 6px var(--sp-3) 8px;
   border-right: 1px solid var(--c-rule);
   color: var(--c-ink-2);
   text-decoration: none;
@@ -353,12 +354,14 @@ kbd {
   font-family: var(--font-label);
   font-size: var(--text-2xs);
   font-weight: 600;
+  line-height: 1.1;
   letter-spacing: 0.1em;
   color: var(--c-ink-3);
 }
 .mode-switch .label {
   font-size: var(--text-sm);
   font-weight: 700;
+  line-height: 1.2;
   letter-spacing: 0.02em;
   white-space: nowrap;
 }
@@ -367,7 +370,7 @@ kbd {
   background: var(--c-paper);
   color: var(--c-ink);
   font-weight: 700;
-  box-shadow: inset 0 -4px 0 var(--c-mark);
+  box-shadow: inset 0 -3px 0 var(--c-mark);
 }
 .mode-switch a[aria-current='page'] .lane { color: var(--c-mark-deep); font-weight: 700; }
 
@@ -496,7 +499,7 @@ kbd {
   background: var(--c-paper);
 }
 .lane-switch button {
-  padding: 0.3em 0.55em;
+  padding: 0.3em 0.55em 0.5em;
   border: 0;
   border-right: 1px solid var(--c-rule);
   background: var(--c-paper);
@@ -512,7 +515,7 @@ kbd {
 .lane-switch button.is-on {
   background: var(--c-paper);
   color: var(--c-ink);
-  box-shadow: inset 0 -2px 0 var(--c-paper), inset 0 -4px 0 var(--c-mark), inset 0 -6px 0 var(--c-mark);
+  box-shadow: inset 0 -3px 0 var(--c-mark);
 }
 
 /* 図だけのボタン。中身は必ず描いた線画（絵文字は使わない） */
@@ -602,7 +605,8 @@ kbd {
   align-items: center;
   gap: 0.3em;
   min-height: 24px;
-  padding: 0.15em 0.5em;
+  /* 選ばれた印を下に引くので、字の下に場所を空けておく */
+  padding: 0.15em 0.5em 0.35em;
   border: 1px solid var(--c-rule);
   border-radius: var(--r-sm);
   background: var(--c-paper);
@@ -662,7 +666,8 @@ kbd {
   display: inline-flex;
   align-items: center;
   gap: 0.35em;
-  padding: 0.3em 0.8em;
+  /* 選ばれた印を下に引くので、字の下に場所を空けておく */
+  padding: 0.3em 0.8em 0.5em;
   border: 0;
   border-right: 1px solid var(--c-rule);
   background: var(--c-paper);
@@ -676,11 +681,11 @@ kbd {
 }
 .tabs button:last-child { border-right: 0; }
 .tabs button:hover { background: var(--c-paper-2); color: var(--c-ink); }
-/* いま開いているものは、面を朱で塗らずに二重罫で示す（朱の面は主となる操作だけ） */
+/* いま開いているものは、面を朱で塗らずに下の罫で示す（朱の面は主となる操作だけ） */
 .tabs button[aria-selected='true'] {
   background: var(--c-paper);
   color: var(--c-ink);
-  box-shadow: inset 0 -3px 0 var(--c-paper), inset 0 -5px 0 var(--c-mark), inset 0 -8px 0 var(--c-mark);
+  box-shadow: inset 0 -3px 0 var(--c-mark);
 }
 .tabs button .icon { width: 14px; height: 14px; }
 

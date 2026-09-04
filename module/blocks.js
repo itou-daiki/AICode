@@ -58,6 +58,8 @@ function setupRuntimeInput() {
     const value = input.value;
     input.value = '';
     container.style.display = 'none';
+    typedInputs.push(value);
+    updateStepInputs();
     isWaitingForInput = false;
     $('output').textContent += value + '\n';
 
@@ -83,6 +85,7 @@ function createCustomInput() {
     $('runtime-input-label').textContent = question || '値を入力';
 
     $('runtime-input-container').style.display = 'flex';
+    updateStepInputs();
     $('runtime-input').focus();
   });
 }
@@ -104,6 +107,7 @@ async function runCode() {
   $('runtime-input-container').style.display = 'none';
   isWaitingForInput = false;
   inputCallback = null;
+  typedInputs.length = 0;
   button.disabled = true;
 
   try {
@@ -129,6 +133,10 @@ async function runCode() {
     $('runtime-input-container').style.display = 'none';
     isWaitingForInput = false;
     inputCallback = null;
+    // 実行で打った値を、ステップ実行の欄に写しておく（打ち直さなくてよい）
+    const box = $('step-input-values');
+    if (typedInputs.length && box && !box.value.trim()) box.value = typedInputs.join('\n');
+    updateStepInputs();
     comparePrediction(output.textContent);
   }
 }
@@ -208,9 +216,18 @@ function comparePrediction(actual) {
  * 2. ステップ実行（Python Tutor 風）
  * ========================================================== */
 
-/** input() を使うコードのときだけ、値を入れる欄を出す */
+/** 実行のときに打った値。次のステップ実行に引きつぐ */
+const typedInputs = [];
+
+/**
+ * input() を使うコードのときだけ、ステップ実行用の欄を出す。
+ * 実行中に値を聞いているあいだは、入力欄が 2 つ並んで
+ * 「どちらに書くのか」が分からなくなるので引っこめる。
+ */
 function updateStepInputs() {
-  $('step-inputs').classList.toggle('is-visible', bench.getCode().includes('input('));
+  const asking = $('runtime-input-container').style.display === 'flex';
+  const needed = bench.getCode().includes('input(') && !asking;
+  $('step-inputs').classList.toggle('is-visible', needed);
 }
 
 /** ステップ実行を始める */
@@ -486,7 +503,6 @@ function setupControls() {
     if (step.active) exitStepMode();
     else startStepMode();
   });
-  $('stage-exit').addEventListener('click', exitStepMode);
   for (const button of document.querySelectorAll('#layout-switch button')) {
     button.addEventListener('click', () => setLayout(button.dataset.layout));
   }

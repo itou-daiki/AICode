@@ -693,7 +693,9 @@ async function checkCurrent() {
       const judge = document.querySelector(`.judge[data-key="${key}"]`);
       if (judge) judge.innerHTML = mock ? '' : iconHtml(ok ? 'check' : 'cross');
     }
-    finishAnswer(ref, result.ok, result.ok ? '正解です。' : 'もう一度考えてみましょう。');
+    finishAnswer(ref, result.ok, result.ok
+      ? '正解です。'
+      : '✕ のところを選び直しましょう。「実行」で埋めたプログラムを動かすと、どこがちがうか分かります。');
     return;
   }
 
@@ -755,6 +757,20 @@ function finishAnswer(ref, ok, message) {
 
   if (message !== null) showNote('check-result', ok ? 'ok' : 'bad', message);
   if (ok && current.explanation) $('explain-box').open = true;
+
+  // 正解したら、その場から次へ進めるようにする（上のボタンを探させない）
+  if (ok && !mock) {
+    const box = $('check-result').querySelector('.note');
+    const next = nextRef();
+    if (box && next) {
+      const button = document.createElement('button');
+      button.className = 'btn btn-sm btn-mark';
+      button.style.marginTop = 'var(--sp-2)';
+      button.textContent = '次の問題へ ›';
+      button.addEventListener('click', () => openProblem(next));
+      box.appendChild(button);
+    }
+  }
   saveDraft(ref, currentCode());
 }
 
@@ -1059,6 +1075,13 @@ function allRefs() {
     }
   }
   return refs;
+}
+
+/** 次の問題の ref（無ければ null） */
+function nextRef() {
+  const refs = allRefs();
+  const index = current ? refs.indexOf(problemRef(current)) : -1;
+  return index >= 0 && index + 1 < refs.length ? refs[index + 1] : null;
 }
 
 function move(step) {
