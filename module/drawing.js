@@ -521,7 +521,7 @@ function setupControls() {
     const ok = await confirmDialog({
       title: 'すべて消しますか？',
       message: 'コード・ブロック・キャンバスがすべて消えます。この操作は元に戻せません。',
-      okLabel: 'すべて消す',
+      okLabel: '全消去',
     });
     if (!ok) return;
     stopAnimation(null);
@@ -599,7 +599,7 @@ function setupControls() {
   $('flow-fit').addEventListener('click', (e) => {
     const fit = !bench.isFlowFit();
     bench.setFlowFit(fit);
-    setIconLabel(e.currentTarget, 'maximize', fit ? '見やすい大きさ' : '実物大');
+    setIconLabel(e.currentTarget, 'maximize', fit ? '全体を表示' : '実物大');
     e.currentTarget.classList.toggle('is-on', fit);
     toast(fit ? 'パネルに合わせた大きさにしました' : '実物大にしました（スクロールで見られます）');
   });

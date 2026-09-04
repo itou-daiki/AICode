@@ -27,7 +27,7 @@ function ensureDialog() {
         <p data-role="message"></p>
       </div>
       <div class="dialog-actions">
-        <button class="btn btn-quiet" value="cancel" data-role="cancel">キャンセル</button>
+        <button class="btn btn-quiet" value="cancel" data-role="cancel">取り消し</button>
         <button class="btn btn-danger" value="ok" data-role="ok">実行する</button>
       </div>
     </form>`;
@@ -44,7 +44,7 @@ function ensureDialog() {
  * @param {string} [options.tone] 'danger'（既定）か 'primary'
  * @returns {Promise<boolean>} OK が押されたか
  */
-export function confirmDialog({ title, message = '', okLabel = '実行する', tone = 'danger' }) {
+export function confirmDialog({ title, message = '', okLabel = '実行', tone = 'danger' }) {
   const dialog = ensureDialog();
   dialog.querySelector('[data-role="title"]').textContent = title;
   dialog.querySelector('[data-role="message"]').textContent = message;

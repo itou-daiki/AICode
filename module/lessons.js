@@ -540,7 +540,7 @@ function renderAnswerArea(problem) {
 
     const apply = document.createElement('button');
     apply.className = 'btn btn-sm';
-    apply.textContent = '選んだものをエディタに入れる';
+    apply.textContent = '空欄をエディタへ';
     apply.addEventListener('click', () => {
       editorPy.setValue(fillBlanks(problem.program, problem.blanks, picks));
       syncViews();
@@ -766,7 +766,7 @@ function finishAnswer(ref, ok, message) {
       const button = document.createElement('button');
       button.className = 'btn btn-sm btn-mark';
       button.style.marginTop = 'var(--sp-2)';
-      button.textContent = '次の問題へ ›';
+      button.textContent = '次の問題 ›';
       button.addEventListener('click', () => openProblem(next));
       box.appendChild(button);
     }
@@ -1178,7 +1178,7 @@ async function enterFreeCoding() {
     const ok = await confirmDialog({
       title: '模試をやめますか？',
       message: 'ここまでの答えは残りません。',
-      okLabel: 'やめる',
+      okLabel: '中止',
     });
     if (!ok) return;
     mock = null;
@@ -1186,7 +1186,7 @@ async function enterFreeCoding() {
     renderNav();
   }
   current = {
-    id: 'free', courseId: 'free', type: 'code', title: '自由に書く',
+    id: 'free', courseId: 'free', type: 'code', title: '自由記述',
     description: '好きなプログラムを書いて動かせます。答え合わせはありません。',
     view: 'python', tests: [],
   };
@@ -1293,14 +1293,14 @@ async function init() {
 
     $('reset-progress').addEventListener('click', async () => {
       const ok = await confirmDialog({
-        title: '進み具合を消しますか？',
+        title: '記録を消しますか？',
         message: '解けた印と模試の成績が、すべて消えます。元にはもどせません。',
-        okLabel: 'すべて消す',
+        okLabel: '全消去',
       });
       if (!ok) return;
       clearProgress();
       renderNav();
-      toast('進み具合を消しました');
+      toast('記録を消しました');
     });
 
     setupRuntimeInput();

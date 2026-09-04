@@ -365,7 +365,7 @@
       <span class="chip" id="current-label">レッスン</span>
       <button id="next-problem" class="btn btn-sm">次 ›</button>
       <span class="topbar-divider"></span>
-      <button id="free-coding" class="btn btn-sm"><svg viewBox="0 0 20 20" class="icon" aria-hidden="true"><path d="M4 16v-3l9-9 3 3-9 9z"/><path d="M11 6l3 3"/></svg>自由に書く</button>
+      <button id="free-coding" class="btn btn-sm"><svg viewBox="0 0 20 20" class="icon" aria-hidden="true"><path d="M4 16v-3l9-9 3 3-9 9z"/><path d="M11 6l3 3"/></svg>自由記述</button>
       <span class="chip is-warn" id="mock-chip" style="display:none;">模試の途中</span>
     </div>
 
@@ -408,7 +408,7 @@
             <p class="muted">キーが無くても、実行・答え合わせ・フローチャート・補完はすべて使えます。</p>
           </div>
 
-          <button id="reset-progress" class="btn btn-sm btn-quiet"><svg viewBox="0 0 20 20" class="icon" aria-hidden="true"><path d="M4 6h12"/><path d="M7 6V4h6v2"/><path d="M6 6l1 11h6l1-11"/></svg>進み具合を消す</button>
+          <button id="reset-progress" class="btn btn-sm btn-quiet"><svg viewBox="0 0 20 20" class="icon" aria-hidden="true"><path d="M4 6h12"/><path d="M7 6V4h6v2"/><path d="M6 6l1 11h6l1-11"/></svg>記録の消去</button>
         </div>
       </details>
     </aside>
@@ -437,17 +437,17 @@
       </details>
 
       <details class="expander" id="ai-box">
-        <summary><svg viewBox="0 0 20 20" class="icon" aria-hidden="true"><path d="M5 8h10v7H5z"/><path d="M10 5v3"/><path d="M7.5 11h1M11.5 11h1"/></svg>AI にきく</summary>
+        <summary><svg viewBox="0 0 20 20" class="icon" aria-hidden="true"><path d="M5 8h10v7H5z"/><path d="M10 5v3"/><path d="M7.5 11h1M11.5 11h1"/></svg>AI に相談</summary>
         <div class="expander-body stack">
-          <button id="btn-explain" class="btn btn-sm btn-block">この問題の解説をもらう</button>
+          <button id="btn-explain" class="btn btn-sm btn-block">AI 解説</button>
           <div id="explanation" class="muted"></div>
-          <button id="btn-review" class="btn btn-sm btn-block">書いたコードを見てもらう</button>
+          <button id="btn-review" class="btn btn-sm btn-block">AI 添削</button>
           <div id="review" class="muted"></div>
         </div>
       </details>
 
       <details class="expander" id="chat-box">
-        <summary><svg viewBox="0 0 20 20" class="icon" aria-hidden="true"><path d="M3 4h14v9H8l-5 4z"/></svg>AI とチャット</summary>
+        <summary><svg viewBox="0 0 20 20" class="icon" aria-hidden="true"><path d="M3 4h14v9H8l-5 4z"/></svg>AI チャット</summary>
         <div class="expander-body stack">
           <div id="chat-messages" class="stack"></div>
           <div id="chat-input-container" class="row">
@@ -470,8 +470,8 @@
             <button type="button" data-stage="pair" role="tab" aria-selected="false" title="Python と共通テスト表記を、同じ行番号で結んで並べます"><svg viewBox="0 0 20 20" class="icon" aria-hidden="true"><path d="M3 3h5v14H3zM12 3h5v14h-5z"/><path d="M8 7h4M8 13h4"/></svg>並べて結ぶ</button>
           </div>
           <span class="panel-tools">
-            <button class="tool-btn" id="code-indent" title="字下げをそろえます"><svg viewBox="0 0 20 20" class="icon" aria-hidden="true"><path d="M3 5h14M7 10h10M7 15h10"/><path d="M3 8l2 2-2 2"/></svg>自動インデント</button>
-            <button class="tool-btn" id="code-format" title="記号まわりの空白も整えます"><svg viewBox="0 0 20 20" class="icon" aria-hidden="true"><path d="M3 5h14M3 10h9M3 15h12"/></svg>コード整形</button>
+            <button class="tool-btn" id="code-indent" title="字下げをそろえます"><svg viewBox="0 0 20 20" class="icon" aria-hidden="true"><path d="M3 5h14M7 10h10M7 15h10"/><path d="M3 8l2 2-2 2"/></svg>字下げ</button>
+            <button class="tool-btn" id="code-format" title="記号まわりの空白も整えます"><svg viewBox="0 0 20 20" class="icon" aria-hidden="true"><path d="M3 5h14M3 10h9M3 15h12"/></svg>整形</button>
             <button class="tool-btn panel-max" data-panel="panel-program" title="このパネルを大きく表示"><svg viewBox="0 0 20 20" class="icon" aria-hidden="true"><path d="M4 8V4h4M16 12v4h-4"/></svg></button>
           </span>
         </div>
@@ -491,9 +491,9 @@
         </div>
         <div class="button-group" style="display:flex; gap:var(--sp-2); padding:var(--sp-2); border-top:1px solid var(--c-line); flex-wrap:wrap;">
           <button id="run-btn" class="btn btn-run" disabled><svg viewBox="0 0 20 20" class="icon" aria-hidden="true"><path d="M6 4l10 6-10 6z"/></svg>実行</button>
-          <button id="step-btn" class="btn btn-sm"><svg viewBox="0 0 20 20" class="icon" aria-hidden="true"><path d="M5 4l7 6-7 6z"/><path d="M15 4v12"/></svg>ステップで確かめる</button>
+          <button id="step-btn" class="btn btn-sm"><svg viewBox="0 0 20 20" class="icon" aria-hidden="true"><path d="M5 4l7 6-7 6z"/><path d="M15 4v12"/></svg>ステップ実行</button>
           <button id="check-btn" class="btn btn-mark"><svg viewBox="0 0 20 20" class="icon" aria-hidden="true"><path d="M4 10l4 4 8-9"/></svg>答え合わせ</button>
-          <button id="ai-fix-code" class="btn btn-sm"><svg viewBox="0 0 20 20" class="icon" aria-hidden="true"><path d="M5 8h10v7H5z"/><path d="M10 5v3"/><path d="M7.5 11h1M11.5 11h1"/></svg>AI に直してもらう</button>
+          <button id="ai-fix-code" class="btn btn-sm"><svg viewBox="0 0 20 20" class="icon" aria-hidden="true"><path d="M5 8h10v7H5z"/><path d="M10 5v3"/><path d="M7.5 11h1M11.5 11h1"/></svg>AI 修正</button>
         </div>
       </div>
 
@@ -513,7 +513,7 @@
               <button id="step-next" class="btn btn-sm"><svg viewBox="0 0 20 20" class="icon" aria-hidden="true"><path d="M6 4l10 6-10 6z"/></svg></button>
               <input type="range" id="step-slider" min="0" max="0" value="0">
               <span class="chip" id="step-label">0 / 0</span>
-              <button id="step-exit" class="btn btn-sm btn-quiet"><svg viewBox="0 0 20 20" class="icon" aria-hidden="true"><path d="M5 5h10v10H5z"/></svg>終わる</button>
+              <button id="step-exit" class="btn btn-sm btn-quiet"><svg viewBox="0 0 20 20" class="icon" aria-hidden="true"><path d="M5 5h10v10H5z"/></svg>終了</button>
             </div>
             <div id="step-vars"></div>
           </div>

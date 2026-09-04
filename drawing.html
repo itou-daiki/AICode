@@ -155,7 +155,7 @@
       <span class="topbar-divider"></span>
       <button id="share-btn" class="btn" title="今のコードが入ったリンクを作ります"><svg viewBox="0 0 20 20" class="icon" aria-hidden="true"><path d="M6 10a2 2 0 1 1-4 0 2 2 0 0 1 4 0z"/><path d="M18 5a2 2 0 1 1-4 0 2 2 0 0 1 4 0z"/><path d="M18 15a2 2 0 1 1-4 0 2 2 0 0 1 4 0z"/><path d="m6 9 8-3M6 11l8 3"/></svg>共有</button>
       <button id="clear-btn" class="btn"><svg viewBox="0 0 20 20" class="icon" aria-hidden="true"><path d="M4 6h12"/><path d="M7 6V4h6v2"/><path d="M6 6l1 11h6l1-11"/></svg>全消去</button>
-      <button id="save-png" class="btn"><svg viewBox="0 0 20 20" class="icon" aria-hidden="true"><path d="M4 4h9l3 3v9H4z"/><path d="M7 4v4h5V4"/><path d="M7 16v-4h6v4"/></svg>画像で保存</button>
+      <button id="save-png" class="btn"><svg viewBox="0 0 20 20" class="icon" aria-hidden="true"><path d="M4 4h9l3 3v9H4z"/><path d="M7 4v4h5V4"/><path d="M7 16v-4h6v4"/></svg>画像を保存</button>
     </div>
 
     <div class="topbar-end">
@@ -216,7 +216,7 @@
       <p class="sidebar-title">AIサポート</p>
 
       <details class="expander">
-        <summary><svg viewBox="0 0 20 20" class="icon" aria-hidden="true"><path d="M5 8h10v7H5z"/><path d="M10 5v3"/><path d="M7.5 11h1M11.5 11h1"/></svg>AIにきく</summary>
+        <summary><svg viewBox="0 0 20 20" class="icon" aria-hidden="true"><path d="M5 8h10v7H5z"/><path d="M10 5v3"/><path d="M7.5 11h1M11.5 11h1"/></svg>AI に相談</summary>
         <div class="expander-body stack">
           <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noopener">Gemini API キーを取得する →</a>
           <div id="api-key-form" class="field">
@@ -225,14 +225,14 @@
             <button id="save-api-key" class="btn btn-mark btn-sm btn-block">保存</button>
           </div>
           <div id="api-key-status" class="muted" style="font-size:var(--text-xs);"></div>
-          <button id="btn-review" class="btn btn-sm btn-block">コードレビューをもらう</button>
-          <button id="ai-fix-code" class="btn btn-sm btn-block">コードを改善してもらう</button>
+          <button id="btn-review" class="btn btn-sm btn-block">AI 添削</button>
+          <button id="ai-fix-code" class="btn btn-sm btn-block">AI 修正</button>
           <div id="review" style="font-size:var(--text-sm); white-space:pre-wrap;"></div>
         </div>
       </details>
 
       <details class="expander">
-        <summary><svg viewBox="0 0 20 20" class="icon" aria-hidden="true"><path d="M3 4h14v9H8l-5 4z"/></svg>AIチャット</summary>
+        <summary><svg viewBox="0 0 20 20" class="icon" aria-hidden="true"><path d="M3 4h14v9H8l-5 4z"/></svg>AI チャット</summary>
         <div class="expander-body">
           <div id="chat-container">
             <div id="chat-messages" style="display:flex;flex-direction:column;max-height:280px;overflow-y:auto;margin-bottom:var(--sp-2);"></div>
@@ -263,8 +263,8 @@
             <div class="panel-head">
               <span class="panel-title"><span class="lane">A</span><svg viewBox="0 0 20 20" class="icon" aria-hidden="true"><path d="M7 6 3 10l4 4"/><path d="m13 6 4 4-4 4"/></svg>Python コード <span class="chip is-live" id="sync-chip">ブロックと同期中</span></span>
               <span class="panel-tools">
-                <button class="tool-btn" id="code-indent" title="字下げをそろえます"><svg viewBox="0 0 20 20" class="icon" aria-hidden="true"><path d="M3 5h14M7 10h10M7 15h10"/><path d="M3 8l2 2-2 2"/></svg>自動インデント</button>
-                <button class="tool-btn" id="code-format" title="記号まわりの空白や空行も整えます"><svg viewBox="0 0 20 20" class="icon" aria-hidden="true"><path d="M3 5h14M3 10h9M3 15h12"/></svg>コード整形</button>
+                <button class="tool-btn" id="code-indent" title="字下げをそろえます"><svg viewBox="0 0 20 20" class="icon" aria-hidden="true"><path d="M3 5h14M7 10h10M7 15h10"/><path d="M3 8l2 2-2 2"/></svg>字下げ</button>
+                <button class="tool-btn" id="code-format" title="記号まわりの空白や空行も整えます"><svg viewBox="0 0 20 20" class="icon" aria-hidden="true"><path d="M3 5h14M3 10h9M3 15h12"/></svg>整形</button>
                 <button class="tool-btn panel-max" data-panel="panel-code" title="このパネルを大きく表示"><svg viewBox="0 0 20 20" class="icon" aria-hidden="true"><path d="M4 8V4h4M16 12v4h-4"/></svg></button>
               </span>
             </div>
@@ -289,7 +289,7 @@
               <span class="panel-title"><span class="lane">C</span><svg viewBox="0 0 20 20" class="icon" aria-hidden="true"><path d="M7 3h6v3H7z"/><path d="M10 6v3"/><path d="M10 9l3 2.5-3 2.5-3-2.5z"/><path d="M10 14v3"/></svg>フローチャート</span>
               <span class="panel-tools">
                 <button class="tool-btn is-on" id="flow-language" title="ラベルの書き方を切り替えます"><svg viewBox="0 0 20 20" class="icon" aria-hidden="true"><path d="M4 4h12"/><path d="M6 4v12"/><path d="M9 8h7M9 12h5"/></svg>やさしい日本語</button>
-            <button class="tool-btn is-on" id="flow-fit" title="図の大きさを切り替えます"><svg viewBox="0 0 20 20" class="icon" aria-hidden="true"><path d="M4 8V4h4M16 12v4h-4"/></svg>見やすい大きさ</button>
+            <button class="tool-btn is-on" id="flow-fit" title="図の大きさを切り替えます"><svg viewBox="0 0 20 20" class="icon" aria-hidden="true"><path d="M4 8V4h4M16 12v4h-4"/></svg>全体を表示</button>
           <button class="tool-btn" id="flow-ktph" title="いま書いているコードを、共通テストの表記で見ます"><svg viewBox="0 0 20 20" class="icon" aria-hidden="true"><path d="M4 4h12"/><path d="M6 4v12"/><path d="M9 8h7M9 12h5"/></svg>共通テスト表記</button>
           <button class="tool-btn" id="flow-refresh" title="描き直します"><svg viewBox="0 0 20 20" class="icon" aria-hidden="true"><path d="M16 8A6 6 0 1 0 16 12"/><path d="M16 4v4h-4"/></svg>更新</button>
                 <button class="tool-btn panel-max" data-panel="panel-flow" title="このパネルを大きく表示"><svg viewBox="0 0 20 20" class="icon" aria-hidden="true"><path d="M4 8V4h4M16 12v4h-4"/></svg></button>

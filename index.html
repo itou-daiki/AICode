@@ -218,7 +218,7 @@
       <button id="run-btn" class="btn btn-run" disabled><svg viewBox="0 0 20 20" class="icon" aria-hidden="true"><path d="M6 4l10 6-10 6z"/></svg>実行</button>
       <button id="step-btn" class="btn btn-mark" disabled><svg viewBox="0 0 20 20" class="icon" aria-hidden="true"><path d="M5 4l7 6-7 6z"/><path d="M15 4v12"/></svg>ステップ実行</button>
       <span class="topbar-divider"></span>
-      <button id="think-btn" class="btn" title="補完をひかえめにして、自分で考える時間をつくります"><svg viewBox="0 0 20 20" class="icon" aria-hidden="true"><path d="M10 3a5 5 0 0 0-3 9v2h6v-2a5 5 0 0 0-3-9z"/><path d="M8 17h4"/></svg>じっくり</button>
+      <button id="think-btn" class="btn" title="補完をひかえめにして、自分で考える時間をつくります"><svg viewBox="0 0 20 20" class="icon" aria-hidden="true"><path d="M10 3a5 5 0 0 0-3 9v2h6v-2a5 5 0 0 0-3-9z"/><path d="M8 17h4"/></svg>補完をひかえる</button>
       <span class="topbar-divider"></span>
       <div class="tabs layout-switch" id="layout-switch" role="tablist" aria-label="画面の分け方">
         <button type="button" data-layout="4" role="tab" aria-selected="true"
@@ -262,7 +262,7 @@
       </details>
 
       <details class="expander">
-        <summary><svg viewBox="0 0 20 20" class="icon" aria-hidden="true"><path d="M10 3a5 5 0 0 0-3 9v2h6v-2a5 5 0 0 0-3-9z"/><path d="M8 17h4"/></svg>コード補完の使い方</summary>
+        <summary><svg viewBox="0 0 20 20" class="icon" aria-hidden="true"><path d="M10 3a5 5 0 0 0-3 9v2h6v-2a5 5 0 0 0-3-9z"/><path d="M8 17h4"/></svg>コード補完について</summary>
         <div class="expander-body stack">
           <p>APIキーが無くても使えます。書いたコードを読み取って候補を出します。</p>
           <ul style="margin:0; padding-left:1.2em;">
@@ -309,7 +309,7 @@
       </details>
 
       <details class="expander">
-        <summary><svg viewBox="0 0 20 20" class="icon" aria-hidden="true"><path d="M10 3a5 5 0 0 0-3 9v2h6v-2a5 5 0 0 0-3-9z"/><path d="M8 17h4"/></svg>じっくりモードとは</summary>
+        <summary><svg viewBox="0 0 20 20" class="icon" aria-hidden="true"><path d="M10 3a5 5 0 0 0-3 9v2h6v-2a5 5 0 0 0-3-9z"/><path d="M8 17h4"/></svg>補完をひかえる（じっくりモード）</summary>
         <div class="expander-body stack">
           <p>すぐに答えが出てしまうと、考える時間がなくなってしまいます。じっくりモードでは：</p>
           <ul style="margin:0; padding-left:1.2em;">
@@ -349,8 +349,8 @@
         <div class="panel-head">
           <span class="panel-title"><span class="lane">A</span><svg viewBox="0 0 20 20" class="icon" aria-hidden="true"><path d="M7 6 3 10l4 4"/><path d="m13 6 4 4-4 4"/></svg>Python コード <span class="chip is-live" id="sync-chip">ブロックと同期中</span></span>
           <span class="panel-tools">
-            <button class="tool-btn" id="code-indent" title="字下げをそろえます"><svg viewBox="0 0 20 20" class="icon" aria-hidden="true"><path d="M3 5h14M7 10h10M7 15h10"/><path d="M3 8l2 2-2 2"/></svg>自動インデント</button>
-            <button class="tool-btn" id="code-format" title="記号まわりの空白や空行も整えます"><svg viewBox="0 0 20 20" class="icon" aria-hidden="true"><path d="M3 5h14M3 10h9M3 15h12"/></svg>コード整形</button>
+            <button class="tool-btn" id="code-indent" title="字下げをそろえます"><svg viewBox="0 0 20 20" class="icon" aria-hidden="true"><path d="M3 5h14M7 10h10M7 15h10"/><path d="M3 8l2 2-2 2"/></svg>字下げ</button>
+            <button class="tool-btn" id="code-format" title="記号まわりの空白や空行も整えます"><svg viewBox="0 0 20 20" class="icon" aria-hidden="true"><path d="M3 5h14M3 10h9M3 15h12"/></svg>整形</button>
             <button class="tool-btn" id="code-copy" title="コードをコピー"><svg viewBox="0 0 20 20" class="icon" aria-hidden="true"><path d="M7 3h8v10H7z"/><path d="M4 7v10h8"/></svg>コピー</button>
             <button class="tool-btn panel-max" data-panel="panel-code" title="このパネルを大きく表示"><svg viewBox="0 0 20 20" class="icon" aria-hidden="true"><path d="M4 8V4h4M16 12v4h-4"/></svg></button>
           </span>
@@ -364,7 +364,7 @@
           <span class="panel-title"><span class="lane">B</span><svg viewBox="0 0 20 20" class="icon" aria-hidden="true"><path d="M7 3h6v3H7z"/><path d="M10 6v3"/><path d="M10 9l3 2.5-3 2.5-3-2.5z"/><path d="M10 14v3"/></svg>フローチャート</span>
           <span class="panel-tools">
             <button class="tool-btn is-on" id="flow-language" title="ラベルの書き方を切り替えます"><svg viewBox="0 0 20 20" class="icon" aria-hidden="true"><path d="M4 4h12"/><path d="M6 4v12"/><path d="M9 8h7M9 12h5"/></svg>やさしい日本語</button>
-            <button class="tool-btn is-on" id="flow-fit" title="図の大きさを切り替えます"><svg viewBox="0 0 20 20" class="icon" aria-hidden="true"><path d="M4 8V4h4M16 12v4h-4"/></svg>見やすい大きさ</button>
+            <button class="tool-btn is-on" id="flow-fit" title="図の大きさを切り替えます"><svg viewBox="0 0 20 20" class="icon" aria-hidden="true"><path d="M4 8V4h4M16 12v4h-4"/></svg>全体を表示</button>
           <button class="tool-btn" id="flow-ktph" title="いま書いているコードを、共通テストの表記で見ます"><svg viewBox="0 0 20 20" class="icon" aria-hidden="true"><path d="M4 4h12"/><path d="M6 4v12"/><path d="M9 8h7M9 12h5"/></svg>共通テスト表記</button>
           <button class="tool-btn" id="flow-refresh" title="描き直します"><svg viewBox="0 0 20 20" class="icon" aria-hidden="true"><path d="M16 8A6 6 0 1 0 16 12"/><path d="M16 4v4h-4"/></svg>更新</button>
             <button class="tool-btn panel-max" data-panel="panel-flow" title="このパネルを大きく表示"><svg viewBox="0 0 20 20" class="icon" aria-hidden="true"><path d="M4 8V4h4M16 12v4h-4"/></svg></button>
@@ -406,7 +406,7 @@
               <button id="step-next" class="btn btn-mark btn-sm" title="1つ進む"><svg viewBox="0 0 20 20" class="icon" aria-hidden="true"><path d="M6 4l10 6-10 6z"/></svg></button>
               <input type="range" id="step-slider" min="0" max="0" value="0" aria-label="ステップ位置">
               <span class="chip" id="step-label">0 / 0</span>
-              <button id="step-exit" class="btn btn-danger btn-sm" title="ふだんの画面に戻ります"><svg viewBox="0 0 20 20" class="icon" aria-hidden="true"><path d="M5 5h10v10H5z"/></svg>終わる</button>
+              <button id="step-exit" class="btn btn-danger btn-sm" title="ふだんの画面に戻ります"><svg viewBox="0 0 20 20" class="icon" aria-hidden="true"><path d="M5 5h10v10H5z"/></svg>終了</button>
             </div>
             <div id="step-vars"></div>
           </div>

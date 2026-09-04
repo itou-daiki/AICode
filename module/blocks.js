@@ -159,7 +159,7 @@ function setThinkMode(on, quiet = false) {
 
   const button = $('think-btn');
   button.classList.toggle('btn-accent', on);
-  setIconLabel(button, 'bulb', on ? 'じっくり：入' : 'じっくり');
+  setIconLabel(button, 'bulb', on ? '補完をひかえる：入' : '補完をひかえる');
 
   // 補完のふるまいを切り替える（自動で答えを出さない）
   bench.completion.completionMode = on ? 'popup-only' : 'both';
@@ -290,7 +290,7 @@ async function startStepMode() {
 
     // 「戻り方」が分かるように、実行ボタン自体も終了ボタンに変える
     const stepButton = $('step-btn');
-    setIconLabel(stepButton, 'stop', 'ステップを終わる');
+    setIconLabel(stepButton, 'stop', 'ステップ終了');
     stepButton.classList.remove('btn-mark');
     stepButton.classList.add('btn-danger');
 
@@ -301,7 +301,7 @@ async function startStepMode() {
     toast(`${trace.steps.length} ステップを記録しました。← → で移動、Esc で終了`, 3200);
   } catch (error) {
     console.error('ステップ実行に失敗:', error);
-    output.textContent = 'ステップ実行に失敗しました: ' + error.message;
+    output.textContent = 'ステップ実行にしくじりました: ' + error.message;
   } finally {
     button.disabled = false;
   }
@@ -511,7 +511,7 @@ function setupControls() {
     const ok = await confirmDialog({
       title: 'すべて消しますか？',
       message: 'ブロックとコードの両方が消えます。この操作は元に戻せません。',
-      okLabel: 'すべて消す',
+      okLabel: '全消去',
     });
     if (!ok) return;
     exitStepMode();
@@ -574,7 +574,7 @@ function setupControls() {
   $('flow-fit').addEventListener('click', (e) => {
     const fit = !bench.isFlowFit();
     bench.setFlowFit(fit);
-    setIconLabel(e.currentTarget, 'maximize', fit ? '見やすい大きさ' : '実物大');
+    setIconLabel(e.currentTarget, 'maximize', fit ? '全体を表示' : '実物大');
     e.currentTarget.classList.toggle('is-on', fit);
     toast(fit ? 'パネルに合わせた大きさにしました' : '実物大にしました（スクロールで見られます）');
   });
