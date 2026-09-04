@@ -383,6 +383,23 @@ class P5:
         """移動・回転・拡大をすべて元にもどす（p5.js の resetMatrix と同じ）"""
         self.ctx.setTransform(1, 0, 0, 1, 0, 0)
 
+    def create_canvas(self, w, h):
+        """キャンバスの大きさを決める（p5.js の createCanvas と同じ）
+
+        p5.js のサンプルは setup() の 1 行目に必ずこれを書くので、
+        写してきたコードがそのまま動くようにしてある。
+        """
+        self.canvas.width = int(w)
+        self.canvas.height = int(h)
+        self.width = int(w)
+        self.height = int(h)
+        # 大きさを変えると絵は消えるので、p5.js と同じく白紙から始める
+        self.ctx.setTransform(1, 0, 0, 1, 0, 0)
+        self.ctx.fillStyle = 'rgb(255,255,255)'
+        self.ctx.fillRect(0, 0, self.width, self.height)
+        _easycode_sync_size()
+        return None
+
     def begin_frame(self):
         """1回の描画を始める前に、座標系や重ね方をまっさらにする。
 
@@ -828,6 +845,51 @@ def get_frame_rate():
     return p5._recent_fps
 
 
+def no_loop():
+    """draw() のくり返しを止める（p5.js の noLoop と同じ）"""
+    p5._looping = False
+    return None
+
+
+def loop():
+    """止めた draw() のくり返しを、もう一度動かす（p5.js の loop と同じ）"""
+    p5._looping = True
+    return None
+
+
+def is_looping():
+    """今 draw() がくり返されているか（p5.js の isLooping と同じ）"""
+    return p5._looping
+
+
+def _easycode_sync_size():
+    """width と height を、今のキャンバスの大きさに合わせる
+
+    p5.js では width / height がそのまま使えるので、こちらでも同じにする。
+    """
+    globals()['width'] = p5.width
+    globals()['height'] = p5.height
+
+
+# p5.js と同じ名前で使えるようにしておく値。
+# マウスとキーの値は、draw() のたびに drawing.js から入れ直される。
+width = p5.width
+height = p5.height
+mouseX = 0
+mouseY = 0
+mouse_x = 0
+mouse_y = 0
+pmouseX = 0
+pmouseY = 0
+mouseIsPressed = False
+mouse_is_pressed = False
+key = ''
+keyCode = 0
+keyIsPressed = False
+key_is_pressed = False
+p5._looping = True
+
+
 # p5.js のリファレンスは circle(200, 200, 80) のように前置きなしで書く。
 # 教材やチュートリアルもその形なので、そのまま写して動くようにしておく。
 # p5.circle(...) の書き方も今までどおり使える。
@@ -869,4 +931,9 @@ def _easycode_expose_p5():
 
 
 _easycode_expose_p5()
+
+# Processing（Java）のサンプルは size(400, 400) と書く。
+# 中身は createCanvas と同じものにしておく。
+size = p5.create_canvas
+
 `;

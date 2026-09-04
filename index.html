@@ -290,6 +290,19 @@
       </details>
 
       <details class="expander">
+        <summary><svg viewBox="0 0 20 20" class="icon" aria-hidden="true"><path d="M10 7.5a2.5 2.5 0 1 0 0 5 2.5 2.5 0 0 0 0-5z"/><path d="M10 2v2.5M10 15.5V18M2 10h2.5M15.5 10H18M4.5 4.5l1.8 1.8M13.7 13.7l1.8 1.8M15.5 4.5l-1.8 1.8M6.3 13.7l-1.8 1.8"/></svg>設定</summary>
+        <div class="expander-body stack">
+          <div class="field" id="api-key-form">
+            <label for="api-key">Gemini API キー（省略できます）</label>
+            <input type="password" id="api-key" placeholder="AIza…">
+            <button id="save-api-key" class="btn btn-sm">保存</button>
+            <p class="muted" id="api-key-status"></p>
+            <p class="muted">キーが無くても、実行・ブロック・フローチャート・補完はすべて使えます。</p>
+          </div>
+        </div>
+      </details>
+
+      <details class="expander">
         <summary><svg viewBox="0 0 20 20" class="icon" aria-hidden="true"><path d="M3 4h6v4H3z"/><path d="M5 8v3h8V8"/><path d="M11 11h6v4h-6z"/></svg>ブロックとコードの関係</summary>
         <div class="expander-body stack">
           <p>ブロックを動かすとコードが変わり、コードを書き換えるとブロックが組み直されます。</p>

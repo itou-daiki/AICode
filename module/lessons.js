@@ -1149,8 +1149,19 @@ function setupAiButtons() {
   });
 }
 
-function enterFreeCoding() {
-  mock = null;
+async function enterFreeCoding() {
+  // 模試の途中なら、黙って抜けない
+  if (mock) {
+    const ok = await confirmDialog({
+      title: '模試をやめますか？',
+      message: 'ここまでの答えは残りません。',
+      okLabel: 'やめる',
+    });
+    if (!ok) return;
+    mock = null;
+    $('mock-chip').style.display = 'none';
+    renderNav();
+  }
   current = {
     id: 'free', courseId: 'free', type: 'code', title: '自由に書く',
     description: '好きなプログラムを書いて動かせます。答え合わせはありません。',
@@ -1160,6 +1171,8 @@ function enterFreeCoding() {
   editorPy.setValue('# 好きなように書いてみましょう\nprint("こんにちは")\n');
   tabs.select('python');
   renderProblem(current);
+  // URL に前の問題が残っていると、読み直したときに戻ってしまう
+  history.replaceState(null, '', location.pathname + location.search);
   syncViews();
 }
 
@@ -1275,6 +1288,15 @@ async function init() {
     const fromHash = location.hash.slice(1);
     const first = allRefs()[0];
     openProblem(problemByRef(fromHash) ? fromHash : (problemByRef(lastOpened()) ? lastOpened() : first));
+
+    // ページを開いたまま共有リンクを受け取ったときと、
+    // ブラウザの「戻る」で URL だけ変わったときに、その問題へ移る
+    window.addEventListener('hashchange', () => {
+      const ref = location.hash.slice(1);
+      if (!ref || mock) return;
+      if (current && problemRef(current) === ref) return;
+      if (problemByRef(ref)) openProblem(ref);
+    });
 
     $('run-btn').disabled = false;
     updateRunAvailability();

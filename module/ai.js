@@ -15,16 +15,14 @@ function initApiKeyForm() {
   const saveButton = document.getElementById('save-api-key');
   const statusDiv = document.getElementById('api-key-status');
 
-  if (!apiKeyInput || !saveButton || !statusDiv) {
-    console.warn('APIキーフォームの要素が見つかりません');
-    return;
-  }
+  // このページに入力欄が無いこともある（置いていない画面がある）
+  if (!apiKeyInput || !saveButton || !statusDiv) return;
 
   // 保存済みのAPIキーがあれば表示
   if (apiKey) {
     apiKeyInput.value = apiKey;
-    statusDiv.textContent = '設定済み';
-    statusDiv.style.color = 'green';
+    statusDiv.textContent = '設定ずみ';
+    statusDiv.className = 'muted';
   }
 
   // 保存ボタンのイベントリスナー
@@ -34,16 +32,13 @@ function initApiKeyForm() {
       apiKey = newApiKey;
       localStorage.setItem(STORAGE_KEYS.API_KEY, apiKey);
       statusDiv.textContent = '保存しました';
-      statusDiv.style.color = 'green';
+      statusDiv.className = 'muted';
     } else {
       statusDiv.textContent = '入力してください';
-      statusDiv.style.color = 'red';
+      statusDiv.className = 'muted';
     }
   });
 }
-
-// ページ読み込み時にAPIキーフォームを初期化
-window.addEventListener('DOMContentLoaded', initApiKeyForm);
 
 /**
  * Gemini APIを呼び出す
@@ -53,7 +48,7 @@ window.addEventListener('DOMContentLoaded', initApiKeyForm);
  */
 export const NO_KEY_MESSAGE =
   'AI を使うには Gemini の API キーが必要です。\n'
-  + 'サイドバーの「AI 設定」でキーを入れると使えるようになります。\n'
+  + '左の「設定」（03 スケッチでは「AI にきく」）でキーを入れると使えるようになります。\n'
   + '（キーが無くても、実行・ブロック・フローチャート・コード補完はすべて使えます）';
 
 export async function callGemini(prompt, maxTokens = 500) {
@@ -343,4 +338,10 @@ export async function fixCode(code, context = {}) {
 }
 
 // APIキーの入力欄は、どのページでも同じ id なので、ここで面倒を見る
-window.addEventListener('DOMContentLoaded', initApiKeyForm);
+// APIキーの入力欄は、どのページでも同じ id なので、ここで面倒を見る。
+// このファイルが後から読みこまれることもあるので、その場合はすぐ動かす。
+if (document.readyState === 'loading') {
+  window.addEventListener('DOMContentLoaded', initApiKeyForm);
+} else {
+  initApiKeyForm();
+}

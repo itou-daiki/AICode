@@ -33,6 +33,43 @@ let pyodide = null;
 let animating = false;
 let animationId = null;
 
+/**
+ * マウスとキーの今の値。
+ * p5.js の mouseX / mouseY / mouseIsPressed / key / keyIsPressed にあたる。
+ * draw() を呼ぶ直前に Python 側へ渡す。
+ */
+const pointer = { x: 0, y: 0, down: false, key: '', code: 0, keyDown: false };
+
+/** キャンバスとキーボードの見張りを始める */
+function watchPointer() {
+  const canvas = $('canvas');
+  if (!canvas) return;
+
+  // キャンバスは表示上の大きさと中の大きさが違うことがあるので、比で直す
+  const toCanvas = (event) => {
+    const box = canvas.getBoundingClientRect();
+    if (!box.width || !box.height) return { x: 0, y: 0 };
+    return {
+      x: Math.round((event.clientX - box.left) * (canvas.width / box.width)),
+      y: Math.round((event.clientY - box.top) * (canvas.height / box.height)),
+    };
+  };
+
+  canvas.addEventListener('pointermove', (e) => { Object.assign(pointer, toCanvas(e)); });
+  canvas.addEventListener('pointerdown', (e) => { Object.assign(pointer, toCanvas(e)); pointer.down = true; });
+  window.addEventListener('pointerup', () => { pointer.down = false; });
+  canvas.addEventListener('pointerleave', () => { pointer.down = false; });
+
+  window.addEventListener('keydown', (e) => {
+    // 入力欄やエディタで打っているキーは、絵のほうに渡さない
+    if (e.target instanceof HTMLElement && e.target.closest('input, textarea, select, .CodeMirror')) return;
+    pointer.key = e.key.length === 1 ? e.key : '';
+    pointer.code = e.keyCode || 0;
+    pointer.keyDown = true;
+  });
+  window.addEventListener('keyup', () => { pointer.keyDown = false; pointer.key = ''; pointer.code = 0; });
+}
+
 const $ = (id) => document.getElementById(id);
 
 /* ============================================================
@@ -239,6 +276,8 @@ p5._last_time = time.time()
 # 前に動かしたプログラムの frameRate() が残らないよう、p5.js の既定にもどす
 p5._target_fps = 60
 p5._recent_fps = 0
+# noLoop() で止めたままにならないように、毎回もどす
+p5._looping = True
 `);
 
   // 学習者のコードを読みこんで、setup() があれば一度だけ呼ぶ。
@@ -272,6 +311,7 @@ p5._recent_fps = 0
   // 同じコードでも見え方が変わってしまう。frameRate(30) で変えられる。
   let nextFrameAt = 0;
   let targetFps = 60;
+  let wasPaused = false;
 
   // 画面の書きかえの合間にわずかな時間しかないと、1コマ飛ばしてしまい
   // 60 のつもりが 30 になる。少し早めでも描くようにして取りこぼしを防ぐ。
@@ -292,8 +332,10 @@ p5._recent_fps = 0
       // 1コマぶんの下ごしらえ（座標系をもどし、frameCount を進める）。
       // 目標のコマ数も、この 1 回のやりとりで受け取る
       // （毎コマ 2 回 Python を呼ぶと、それだけで遅くなってしまう）
+      // マウスとキーの今の値も、この 1 回のやりとりで一緒に渡す
+      pyodide.globals.set('_ec_pointer', JSON.stringify(pointer));
       const reported = await pyodide.runPythonAsync(`
-import time
+import time, json as _json
 
 # p5.js と同じく、毎フレーム座標系をもどしてから draw() を呼ぶ
 begin_frame()
@@ -304,9 +346,35 @@ _now = time.time()
 deltaTime = (_now - p5._last_time) * 1000 if p5._last_time else 0
 p5._last_time = _now
 p5._recent_fps = (1000 / deltaTime) if deltaTime > 0 else 0
-p5._target_fps
+
+# p5.js と同じ名前で、マウスとキーの今の値を使えるようにする
+_ec = _json.loads(_ec_pointer)
+pmouseX = mouseX
+pmouseY = mouseY
+mouseX = mouse_x = _ec['x']
+mouseY = mouse_y = _ec['y']
+mouseIsPressed = mouse_is_pressed = _ec['down']
+key = _ec['key']
+keyCode = _ec['code']
+keyIsPressed = key_is_pressed = _ec['keyDown']
+width = p5.width
+height = p5.height
+
+f"{p5._target_fps},{1 if p5._looping else 0}"
 `);
-      targetFps = Number(reported) || 0;
+      const [fpsText, loopingText] = String(reported).split(',');
+      targetFps = Number(fpsText) || 0;
+
+      // noLoop() で止めているあいだは draw() を呼ばない（p5.js と同じ）
+      const paused = loopingText === '0';
+      if (paused !== wasPaused) {
+        wasPaused = paused;
+        setCanvasState(paused ? 'noLoop() で休み中' : 'アニメーション中', true);
+      }
+      if (paused) {
+        animationId = requestAnimationFrame(loop);
+        return;
+      }
 
       const frame = await runUserCode(pyodide, 'draw()', { useGlobals: true, seconds: 3 });
 
@@ -635,6 +703,8 @@ async function init() {
     pyodide = await loadPyodide({ indexURL: PYODIDE_CONFIG.INDEX_URL });
     pyodide.globals.set('js', window);
     await pyodide.runPythonAsync(P5_PYTHON_LIBRARY);
+    // p5.js と同じく、マウスとキーの今の値を draw() から使えるようにする
+    watchPointer();
 
     $('run-btn').disabled = false;
     loader.style.display = 'none';

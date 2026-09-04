@@ -51,6 +51,9 @@ const PATHS = {
   blocks: '<path d="M3 4h6v4H3z"/><path d="M5 8v3h8V8"/><path d="M11 11h6v4h-6z"/>',
   code: '<path d="M7 6 3 10l4 4"/><path d="m13 6 4 4-4 4"/>',
   notation: '<path d="M4 4h12"/><path d="M6 4v12"/><path d="M9 8h7M9 12h5"/>',
+  // 絵を描く面。コンパスの線画は小さくすると「A」に見えて、
+  // すぐ左のレーン記号（A〜F）と紛らわしいので、別の形にしてある。
+  canvas: '<path d="M3 4h14v12H3z"/><path d="M6 13l3-4 2 2.5 2-3 1 1.5"/><path d="M7 7.5h.01"/>',
 };
 
 /**

@@ -13,6 +13,8 @@ import { PYODIDE_CONFIG } from './config.js';
 import { runUserCode, explainError } from './pyrun.js';
 import { toKtph } from './ktph.js';
 import { setIconLabel } from './icons.js';
+// AI は任意だが、キーの保存欄はこの画面にもあるので読みこんでおく
+import './ai.js';
 
 const STORAGE_KEY = 'easycode_blocks_workspace_v2';
 const LAYOUT_KEY = 'easycode_layout';

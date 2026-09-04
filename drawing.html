@@ -28,7 +28,7 @@
 
     /* 左側: タブで切り替えるステージ */
     .stage-column {
-      flex: 1 1 55%;
+      flex: 1 1 48%;
       display: flex;
       flex-direction: column;
       gap: var(--sp-2);
@@ -41,14 +41,15 @@
 
     /* 右側: キャンバスと実行結果 */
     .side-column {
-      flex: 0 1 440px;
+      flex: 1 1 520px;
       display: flex;
       flex-direction: column;
       gap: var(--sp-2);
       min-width: 300px;
     }
-    #panel-canvas { flex: 0 0 auto; }
-    #panel-output { flex: 1 1 auto; min-height: 150px; }
+    /* 絵がこの画面の主役。余った高さはキャンバスに渡す */
+    #panel-canvas { flex: 1 1 auto; min-height: 260px; }
+    #panel-output { flex: 0 1 200px; min-height: 120px; }
 
     /* パネルの拡大
        （:has() は古いブラウザで使えないので、拡大中の列に付くクラスで判定する） */
@@ -113,6 +114,9 @@
       padding: var(--sp-3); background: var(--c-surface-3); overflow: auto;
     }
     #canvas {
+      /* パネルからはみ出さない（縦にも収める） */
+      max-height: 100%;
+      object-fit: contain;
       background: #fff;
       border: 1px solid var(--c-line-2);
       border-radius: var(--r-md);
@@ -312,7 +316,7 @@
       <div class="side-column">
         <section class="panel" id="panel-canvas">
           <div class="panel-head">
-            <span class="panel-title"><span class="lane">E</span><svg viewBox="0 0 20 20" class="icon" aria-hidden="true"><path d="M10 3v3"/><path d="M10 6 5 17M10 6l5 11"/><path d="M6.5 13.5h7"/></svg>キャンバス <span class="chip" id="canvas-state">停止中</span></span>
+            <span class="panel-title"><span class="lane">E</span><svg viewBox="0 0 20 20" class="icon" aria-hidden="true"><path d="M3 4h14v12H3z"/><path d="M6 13l3-4 2 2.5 2-3 1 1.5"/><path d="M7 7.5h.01"/></svg>キャンバス <span class="chip" id="canvas-state">停止中</span></span>
             <span class="panel-tools">
               <button class="tool-btn panel-max" data-panel="panel-canvas" title="このパネルを大きく表示"><svg viewBox="0 0 20 20" class="icon" aria-hidden="true"><path d="M4 8V4h4M16 12v4h-4"/></svg></button>
             </span>

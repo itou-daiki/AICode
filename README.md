@@ -109,6 +109,12 @@ easyCodeは、プログラミング初学者がAIと共に学習を進めるこ�
   （`abs(-5)` が `5.0` ではなく `5` になります）
 - 塗りや線の既定値は p5.js に合わせてあります（塗り＝白、線＝黒、太さ1、線の端＝丸）
 - `draw()` のたびに座標系をもどすので、`rotate()` の書き忘れで絵がずれ続けることがありません（p5.js と同じ動き）
+- **1 秒あたりのコマ数も p5.js と同じ 60 が既定**です。`frameRate(30)` で変えられ、
+  `frameRate()` は今出ているコマ数を返します
+- `createCanvas(400, 300)` でキャンバスの大きさを決められます（Processing のつづり `size(...)` も同じ）。
+  そのあと `width` と `height` が使えます
+- `mouseX` `mouseY` `mouseIsPressed` `key` `keyIsPressed` は、`draw()` の中でその時の値になります
+- `noLoop()` で `draw()` を止め、`loop()` で動かし直せます（`isLooping()` で今の状態が分かります）
 - 描画関数・数学関数・色の関数など **113 項目を実機で検証済み**（`rotate` `translate` `scale` `angle_mode` `erase` なども含む）
 
 ### 4. じっくりモード（考える時間をつくる）

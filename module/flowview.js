@@ -5,6 +5,7 @@
 // workbench.js は Blockly が無いと動かないので、そのまま使いまわせない。
 
 import { pythonToMermaid } from './flowchart.js';
+import { icon } from './icons.js';
 
 let mermaidReady = false;
 
@@ -23,7 +24,16 @@ export function setupMermaid() {
       lineColor: '#4A4E52',
       fontSize: '13px',
     },
-    flowchart: { htmlLabels: true, curve: 'linear', useMaxWidth: true, padding: 10 },
+    flowchart: {
+      htmlLabels: true,
+      curve: 'linear',
+      useMaxWidth: true,
+      padding: 8,
+      // 段の間隔。mermaid の既定（50）だと、5 行のプログラムでも縦に 700px を超えて
+      // 横長のパネルからはみ出す。字を小さくせずに収めるため、ここをつめる。
+      rankSpacing: 26,
+      nodeSpacing: 34,
+    },
   });
   mermaidReady = true;
 }
@@ -51,10 +61,10 @@ export async function renderFlowchart(container, python, options = {}) {
     container.innerHTML = '';
     const empty = document.createElement('div');
     empty.className = 'empty-state';
-    const icon = document.createElement('span');
-    icon.className = 'big';
-    icon.textContent = '';
-    empty.append(icon, document.createTextNode(result.message || 'コードを書くと流れが図になります'));
+    const mark = document.createElement('span');
+    mark.className = 'big';
+    mark.appendChild(icon('flow'));
+    empty.append(mark, document.createTextNode(result.message || 'コードを書くと流れが図になります'));
     container.appendChild(empty);
     return { lineByNode: {}, message: result.message };
   }
@@ -64,6 +74,7 @@ export async function renderFlowchart(container, python, options = {}) {
     const { svg } = await mermaid.render(id, result.definition);
     container.innerHTML = svg;
     fitFlowchart(container, { fit });
+    scrollToTop(container);
 
     if (result.message) {
       const note = document.createElement('div');
@@ -79,10 +90,10 @@ export async function renderFlowchart(container, python, options = {}) {
     container.innerHTML = '';
     const failed = document.createElement('div');
     failed.className = 'empty-state';
-    const icon = document.createElement('span');
-    icon.className = 'big';
-    icon.textContent = '';
-    failed.append(icon, document.createTextNode('このコードは図にできませんでした'));
+    const mark = document.createElement('span');
+    mark.className = 'big';
+    mark.appendChild(icon('cross'));
+    failed.append(mark, document.createTextNode('このコードは図にできませんでした'));
     container.appendChild(failed);
     return { lineByNode: {}, message: null };
   }
@@ -100,7 +111,7 @@ export async function renderFlowchart(container, python, options = {}) {
  * @param {number} [options.minScale] これより小さくはしない（字が読めなくなるため）
  */
 export function fitFlowchart(container, options = {}) {
-  const { fit = true, minScale = 0.75 } = options;
+  const { fit = true, minScale = 0.6 } = options;
   const svg = container && container.querySelector('svg');
   if (!svg) return;
 
@@ -130,6 +141,21 @@ export function fitFlowchart(container, options = {}) {
   svg.style.width = `${Math.round(box.width * scale)}px`;
   svg.style.height = `${Math.round(box.height * scale)}px`;
   svg.style.maxWidth = 'none';
+}
+
+/**
+ * 図の頭（開始）が見えるところまで戻す
+ *
+ * 図は描き終わってから大きさが決まるので、ブラウザが「見えていたものを
+ * 動かさない」ようにスクロール位置をずらす。そのままだと、開いた瞬間に
+ * 図の途中から表示されて、開始が見えない。
+ * @param {HTMLElement} container
+ */
+function scrollToTop(container) {
+  for (let node = container; node; node = node.parentElement) {
+    if (node.scrollTop) node.scrollTop = 0;
+    if (node === document.body) break;
+  }
 }
 
 /**

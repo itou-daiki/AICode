@@ -9,6 +9,7 @@
 //   ・保存はまとめ書き（連続で呼ばれても一定間隔に1回）
 
 import { pythonToMermaid } from './flowchart.js';
+import { renderFlowchart as drawFlowchart, fitFlowchart as fitFlowSvg } from './flowview.js';
 import { pythonToBlocks } from './py2blocks.js';
 import { defineBlocks, buildToolbox } from './blockdefs.js';
 import { autoIndent, formatCode } from './pyformat.js';
@@ -19,28 +20,6 @@ const BLOCKS_TO_CODE_MS = 80;
 const CODE_TO_BLOCKS_MS = 900;
 const FLOWCHART_MS = 500;
 const SAVE_MS = 1500;
-
-let mermaidReady = false;
-
-/** Mermaid の初期設定（1回だけ） */
-function setupMermaid() {
-  if (mermaidReady) return;
-  mermaid.initialize({
-    startOnLoad: false,
-    securityLevel: 'strict',
-    theme: 'base',
-    fontFamily: '"BIZ UDPGothic", "Hiragino Sans", sans-serif',
-    themeVariables: {
-      primaryColor: '#FCFCFA',
-      primaryBorderColor: '#4A4E52',
-      primaryTextColor: '#16181A',
-      lineColor: '#4A4E52',
-      fontSize: '13px',
-    },
-    flowchart: { htmlLabels: true, curve: 'linear', useMaxWidth: true, padding: 10 },
-  });
-  mermaidReady = true;
-}
 
 /**
  * ワークベンチを作る
@@ -60,8 +39,6 @@ export function createWorkbench(options) {
     codeId, blocklyId, flowchartId, storageKey,
     starterCode = '', drawing = false, extraApi = [], onStatus,
   } = options;
-
-  setupMermaid();
 
   /* ---------- 状態 ---------- */
   let syncing = false;      // 変換が往復しないようにする鍵
@@ -244,88 +221,25 @@ export function createWorkbench(options) {
     const container = document.getElementById(flowchartId);
     if (!container) return;
 
-    const result = pythonToMermaid(editor.getValue(), { japanese: flowJapanese });
+    // 図が同じなら描き直さない（ここが一番重い処理）。
+    // 中身の判定だけ先にして、描くのは flowview.js にまかせる。
+    const preview = pythonToMermaid(editor.getValue(), { japanese: flowJapanese });
+    if (!force && preview.definition && preview.definition === lastDefinition) return;
+    lastDefinition = preview.definition || '';
+
+    const result = await drawFlowchart(container, editor.getValue(), {
+      japanese: flowJapanese,
+      fit: flowFit,
+    });
     lineByNode = result.lineByNode || {};
-
-    if (!result.definition) {
-      lastDefinition = '';
-      container.innerHTML =
-        `<div class="empty-state">${(result.message || '').replace(/\n/g, '<br>')}</div>`;
-      return;
-    }
-
-    // 図が同じなら描き直さない（ここが一番重い処理）
-    if (!force && result.definition === lastDefinition) return;
-    lastDefinition = result.definition;
-
-    const id = `flow-${++renderCount}`;
-    try {
-      const { svg } = await mermaid.render(id, result.definition);
-      container.innerHTML = svg;
-      fitFlowchart();
-      if (result.message) {
-        const note = document.createElement('div');
-        note.className = 'empty-state';
-        note.textContent = result.message;
-        container.appendChild(note);
-      }
-    } catch (e) {
-      console.error('フローチャートの描画に失敗:', e);
-      document.getElementById(id)?.remove();
-      document.getElementById(`d${id}`)?.remove();
-      lastDefinition = '';
-      container.innerHTML =
-        '<div class="empty-state">このコードは図にできませんでした<br>' +
-        'Python の書き方を確認してみましょう</div>';
-    }
+    if (!preview.definition) lastDefinition = '';
   }
 
   /* ---------- 表示の調整 ---------- */
 
-  /**
-   * フローチャートをパネルの大きさに合わせる
-   *
-   * mermaid は横幅にだけ合わせるので、縦に長い図はパネルからはみ出して
-   * 下が見切れてしまう。縦も見て、全体が入る大きさに縮める。
-   * 「実物大」を選んでいるときは縮めず、スクロールで見てもらう。
-   */
+  /** フローチャートをパネルの大きさに合わせる（中身は flowview.js） */
   function fitFlowchart() {
-    const container = document.getElementById(flowchartId);
-    const svg = container && container.querySelector('svg');
-    if (!svg) return;
-
-    const box = svg.viewBox && svg.viewBox.baseVal;
-    if (!box || !box.width || !box.height) return;
-
-    if (!flowFit) {
-      // 実物大。読みやすさを優先して、はみ出す分はスクロールで見る
-      svg.style.width = `${Math.round(box.width)}px`;
-      svg.style.height = `${Math.round(box.height)}px`;
-      svg.style.maxWidth = 'none';
-      return;
-    }
-
-    const host = container.parentElement || container;
-    const style = getComputedStyle(container);
-    const padX = parseFloat(style.paddingLeft) + parseFloat(style.paddingRight);
-    const padY = parseFloat(style.paddingTop) + parseFloat(style.paddingBottom);
-    const availableWidth = host.clientWidth - padX;
-    const availableHeight = host.clientHeight - padY;
-    if (availableWidth <= 0 || availableHeight <= 0) return;
-
-    // 大きくはしない（小さな図が引きのばされて字が太くなるのを避ける）。
-    // 縮めるのにも下限を置く。教室のプロジェクターで後ろからも読めることを
-    // 優先するので、字が小さくなりすぎる縮小はしない。
-    // 収まらないぶんは縦スクロールと「拡大」で見てもらう。
-    const MIN_SCALE = 0.75;
-    let scale = Math.min(availableWidth / box.width, availableHeight / box.height, 1);
-    if (scale < MIN_SCALE) {
-      scale = Math.min(MIN_SCALE, availableWidth / box.width);
-    }
-
-    svg.style.width = `${Math.round(box.width * scale)}px`;
-    svg.style.height = `${Math.round(box.height * scale)}px`;
-    svg.style.maxWidth = 'none';
+    fitFlowSvg(document.getElementById(flowchartId), { fit: flowFit });
   }
 
   // 隠れている間に整えようとしても、Blockly は大きさを測れず
