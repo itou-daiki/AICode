@@ -84,11 +84,12 @@ export function createWorkbench(options) {
   /* ---------- ブロックエディタ ---------- */
   defineBlocks({ drawing });
   // ブロックの色は、画面ぜんぶの世界（紙と墨と朱）にそろえる。
-  // Blockly のままだと原色のプラスチックに見えて、まわりから浮いてしまう。
-  // 種類の見分けは残したいので、色相は保ったまま、彩度を落として紙になじませる。
+  // 色相で種類を分けると、7 色のプラスチックになって世界から浮く。
+  // ここでは「刷りの濃さ」で分ける。同じ墨のインクを、濃さだけ変えて刷ったもの。
+  // どの種類かは道具箱の見出しと、ブロックに書いてある日本語で分かる。
   const inkTheme = Blockly.Theme.defineTheme('easycode-ink', {
     base: Blockly.Themes.Classic,
-    fontStyle: { family: "'BIZ UDPGothic', 'Hiragino Sans', sans-serif", weight: '700', size: 11 },
+    fontStyle: { family: "'BIZ UDPGothic', 'Hiragino Sans', sans-serif", weight: '700', size: 12 },
     componentStyles: {
       workspaceBackgroundColour: '#FCFCFA',
       toolboxBackgroundColour: '#F4F5F2',
@@ -105,15 +106,16 @@ export function createWorkbench(options) {
       selectedGlowOpacity: 0.6,
     },
     blockStyles: {
-      // 種類ごとに、刷り分けた 1 色の面（原色にしない）
-      logic_blocks:      { colourPrimary: '#5B7C8D', colourTertiary: '#415B68' },
-      loop_blocks:       { colourPrimary: '#6B8E6B', colourTertiary: '#4E6B4E' },
-      math_blocks:       { colourPrimary: '#7A7A96', colourTertiary: '#5A5A72' },
-      text_blocks:       { colourPrimary: '#9A7B5A', colourTertiary: '#775E44' },
-      list_blocks:       { colourPrimary: '#8A7391', colourTertiary: '#68566E' },
-      variable_blocks:   { colourPrimary: '#B07A4E', colourTertiary: '#8A5D3B' },
-      procedure_blocks:  { colourPrimary: '#4E7A8A', colourTertiary: '#3B5D68' },
-      hat_blocks:        { colourPrimary: '#C0392B', colourTertiary: '#9C2C20' },
+      // 刷りの濃さで種類を分ける（濃いほど「流れをつくるもの」）
+      procedure_blocks:  { colourPrimary: '#DCDED8', colourTertiary: '#A9ACA4' },
+      loop_blocks:       { colourPrimary: '#E1E3DD', colourTertiary: '#AEB1A9' },
+      logic_blocks:      { colourPrimary: '#E6E8E2', colourTertiary: '#B3B6AE' },
+      variable_blocks:   { colourPrimary: '#EBEDE7', colourTertiary: '#B8BBB3' },
+      text_blocks:       { colourPrimary: '#F0F1EC', colourTertiary: '#BCBFB7' },
+      list_blocks:       { colourPrimary: '#F0F1EC', colourTertiary: '#BCBFB7' },
+      math_blocks:       { colourPrimary: '#F4F5F2', colourTertiary: '#C0C3BB' },
+      // setup / draw の帽子は、流れの入口なのでいちばん濃く刷る
+      hat_blocks:        { colourPrimary: '#D3D6CF', colourTertiary: '#A2A59E' },
     },
   });
 

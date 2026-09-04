@@ -11,12 +11,12 @@
 
 import { CodeCompletionEngine } from './completion.js';
 import { autoIndent, formatCode } from './pyformat.js';
-import { initSidebar, initTabs, initMaximize, toast, confirmDialog, debounce } from './ui.js';
+import { initSidebar, initTabs, initMaximize, toast, confirmDialog, debounce, showFix } from './ui.js';
 import { PYODIDE_CONFIG, EDITOR_CONFIG } from './config.js';
 import { toKtph } from './ktph.js';
 import { defineKtphMode } from './ktph-mode.js';
 import { renderFlowchart, fitFlowchart, highlightFlowLine } from './flowview.js';
-import { explainError } from './pyrun.js';
+import { explainError, suggestFix } from './pyrun.js';
 import {
   runProgram, runTests, traceGroundTruth, createInteractiveInput, createScriptedInput, inputLines,
 } from './lessons-run.js';
@@ -628,6 +628,7 @@ async function runCurrent() {
     if (result.error) {
       if ($('output').textContent) $('output').textContent += '\n';
       $('output').textContent += explainError(result.error, code);
+      showFix(suggestFix(code, result.error), applyFix);
     } else if (!$('output').textContent) {
       $('output').textContent = '(出力なし)';
     }
@@ -772,6 +773,20 @@ function finishAnswer(ref, ok, message) {
     }
   }
   saveDraft(ref, currentCode());
+}
+
+/**
+ * 「global x を書き入れる」が押されたときの動き
+ *
+ * 学習者のコードに、その 1 行を実際に足す。
+ * @param {string} code 直したコード
+ * @param {number} line 足した行
+ */
+function applyFix(code, line) {
+  editorPy.setValue(code);
+  editorPy.setCursor({ line: line - 1, ch: editorPy.getLine(line - 1).length });
+  editorPy.focus();
+  toast('「global」を 1 行足しました。もう一度「実行」を押してみましょう', 3600);
 }
 
 /* ============================================================

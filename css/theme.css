@@ -941,6 +941,13 @@ input[type='range'] { accent-color: var(--c-accent); }
 }
 .blocklyMainBackground { stroke: none; }
 
+/* ブロックは紙の色で刷るので、字は墨にする（既定は白い字） */
+.blocklyText { fill: var(--c-ink) !important; }
+.blocklyEditableText > rect { fill: var(--c-paper) !important; }
+.blocklyEditableText > text { fill: var(--c-ink) !important; }
+/* 入力できるところは、白い紙の窓にする */
+.blocklyEditableText:hover > rect { fill: #FFFFFF !important; }
+
 /* ------------------------------------------------------------
  * 10. ダイアログ・お知らせ
  * ---------------------------------------------------------- */

@@ -84,88 +84,14 @@ def _easycode_describe(value):
     return text if len(text) <= 200 else text[:200] + '…'
 
 
-def _easycode_share_globals(tree):
-    """外で作った変数を、setup() や draw() の中から書きかえられるようにする
-
-    p5.js では「let x = 0;」と書いておけば、draw() の中で「x = x + 1」と書ける。
-    Python の同じ書き方は UnboundLocalError になり、
-    「跳ね返るボール」や「回る図形」のような、動きのあるプログラムが
-    そのままでは書けない。
-
-    そこで、外で値を入れてある名前を関数の中で書きかえているときだけ、
-    global 宣言を自動で足す。木に足すだけなので、行番号はずれない。
-    """
-    outer = set()
-    for node in tree.body:
-        if isinstance(node, ast.Assign):
-            for target in node.targets:
-                for sub in ast.walk(target):
-                    if isinstance(sub, ast.Name):
-                        outer.add(sub.id)
-        elif isinstance(node, (ast.AnnAssign, ast.AugAssign)):
-            if isinstance(node.target, ast.Name):
-                outer.add(node.target.id)
-        elif isinstance(node, (ast.For, ast.AsyncFor)):
-            for sub in ast.walk(node.target):
-                if isinstance(sub, ast.Name):
-                    outer.add(sub.id)
-    if not outer:
-        return tree
-
-    for node in tree.body:
-        if not isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
-            continue
-
-        args = node.args
-        params = {a.arg for a in list(args.posonlyargs) + list(args.args) + list(args.kwonlyargs)}
-        if args.vararg:
-            params.add(args.vararg.arg)
-        if args.kwarg:
-            params.add(args.kwarg.arg)
-
-        assigned = set()
-        declared = set()
-        for sub in ast.walk(node):
-            if isinstance(sub, ast.Global):
-                declared.update(sub.names)
-            elif isinstance(sub, ast.Nonlocal):
-                declared.update(sub.names)
-            elif isinstance(sub, ast.Name) and isinstance(sub.ctx, ast.Store):
-                assigned.add(sub.id)
-
-        names = sorted((assigned & outer) - declared - params)
-        if not names:
-            continue
-
-        # 説明文（docstring）があるときは、そのうしろに入れる
-        at = 0
-        if (node.body and isinstance(node.body[0], ast.Expr)
-                and isinstance(node.body[0].value, ast.Constant)
-                and isinstance(node.body[0].value.value, str)):
-            at = 1
-
-        # 行の位置は、すぐ後ろに来る文からそのまま写す。
-        # こうしないと行の範囲が壊れて compile できない。
-        statement = ast.copy_location(ast.Global(names=names), node.body[at])
-        node.body.insert(at, statement)
-
-    return tree
-
-
 async def _easycode_run(code, element=None, seconds=10.0, use_globals=False,
-                        prelude=None, capture=None, p5_globals=False):
+                        prelude=None, capture=None):
     out = _EasycodeOut(element)
     info = None
     orig_out, orig_err = sys.stdout, sys.stderr
 
     try:
-        if p5_globals:
-            tree = compile(code, _EASYCODE_FILE, 'exec',
-                           flags=ast.PyCF_ONLY_AST | ast.PyCF_ALLOW_TOP_LEVEL_AWAIT)
-            compiled = compile(_easycode_share_globals(tree), _EASYCODE_FILE, 'exec',
-                               flags=ast.PyCF_ALLOW_TOP_LEVEL_AWAIT)
-        else:
-            compiled = compile(code, _EASYCODE_FILE, 'exec', flags=ast.PyCF_ALLOW_TOP_LEVEL_AWAIT)
+        compiled = compile(code, _EASYCODE_FILE, 'exec', flags=ast.PyCF_ALLOW_TOP_LEVEL_AWAIT)
     except SyntaxError as exc:
         return json.dumps({'output': '', 'error': _easycode_error_info(exc)})
 
@@ -253,13 +179,13 @@ export async function runUserCode(pyodide, code, options = {}) {
   ensureRunner(pyodide);
   const {
     element = null, seconds = RUN_LIMIT_SECONDS, useGlobals = false,
-    prelude = null, capture = null, p5Globals = false,
+    prelude = null, capture = null,
   } = options;
 
   const run = pyodide.globals.get('_easycode_run');
   try {
     const json = await run(code, element, seconds, useGlobals, prelude,
-      capture ? JSON.stringify(capture) : null, p5Globals);
+      capture ? JSON.stringify(capture) : null);
     const result = JSON.parse(json);
     if (!result.variables) result.variables = {};
     return result;
@@ -277,6 +203,91 @@ export async function runUserCode(pyodide, code, options = {}) {
  */
 export function withBrowserInput(code) {
   return code.replace(/\binput\(/g, 'await custom_input(');
+}
+
+/* ============================================================
+ * エラーを、押せば直せる形にする
+ * ========================================================== */
+
+/**
+ * エラーから「1 行足せば直る」直し方を探す
+ *
+ * いまのところ UnboundLocalError だけ。
+ * 関数の中で外の変数を書きかえたときに出るもので、
+ * p5.js から写してきたプログラムで必ず引っかかる。
+ *
+ * 黙って直さず、学習者のコードに本物の「global x」を入れる。
+ * どのモードでも同じように動き、覚えたことがそのまま使える。
+ *
+ * @param {string} code 学習者のコード
+ * @param {object|null} error runUserCode が返したエラー
+ * @returns {{label: string, name: string, line: number, code: string}|null}
+ */
+export function suggestFix(code, error) {
+  if (!error || error.type !== 'UnboundLocalError' || !error.line) return null;
+
+  // UnboundLocalError は name を持たないことがある。メッセージの 'なまえ' から拾う
+  const name = error.name || guessName(error);
+  if (!name) return null;
+  const lines = code.split('\n');
+  const at = error.line - 1;
+  if (at < 0 || at >= lines.length) return null;
+
+  // エラーの行から上にたどって、その行を含んでいる def を探す
+  let defAt = -1;
+  for (let i = at; i >= 0; i--) {
+    if (/^\s*(async\s+)?def\s+\w+\s*\(/.test(lines[i])) { defAt = i; break; }
+  }
+  if (defAt < 0) return null;
+
+  // すでに書いてあるなら、足すものはない。
+  // ほかの名前で global の行があるなら、その行に足す（行を増やさない）
+  const bodyIndent = indentOf(lines, defAt);
+  if (bodyIndent === null) return null;
+  let globalAt = -1;
+  for (let i = defAt + 1; i < lines.length; i++) {
+    if (lines[i].trim() && indentWidth(lines[i]) < bodyIndent) break;
+    if (new RegExp(`^\\s*global\\b[^#]*\\b${name}\\b`).test(lines[i])) return null;
+    if (globalAt < 0 && /^\s*global\s+\w/.test(lines[i])) globalAt = i;
+  }
+
+  // その名前が、関数の外で作られていること（そうでなければ打ちまちがい）
+  const outside = lines.some((line, i) => (i < defAt || indentWidth(line) === 0)
+    && new RegExp(`^${name}\\s*(=[^=]|[-+*/]=)`).test(line.trim()) && indentWidth(line) === 0);
+  if (!outside) return null;
+
+  const fixed = [...lines];
+  let placed;
+  if (globalAt >= 0) {
+    fixed[globalAt] = `${fixed[globalAt].replace(/\s+$/, '')}, ${name}`;
+    placed = globalAt + 1;
+  } else {
+    placed = defAt + 2;
+    fixed.splice(defAt + 1, 0, ' '.repeat(bodyIndent) + `global ${name}`);
+  }
+  return {
+    label: `global ${name} を書き入れる`,
+    name,
+    line: placed,
+    code: fixed.join('\n'),
+  };
+}
+
+/** その行の字下げの深さ */
+function indentWidth(line) {
+  const m = /^[ \t]*/.exec(line);
+  return m ? m[0].replace(/\t/g, '    ').length : 0;
+}
+
+/** def の中身が、どれだけ下げて書かれているか */
+function indentOf(lines, defAt) {
+  const head = indentWidth(lines[defAt]);
+  for (let i = defAt + 1; i < lines.length; i++) {
+    if (!lines[i].trim()) continue;
+    const width = indentWidth(lines[i]);
+    return width > head ? width : head + 4;
+  }
+  return head + 4;
 }
 
 /* ============================================================
@@ -304,7 +315,9 @@ const HINTS = {
   AttributeError: 'その種類のものには、その名前のはたらきがありません。つづりを確かめましょう。',
   ModuleNotFoundError: 'そのライブラリはこの画面では使えません。',
   ImportError: 'そのライブラリはこの画面では使えません。',
-  UnboundLocalError: '関数の中で、その変数を作る前に使っています。',
+  UnboundLocalError:
+    '関数の中で「{name}」を書きかえています。'
+    + '関数の外にある「{name}」を使うには、関数のはじめに「global {name}」と書きます。',
   RecursionError: '関数が自分自身を呼びすぎました。止まる条件を入れましょう。',
   OverflowError: '数が大きくなりすぎました。',
   StopIteration: '取り出すものがもうありません。',
@@ -336,7 +349,7 @@ export function explainError(info, code = '') {
   const hint = detailedHint(info) || HINTS[info.type];
   if (hint) {
     const name = info.name || guessName(info);
-    lines.push(`→ ${hint.replace('{name}', name || 'その名前')}`);
+    lines.push(`→ ${hint.replaceAll('{name}', name || 'その名前')}`);
   }
 
   return lines.join('\n');

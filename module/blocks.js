@@ -7,10 +7,10 @@ import { createWorkbench } from './workbench.js';
 import { recordTrace, changedVariables, changedItems, namesInLine } from './stepper.js';
 import {
   confirmDialog, toast, initSidebar, initTabs, initMaximize,
-  takeCodeFromUrl, makeShareUrl, showShareDialog,
+  takeCodeFromUrl, makeShareUrl, showShareDialog, showFix,
 } from './ui.js';
 import { PYODIDE_CONFIG } from './config.js';
-import { runUserCode, explainError } from './pyrun.js';
+import { runUserCode, explainError, suggestFix } from './pyrun.js';
 import { toKtph } from './ktph.js';
 import { setIconLabel } from './icons.js';
 // AI は任意だが、キーの保存欄はこの画面にもあるので読みこんでおく
@@ -122,6 +122,7 @@ async function runCode() {
     if (result.error) {
       if (output.textContent) output.textContent += '\n';
       output.textContent += explainError(result.error, code);
+      showFix(suggestFix(code, result.error), applyFix);
     } else if (!output.textContent) {
       output.textContent = '(出力なし)';
     }
@@ -210,6 +211,21 @@ function comparePrediction(actual) {
       + '\n\nステップ実行で、どこで考えとちがったか見てみましょう。';
     result.className = 'is-miss';
   }
+}
+
+/**
+ * 「global x を書き入れる」が押されたときの動き
+ *
+ * 学習者のコードに、その 1 行を実際に足す。押したあとの画面で、
+ * 自分のコードが 1 行増えているのが見えるようにする。
+ * @param {string} code 直したコード
+ * @param {number} line 足した行
+ */
+function applyFix(code, line) {
+  bench.setCode(code);
+  bench.editor.setCursor({ line: line - 1, ch: bench.editor.getLine(line - 1).length });
+  bench.editor.focus();
+  toast('「global」を 1 行足しました。もう一度「実行」を押してみましょう', 3600);
 }
 
 /* ============================================================

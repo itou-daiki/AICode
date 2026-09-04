@@ -9,7 +9,7 @@
 import { pythonToBlocks } from '../module/py2blocks.js';
 import { defineBlocks, buildToolbox } from '../module/blockdefs.js';
 import { P5_PYTHON_LIBRARY } from '../module/p5lib.js';
-import { runUserCode } from '../module/pyrun.js';
+import { runUserCode, suggestFix } from '../module/pyrun.js';
 import { toKtph } from '../module/ktph.js';
 import { loadIndex, loadCourse, loadMockSet, findByRef, fillBlanks, correctPicks, problemRef } from '../module/lessons-data.js';
 import { runProgram, runTests, traceGroundTruth, inputLines } from '../module/lessons-run.js';
@@ -683,70 +683,52 @@ async function testP5BareNames() {
   );
   equal('描画: Python の関数がそのまま使える', builtins.output.trim(), '5 3.14 1 9 1024');
 
-  // p5.js と同じで、外で作った変数を draw() の中から書きかえられること。
-  // これができないと「跳ね返るボール」や「回る図形」が書けない。
-  const moving = await runUserCode(pyodide, `x = 0
-d = 1
-
-def draw():
-    x = x + d
-    if x > 3:
-        d = -1
-
-draw()
-draw()
-draw()
-draw()
-draw()
-print(x, d)
-`, { useGlobals: true, seconds: 5, p5Globals: true });
-  equal('描画: 外の変数を draw() の中で書きかえられる', moving.output.trim(), '3 -1');
-
-  const counted = await runUserCode(pyodide, `count = 0
-
-def tick():
-    count = count + 1
-
-tick()
-tick()
-tick()
-print(count)
-`, { useGlobals: true, seconds: 5, p5Globals: true });
-  equal('描画: 書きかえた値が外にも残る', counted.output.trim(), '3');
-
-  // 関数の中だけで使う名前は、外に漏れないこと
-  const scoped = await runUserCode(pyodide, `total = 100
-
-def work():
-    inner = 5
-    return inner
-
-print(work(), total)
-`, { useGlobals: true, seconds: 5, p5Globals: true });
-  equal('描画: 関数の中だけの名前は外に出ない', scoped.output.trim(), '5 100');
-
-  // 引数と同じ名前は、引数のまま（外の変数を書きかえない）
-  const shadow = await runUserCode(pyodide, `size = 10
-
-def draw_one(size):
-    size = size * 2
-    return size
-
-print(draw_one(3), size)
-`, { useGlobals: true, seconds: 5, p5Globals: true });
-  equal('描画: 引数と同じ名前は外を書きかえない', shadow.output.trim(), '6 10');
-
-  // この置きかえは描画モードだけ。ふだんの実行では Python のきまりのまま
-  const normal = await runUserCode(pyodide, `n = 1
+  // 外の変数を関数の中で書きかえたときは、Python のきまりどおり止まること。
+  // 黙って直さないので、3 つのモードで同じように動く。
+  const unbound = await runUserCode(pyodide, `n = 1
 
 def bump():
     n = n + 1
 
 bump()
 `, { seconds: 5 });
-  check('描画: ふだんの実行では Python のきまりのまま',
-    normal.error !== null && normal.error.type === 'UnboundLocalError',
-    `\n  ${JSON.stringify(normal.error)}`);
+  check('描画: 外の変数の書きかえは Python のきまりどおり止まる',
+    unbound.error !== null && unbound.error.type === 'UnboundLocalError',
+    `\n  ${JSON.stringify(unbound.error)}`);
+
+  // その場で「global を書き入れる」直し方が出せること
+  const source = `x = 0
+d = 1
+
+def draw():
+    circle(x, 200, 50)
+    x = x + d
+`;
+  const first = suggestFix(source, { type: 'UnboundLocalError', line: 5, message: "cannot access local variable 'x' where it is not associated with a value" });
+  check('直し方: global x を足す形が出る', first !== null && first.name === 'x',
+    `\n  ${JSON.stringify(first)}`);
+  check('直し方: def のすぐ下に入る',
+    first !== null && first.code.split('\n')[4].trim() === 'global x',
+    `\n  ${first ? JSON.stringify(first.code.split('\n')[4]) : 'なし'}`);
+
+  const second = suggestFix(first.code, { type: 'UnboundLocalError', line: 7, message: "cannot access local variable 'd' where it is not associated with a value" });
+  check('直し方: 2 つめは同じ行にまとめる',
+    second !== null && second.code.split('\n')[4].trim() === 'global x, d',
+    `\n  ${second ? JSON.stringify(second.code.split('\n')[4]) : 'なし'}`);
+
+  // 直したあとは、本当に動くこと
+  const fixed = await runUserCode(pyodide, `${second.code}
+draw()
+draw()
+print(x, d)
+`, { useGlobals: true, seconds: 5 });
+  equal('直し方: 直したコードは動く', fixed.output.trim(), '2 1');
+
+  // 打ちまちがい（外に無い名前）には、直し方を出さないこと
+  const typo = suggestFix(`def draw():
+    kazu = kazu + 1
+`, { type: 'UnboundLocalError', line: 2, message: "cannot access local variable 'kazu' where it is not associated with a value" });
+  check('直し方: 外に無い名前には出さない', typo === null, `\n  ${JSON.stringify(typo)}`);
 }
 
 

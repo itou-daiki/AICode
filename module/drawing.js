@@ -8,11 +8,11 @@ import { createWorkbench } from './workbench.js';
 import { P5_CALL_BLOCKS, P5_NAME_BLOCKS } from './blockdefs.js';
 import {
   confirmDialog, toast, initSidebar, initTabs, initMaximize,
-  takeCodeFromUrl, makeShareUrl, showShareDialog,
+  takeCodeFromUrl, makeShareUrl, showShareDialog, showFix,
 } from './ui.js';
 import { callGemini, chatWithAI } from './ai.js';
 import { PYODIDE_CONFIG } from './config.js';
-import { runUserCode, explainError } from './pyrun.js';
+import { runUserCode, explainError, suggestFix } from './pyrun.js';
 import { toKtph } from './ktph.js';
 import { setIconLabel } from './icons.js';
 
@@ -250,6 +250,7 @@ async function runCode() {
       output.textContent = result.error
         ? explainError(result.error, code)
         : (result.output || '描きました（出力はありません）');
+      showFix(suggestFix(code, result.error), applyFix);
       setCanvasState(result.error ? '停止中' : '描画ずみ', false);
     }
   } catch (error) {
@@ -290,6 +291,7 @@ p5._looping = True
 
   if (setupRun.error) {
     output.textContent = explainError(setupRun.error, code);
+    showFix(suggestFix(code, setupRun.error), applyFix);
     setCanvasState('停止中', false);
     return;
   }
@@ -380,6 +382,7 @@ f"{p5._target_fps},{1 if p5._looping else 0}"
 
       if (frame.error) {
         output.textContent = 'アニメーションでエラーが起きました\n' + explainError(frame.error, code);
+        showFix(suggestFix(code, frame.error), applyFix);
         stopAnimation(null);
         return;
       }
@@ -393,6 +396,21 @@ f"{p5._target_fps},{1 if p5._looping else 0}"
   };
 
   animationId = requestAnimationFrame(loop);
+}
+
+/**
+ * 「global x を書き入れる」が押されたときの動き
+ *
+ * 学習者のコードに、その 1 行を実際に足す。押したあとの画面で、
+ * 自分のコードが 1 行増えているのが見えるようにする。
+ * @param {string} code 直したコード
+ * @param {number} line 足した行
+ */
+function applyFix(code, line) {
+  bench.setCode(code);
+  bench.editor.setCursor({ line: line - 1, ch: bench.editor.getLine(line - 1).length });
+  bench.editor.focus();
+  toast('「global」を 1 行足しました。もう一度「実行」を押してみましょう', 3600);
 }
 
 /* ============================================================

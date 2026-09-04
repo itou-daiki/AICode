@@ -101,6 +101,40 @@ export function toast(message, duration = 2200) {
  * @param {() => void} [options.onToggle] 開閉のたびに呼ばれる
  * @returns {{ toggle: (open?: boolean) => void, isOpen: () => boolean }}
  */
+/**
+ * 「1 行足せば直る」ときに、押せば直るボタンを出す
+ *
+ * 黙って直さない。押すと、学習者のコードにその 1 行が本当に入る。
+ * @param {{label: string, code: string, line: number}|null} fix pyrun.js の suggestFix の返り値
+ * @param {(code: string, line: number) => void} apply 押されたときに、直したコードを入れる
+ */
+export function showFix(fix, apply) {
+  const old = document.getElementById('fix-note');
+  if (old) old.remove();
+  if (!fix) return;
+
+  const output = document.getElementById('output');
+  if (!output || !output.parentElement) return;
+
+  const note = document.createElement('div');
+  note.id = 'fix-note';
+  note.className = 'note is-warn';
+  note.style.margin = 'var(--sp-2)';
+
+  const button = document.createElement('button');
+  button.className = 'btn btn-sm btn-mark';
+  button.textContent = fix.label;
+  button.addEventListener('click', () => {
+    apply(fix.code, fix.line);
+    note.remove();
+  });
+
+  const text = document.createElement('p');
+  text.textContent = 'この 1 行を入れると直ります。';
+  note.append(text, button);
+  output.parentElement.insertBefore(note, output.nextSibling);
+}
+
 export function initSidebar({ sidebarId, toggleId, storageKey, onToggle, defaultOpen = false }) {
   const sidebar = document.getElementById(sidebarId);
   const button = document.getElementById(toggleId);
