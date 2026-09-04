@@ -51,6 +51,10 @@ export function createWorkbench(options) {
   let flowJapanese = localStorage.getItem('easycode_flow_japanese') !== '0';
   // フローチャートを「全体が入る大きさ」にするか、「実物大」にするか
   let flowFit = localStorage.getItem('easycode_flow_fit') !== '0';
+  // ＋ − で決めた倍率。0 は「おまかせ（パネルに合わせる）」
+  let flowZoom = 0;
+  // 直近に使われた倍率。＋ を押したとき、ここから増やす
+  let flowScale = 1;
 
   /* ---------- コードエディタ ---------- */
   const editor = CodeMirror.fromTextArea(document.getElementById(codeId), {
@@ -83,10 +87,8 @@ export function createWorkbench(options) {
 
   /* ---------- ブロックエディタ ---------- */
   defineBlocks({ drawing });
-  // ブロックの色は、画面ぜんぶの世界（紙と墨と朱）にそろえる。
-  // 色相で種類を分けると、7 色のプラスチックになって世界から浮く。
-  // ここでは「刷りの濃さ」で分ける。同じ墨のインクを、濃さだけ変えて刷ったもの。
-  // どの種類かは道具箱の見出しと、ブロックに書いてある日本語で分かる。
+  // ブロックの色は、道具箱の分類と同じ色にそろえる（どの仲間か色で分かる）。
+  // ただし Blockly のままの原色にはせず、彩度を落として紙になじませる。
   const inkTheme = Blockly.Theme.defineTheme('easycode-ink', {
     base: Blockly.Themes.Classic,
     fontStyle: { family: "'BIZ UDPGothic', 'Hiragino Sans', sans-serif", weight: '700', size: 12 },
@@ -106,16 +108,15 @@ export function createWorkbench(options) {
       selectedGlowOpacity: 0.6,
     },
     blockStyles: {
-      // 刷りの濃さで種類を分ける（濃いほど「流れをつくるもの」）
-      procedure_blocks:  { colourPrimary: '#DCDED8', colourTertiary: '#A9ACA4' },
-      loop_blocks:       { colourPrimary: '#E1E3DD', colourTertiary: '#AEB1A9' },
-      logic_blocks:      { colourPrimary: '#E6E8E2', colourTertiary: '#B3B6AE' },
-      variable_blocks:   { colourPrimary: '#EBEDE7', colourTertiary: '#B8BBB3' },
-      text_blocks:       { colourPrimary: '#F0F1EC', colourTertiary: '#BCBFB7' },
-      list_blocks:       { colourPrimary: '#F0F1EC', colourTertiary: '#BCBFB7' },
-      math_blocks:       { colourPrimary: '#F4F5F2', colourTertiary: '#C0C3BB' },
-      // setup / draw の帽子は、流れの入口なのでいちばん濃く刷る
-      hat_blocks:        { colourPrimary: '#D3D6CF', colourTertiary: '#A2A59E' },
+      // 種類ごとに 1 色。原色のプラスチックにはせず、彩度を落として紙になじませる
+      logic_blocks:      { colourPrimary: '#5B7C8D', colourTertiary: '#415B68' },
+      loop_blocks:       { colourPrimary: '#6B8E6B', colourTertiary: '#4E6B4E' },
+      math_blocks:       { colourPrimary: '#7A7A96', colourTertiary: '#5A5A72' },
+      text_blocks:       { colourPrimary: '#9A7B5A', colourTertiary: '#775E44' },
+      list_blocks:       { colourPrimary: '#8A7391', colourTertiary: '#68566E' },
+      variable_blocks:   { colourPrimary: '#B07A4E', colourTertiary: '#8A5D3B' },
+      procedure_blocks:  { colourPrimary: '#4E7A8A', colourTertiary: '#3B5D68' },
+      hat_blocks:        { colourPrimary: '#C0392B', colourTertiary: '#9C2C20' },
     },
   });
 
@@ -242,7 +243,25 @@ export function createWorkbench(options) {
 
   /** フローチャートをパネルの大きさに合わせる（中身は flowview.js） */
   function fitFlowchart() {
-    fitFlowSvg(document.getElementById(flowchartId), { fit: flowFit });
+    const used = fitFlowSvg(document.getElementById(flowchartId), {
+      fit: flowFit,
+      scale: flowZoom,
+    });
+    if (used) flowScale = used;
+  }
+
+  /**
+   * フローチャートを大きく／小さくする
+   * @param {number} step 1 段ぶんの倍率（1.25 で大きく、0.8 で小さく）。0 でおまかせに戻す
+   */
+  function zoomFlowchart(step) {
+    if (!step) {
+      flowZoom = 0;
+    } else {
+      const next = (flowZoom || flowScale) * step;
+      flowZoom = Math.min(3, Math.max(0.25, Math.round(next * 100) / 100));
+    }
+    fitFlowchart();
   }
 
   // 隠れている間に整えようとしても、Blockly は大きさを測れず
@@ -493,10 +512,12 @@ export function createWorkbench(options) {
     renderFlowchart,
     scheduleFlowchart,
     fitFlowchart,
+    zoomFlowchart,
     isFlowFit: () => flowFit,
     /** 「全体が入る大きさ」と「実物大」を切り替える */
     setFlowFit(on) {
       flowFit = on;
+      flowZoom = 0;
       localStorage.setItem('easycode_flow_fit', on ? '1' : '0');
       fitFlowchart();
     },

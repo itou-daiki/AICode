@@ -2,7 +2,7 @@
 //
 // ・見出しから目次を作り、いま読んでいる場所を示す
 // ・コードのかたまりに「コピー」と「試す」を付ける
-//   （「試す」を押すと、そのコードが 01 実験で開く）
+//   （「試す」を押すと、そのコードが 01 コーディングで開く）
 
 import { toast, urlWithCode } from './ui.js';
 import { setIconLabel } from './icons.js';
@@ -67,7 +67,7 @@ function decorateCodeBlocks() {
     const tryIt = document.createElement('button');
     tryIt.type = 'button';
     setIconLabel(tryIt, 'run', '試す');
-    tryIt.title = 'このコードを 01 実験で開きます';
+    tryIt.title = 'このコードを 01 コーディングで開きます';
     tryIt.addEventListener('click', () => {
       location.href = urlWithCode('index.html', block.textContent.trim() + '\n');
     });

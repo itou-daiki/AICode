@@ -614,6 +614,9 @@ function setupControls() {
     }
   });
 
+$('flow-zoom-in').addEventListener('click', () => bench.zoomFlowchart(1.25));
+  $('flow-zoom-out').addEventListener('click', () => bench.zoomFlowchart(0.8));
+
   $('flow-fit').addEventListener('click', (e) => {
     const fit = !bench.isFlowFit();
     bench.setFlowFit(fit);

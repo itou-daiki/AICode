@@ -18,7 +18,6 @@ import './ai.js';
 
 const STORAGE_KEY = 'easycode_blocks_workspace_v2';
 const LAYOUT_KEY = 'easycode_layout';
-const THINK_KEY = 'easycode_think_mode';
 
 const STARTER_CODE = `print("こんにちは、easyCode!")
 name = input("名前は？")
@@ -32,7 +31,6 @@ let layout = '4';
 let layoutBeforeStep = null;
 let maximize = null;
 let stageTabs = null;
-let thinkMode = false;
 
 let isWaitingForInput = false;
 let inputCallback = null;
@@ -138,94 +136,7 @@ async function runCode() {
     const box = $('step-input-values');
     if (typedInputs.length && box && !box.value.trim()) box.value = typedInputs.join('\n');
     updateStepInputs();
-    comparePrediction(output.textContent);
   }
-}
-
-/* ============================================================
- * 1-2. じっくりモード（考える時間をつくる）
- * ========================================================== */
-
-/**
- * じっくりモードの入り切り。
- * 入れると補完は Ctrl+Space を押したときだけになり、
- * 実行の前に「出力はどうなる？」と予想を書く欄が出る。
- * （予想してから実行する進め方は PRIMM という学び方にもとづく）
- * @param {boolean} on
- * @param {boolean} [quiet] お知らせを出さない
- */
-function setThinkMode(on, quiet = false) {
-  thinkMode = on;
-  localStorage.setItem(THINK_KEY, on ? '1' : '0');
-
-  const button = $('think-btn');
-  button.classList.toggle('btn-accent', on);
-  setIconLabel(button, 'bulb', on ? '先に予想：入' : '先に予想');
-
-  // 補完のふるまいを切り替える（自動で答えを出さない）
-  bench.completion.completionMode = on ? 'popup-only' : 'both';
-  bench.completion.useAI = !on;
-  bench.completion.updateStatusText();
-
-  const select = $('completion-mode-select');
-  if (select) select.value = bench.completion.completionMode;
-
-  $('predict-panel').hidden = !on;
-  if (!on) clearPrediction();
-  if (!quiet) {
-    toast(on ? '実行の前に、出力を予想して書いてみましょう' : 'ふだんのモードに戻しました');
-  }
-}
-
-/** 予想の表示を消す */
-function clearPrediction() {
-  const result = $('predict-result');
-  result.textContent = '';
-  result.className = '';
-}
-
-/**
- * 書いた予想と、実際の出力を見くらべる
- * @param {string} actual
- */
-function comparePrediction(actual) {
-  if (!thinkMode) return;
-
-  const input = $('predict-input');
-  const result = $('predict-result');
-  const guess = input.value.trim();
-
-  if (!guess) {
-    result.textContent = '次は、実行する前に予想を書いてみましょう。';
-    result.className = '';
-    return;
-  }
-
-  const tidy = (text) => text.replace(/\r/g, '').split('\n').map(l => l.trimEnd()).join('\n').trim();
-  if (tidy(guess) === tidy(actual)) {
-    result.textContent = '予想どおりでした。なぜそうなるのか、フローチャートでも確かめてみましょう。';
-    result.className = 'is-hit';
-  } else {
-    result.textContent =
-      '予想とちがいました。\n\nあなたの予想:\n' + guess + '\n\n実際の出力:\n' + actual.trim()
-      + '\n\nステップ実行で、どこで考えとちがったか見てみましょう。';
-    result.className = 'is-miss';
-  }
-}
-
-/**
- * 「global x を書き入れる」が押されたときの動き
- *
- * 学習者のコードに、その 1 行を実際に足す。押したあとの画面で、
- * 自分のコードが 1 行増えているのが見えるようにする。
- * @param {string} code 直したコード
- * @param {number} line 足した行
- */
-function applyFix(code, line) {
-  bench.setCode(code);
-  bench.editor.setCursor({ line: line - 1, ch: bench.editor.getLine(line - 1).length });
-  bench.editor.focus();
-  toast('「global」を 1 行足しました。もう一度「実行」を押してみましょう', 3600);
 }
 
 /* ============================================================
@@ -536,8 +447,6 @@ function setupControls() {
     toast('すべて消しました');
   });
 
-  $('think-btn').addEventListener('click', () => setThinkMode(!thinkMode));
-
   $('share-btn').addEventListener('click', async () => {
     const code = bench.getCode();
     if (!code.trim()) { toast('共有するコードがありません'); return; }
@@ -586,6 +495,9 @@ function setupControls() {
       container.appendChild(note);
     }
   });
+
+$('flow-zoom-in').addEventListener('click', () => bench.zoomFlowchart(1.25));
+  $('flow-zoom-out').addEventListener('click', () => bench.zoomFlowchart(0.8));
 
   $('flow-fit').addEventListener('click', (e) => {
     const fit = !bench.isFlowFit();
@@ -722,7 +634,6 @@ async function init() {
     setupRuntimeInput();
 
     setLayout(localStorage.getItem(LAYOUT_KEY) || '4', false);
-    setThinkMode(localStorage.getItem(THINK_KEY) === '1', true);
 
     updateStepInputs();
     bench.fitBlocks();
@@ -736,7 +647,7 @@ async function init() {
     $('step-btn').disabled = false;
     loader.style.display = 'none';
   } catch (error) {
-    console.error('01 実験の初期化に失敗:', error);
+    console.error('01 コーディングの初期化に失敗:', error);
     loader.innerHTML =
       `<p style="color:var(--c-bad);">読み込みに失敗しました: ${error.message}<br>ページを再読み込みしてください。</p>`;
   }

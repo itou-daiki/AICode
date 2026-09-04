@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>easyCode - 01 実験</title>
+  <title>easyCode - 01 コーディング</title>
   <link rel="icon" type="image/svg+xml" href="favicon.svg">
   <link rel="alternate icon" href="favicon.ico">
   <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -12,7 +12,7 @@
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/codemirror@5.65.16/lib/codemirror.css" />
   <link rel="stylesheet" href="css/theme.css">
   <style>
-    /* 01 実験のレイアウト（色や文字は css/theme.css のトークンを使う） */
+    /* 01 コーディングのレイアウト（色や文字は css/theme.css のトークンを使う） */
     :root { --c-accent: var(--c-blocks); }
     html, body { height: 100%; overflow: hidden; }
 
@@ -124,40 +124,6 @@
     #step-vars td { font-family: var(--font-mono); word-break: break-all; }
     #step-vars tr.changed th, #step-vars tr.changed td { background: var(--c-warn-soft); }
 
-    /* 予想してから実行（PRIMM の Predict）*/
-    #predict-panel {
-      flex: 0 0 auto;
-      padding: var(--sp-2);
-      border-bottom: 1px solid var(--c-line);
-      background: var(--c-brand-soft);
-    }
-    #predict-panel label {
-      display: block;
-      margin-bottom: var(--sp-1);
-      font-size: var(--text-xs);
-      font-weight: 700;
-      color: var(--c-brand-ink);
-    }
-    #predict-input { font-family: var(--font-mono); font-size: var(--text-sm); resize: vertical; }
-    #predict-result:empty { display: none; }
-    #predict-result {
-      margin-top: var(--sp-2);
-      padding: var(--sp-2);
-      border-radius: var(--r-sm);
-      background: var(--c-surface);
-      font-size: var(--text-sm);
-      white-space: pre-wrap;
-    }
-    /* 予想が合ったか。色ではなく、下に引く線の描き分けで示す */
-    #predict-result.is-hit { box-shadow: inset 0 -2px 0 var(--c-ink); }
-    #predict-result.is-miss {
-      box-shadow: inset 0 -2px 0 var(--c-hold);
-      background-image: linear-gradient(var(--c-hold) 0 0);
-      background-size: 6px 2px;
-      background-repeat: repeat-x;
-      background-position: bottom;
-    }
-
     #step-inputs { display: none; padding: var(--sp-2); border-top: 1px solid var(--c-line); }
     #step-inputs.is-visible { display: block; }
     #step-input-values { font-family: var(--font-mono); font-size: var(--text-sm); resize: vertical; }
@@ -210,15 +176,13 @@
   <header class="topbar">
     <button id="toggle-sidebar" class="icon-btn" aria-expanded="false" title="ヒントを開く"><svg viewBox="0 0 20 20" class="icon" aria-hidden="true"><path d="M4 4h5a2 2 0 0 1 2 2v10a2 2 0 0 0-2-2H4z"/><path d="M16 4h-5a2 2 0 0 0-2 2v10a2 2 0 0 1 2-2h5z"/></svg></button>
     <a class="brand" href="index.html">
-      <span class="brand-name">easyCode<small>01 実験</small></span>
+      <span class="brand-name">easyCode<small>01 コーディング</small></span>
     </a>
     <span class="topbar-divider"></span>
 
     <div class="topbar-tools">
       <button id="run-btn" class="btn btn-run" disabled><svg viewBox="0 0 20 20" class="icon" aria-hidden="true"><path d="M6 4l10 6-10 6z"/></svg>実行</button>
       <button id="step-btn" class="btn btn-mark" disabled><svg viewBox="0 0 20 20" class="icon" aria-hidden="true"><path d="M5 4l7 6-7 6z"/><path d="M15 4v12"/></svg>ステップ実行</button>
-      <span class="topbar-divider"></span>
-      <button id="think-btn" class="btn" title="実行の前に出力を予想して書きます。補完もひかえめになります"><svg viewBox="0 0 20 20" class="icon" aria-hidden="true"><path d="M10 3a5 5 0 0 0-3 9v2h6v-2a5 5 0 0 0-3-9z"/><path d="M8 17h4"/></svg>先に予想</button>
       <span class="topbar-divider"></span>
       <div class="tabs layout-switch" id="layout-switch" role="tablist" aria-label="画面の分け方">
         <button type="button" data-layout="4" role="tab" aria-selected="true"
@@ -234,7 +198,7 @@
 
     <div class="topbar-end">
       <nav class="mode-switch" aria-label="モードの切り替え">
-        <a href="index.html" aria-current="page" title="コードとブロックと図を行き来して、試す"><span class="lane">01</span><span class="label">実験</span></a>
+        <a href="index.html" aria-current="page" title="コードとブロックと図を行き来して、試す"><span class="lane">01</span><span class="label">コーディング</span></a>
         <a href="lessons.html" title="入門から模試まで、順に解く"><span class="lane">02</span><span class="label">レッスン</span></a>
         <a href="drawing.html" title="p5.js で絵を描き、動かす"><span class="lane">03</span><span class="label">スケッチ</span></a>
         <a href="python-guide.html" title="Python の文法と共通テスト表記の早見表"><span class="lane">04</span><span class="label">早見表</span></a>
@@ -258,68 +222,6 @@
           <div><span class="keys"><kbd>Ctrl</kbd><kbd>⇧</kbd><kbd>F</kbd></span><span>コード整形（<kbd>⇧</kbd><kbd>Alt</kbd><kbd>F</kbd> でも同じ）</span></div>
           <div><span class="keys"><kbd>Ctrl</kbd><kbd>⇧</kbd><kbd>I</kbd></span><span>自動インデント（<kbd>⇧</kbd><kbd>Alt</kbd><kbd>I</kbd> でも同じ）</span></div>
           <div><span class="keys"><kbd>←</kbd><kbd>→</kbd></span><span>ステップ実行中に前後へ移動</span></div>
-        </div>
-      </details>
-
-      <details class="expander">
-        <summary><svg viewBox="0 0 20 20" class="icon" aria-hidden="true"><path d="M10 3a5 5 0 0 0-3 9v2h6v-2a5 5 0 0 0-3-9z"/><path d="M8 17h4"/></svg>コード補完について</summary>
-        <div class="expander-body stack">
-          <p>APIキーが無くても使えます。書いたコードを読み取って候補を出します。</p>
-          <ul style="margin:0; padding-left:1.2em;">
-            <li>自分で作った変数・関数・クラス</li>
-            <li><code>import</code> したモジュールの中身</li>
-            <li>変数の型から分かるメソッド（<code>name.</code> で文字列のメソッド）</li>
-            <li>組み込み関数と、よく使う書き方のひな形</li>
-          </ul>
-          <div class="field">
-            <label for="completion-mode-select">補完のしかた</label>
-            <select id="completion-mode-select">
-              <option value="both">薄い文字＋候補一覧</option>
-              <option value="inline-only">薄い文字だけ</option>
-              <option value="popup-only">候補一覧だけ</option>
-              <option value="none">使わない</option>
-            </select>
-          </div>
-          <p class="muted" style="font-size:var(--text-xs);margin:0;">
-            <span id="completion-status"></span> / <span id="completion-description"></span>
-          </p>
-        </div>
-      </details>
-
-      <details class="expander">
-        <summary><svg viewBox="0 0 20 20" class="icon" aria-hidden="true"><path d="M10 7.5a2.5 2.5 0 1 0 0 5 2.5 2.5 0 0 0 0-5z"/><path d="M10 2v2.5M10 15.5V18M2 10h2.5M15.5 10H18M4.5 4.5l1.8 1.8M13.7 13.7l1.8 1.8M15.5 4.5l-1.8 1.8M6.3 13.7l-1.8 1.8"/></svg>設定</summary>
-        <div class="expander-body stack">
-          <div class="field" id="api-key-form">
-            <label for="api-key">Gemini API キー（省略できます）</label>
-            <input type="password" id="api-key" placeholder="AIza…">
-            <button id="save-api-key" class="btn btn-sm">保存</button>
-            <p class="muted" id="api-key-status"></p>
-            <p class="muted">キーが無くても、実行・ブロック・フローチャート・補完はすべて使えます。</p>
-          </div>
-        </div>
-      </details>
-
-      <details class="expander">
-        <summary><svg viewBox="0 0 20 20" class="icon" aria-hidden="true"><path d="M3 4h6v4H3z"/><path d="M5 8v3h8V8"/><path d="M11 11h6v4h-6z"/></svg>ブロックとコードの関係</summary>
-        <div class="expander-body stack">
-          <p>ブロックを動かすとコードが変わり、コードを書き換えるとブロックが組み直されます。</p>
-          <p>ブロックにできない書き方は「Python」ブロックとしてそのまま残るので、どんなコードでも往復できます。</p>
-          <p>コードだけで書きたいときは <strong>ブロックを閉じる</strong> を押してください。</p>
-        </div>
-      </details>
-
-      <details class="expander">
-        <summary><svg viewBox="0 0 20 20" class="icon" aria-hidden="true"><path d="M10 3a5 5 0 0 0-3 9v2h6v-2a5 5 0 0 0-3-9z"/><path d="M8 17h4"/></svg>先に予想（じっくりモード）</summary>
-        <div class="expander-body stack">
-          <p>すぐに答えが出てしまうと、考える時間がなくなってしまいます。じっくりモードでは：</p>
-          <ul style="margin:0; padding-left:1.2em;">
-            <li>補完は自動で出さず、<kbd>Ctrl</kbd><kbd>Space</kbd> を押したときだけ出ます</li>
-            <li>実行の前に「出力はどうなる？」と予想を書く欄が出ます</li>
-            <li>実行後、予想と実際を見くらべて教えてくれます</li>
-          </ul>
-          <p class="muted" style="font-size:var(--text-xs);margin:0;">
-            予想してから実行する進め方は PRIMM（Predict → Run → Investigate → Modify → Make）という学び方にもとづいています。
-          </p>
         </div>
       </details>
 
@@ -364,6 +266,8 @@
           <span class="panel-title"><span class="lane">B</span><svg viewBox="0 0 20 20" class="icon" aria-hidden="true"><path d="M7 3h6v3H7z"/><path d="M10 6v3"/><path d="M10 9l3 2.5-3 2.5-3-2.5z"/><path d="M10 14v3"/></svg>フローチャート</span>
           <span class="panel-tools">
             <button class="tool-btn is-on" id="flow-language" title="ラベルの書き方を切り替えます"><svg viewBox="0 0 20 20" class="icon" aria-hidden="true"><path d="M4 4h12"/><path d="M6 4v12"/><path d="M9 8h7M9 12h5"/></svg>やさしい日本語</button>
+            <button class="tool-btn" id="flow-zoom-out" title="図を小さくします" aria-label="図を小さくする"><svg viewBox="0 0 20 20" class="icon" aria-hidden="true"><path d="M4 10h12"/></svg></button>
+            <button class="tool-btn" id="flow-zoom-in" title="図を大きくします" aria-label="図を大きくする"><svg viewBox="0 0 20 20" class="icon" aria-hidden="true"><path d="M4 10h12M10 4v12"/></svg></button>
             <button class="tool-btn is-on" id="flow-fit" title="図の大きさを切り替えます"><svg viewBox="0 0 20 20" class="icon" aria-hidden="true"><path d="M4 8V4h4M16 12v4h-4"/></svg>全体を表示</button>
           <button class="tool-btn" id="flow-ktph" title="いま書いているコードを、共通テストの表記で見ます"><svg viewBox="0 0 20 20" class="icon" aria-hidden="true"><path d="M4 4h12"/><path d="M6 4v12"/><path d="M9 8h7M9 12h5"/></svg>共通テスト表記</button>
           <button class="tool-btn" id="flow-refresh" title="描き直します"><svg viewBox="0 0 20 20" class="icon" aria-hidden="true"><path d="M16 8A6 6 0 1 0 16 12"/><path d="M16 4v4h-4"/></svg>更新</button>
@@ -409,12 +313,6 @@
               <button id="step-exit" class="btn btn-danger btn-sm" title="ふだんの画面に戻ります"><svg viewBox="0 0 20 20" class="icon" aria-hidden="true"><path d="M5 5h10v10H5z"/></svg>終了</button>
             </div>
             <div id="step-vars"></div>
-          </div>
-
-          <div id="predict-panel" hidden>
-            <label for="predict-input">実行する前に、出力がどうなるか予想してみましょう</label>
-            <textarea id="predict-input" rows="3" placeholder="ここに予想を書いてから「実行」を押します"></textarea>
-            <div id="predict-result"></div>
           </div>
 
           <pre id="output" class="console">「実行」で動かし、「ステップ実行」で1行ずつ確かめられます</pre>

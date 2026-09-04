@@ -113,20 +113,30 @@ export async function renderFlowchart(container, python, options = {}) {
  * @param {object} [options]
  * @param {boolean} [options.fit] false なら実物大
  * @param {number} [options.minScale] これより小さくはしない（字が読めなくなるため）
+ * @param {number} [options.scale] 倍率を自分で決める（＋ − ボタンで使う）
+ * @returns {number} 実際に使った倍率
  */
 export function fitFlowchart(container, options = {}) {
-  const { fit = true, minScale = 0.6 } = options;
+  const { fit = true, minScale = 0.6, scale: forced = 0 } = options;
   const svg = container && container.querySelector('svg');
-  if (!svg) return;
+  if (!svg) return 0;
 
   const box = svg.viewBox && svg.viewBox.baseVal;
-  if (!box || !box.width || !box.height) return;
+  if (!box || !box.width || !box.height) return 0;
+
+  // ＋ − で倍率を決めているときは、そのとおりに描く
+  if (forced > 0) {
+    svg.style.width = `${Math.round(box.width * forced)}px`;
+    svg.style.height = `${Math.round(box.height * forced)}px`;
+    svg.style.maxWidth = 'none';
+    return forced;
+  }
 
   if (!fit) {
     svg.style.width = `${Math.round(box.width)}px`;
     svg.style.height = `${Math.round(box.height)}px`;
     svg.style.maxWidth = 'none';
-    return;
+    return 1;
   }
 
   const host = container.parentElement || container;
@@ -135,7 +145,7 @@ export function fitFlowchart(container, options = {}) {
   const padY = parseFloat(style.paddingTop) + parseFloat(style.paddingBottom);
   const availableWidth = host.clientWidth - padX;
   const availableHeight = host.clientHeight - padY;
-  if (availableWidth <= 0 || availableHeight <= 0) return;
+  if (availableWidth <= 0 || availableHeight <= 0) return 0;
 
   // 大きくはしない。小さくするのにも下限を置く（読めなくなるくらいなら、
   // 読める大きさを保って縦スクロールで見てもらう）。横は必ず収める。
@@ -145,6 +155,7 @@ export function fitFlowchart(container, options = {}) {
   svg.style.width = `${Math.round(box.width * scale)}px`;
   svg.style.height = `${Math.round(box.height * scale)}px`;
   svg.style.maxWidth = 'none';
+  return scale;
 }
 
 /**
