@@ -542,10 +542,11 @@ export function pythonToMermaid(source, { japanese = true } = {}) {
     queue.push(...renderDefinition(b, queue.shift(), index++));
   }
 
-  // 見た目の調整（開始/終了・判断・入出力・繰り返しを色分けする）
-  // 紙に引いた図。面は塗らず、線で描き分ける。
-  // 始まりと終わりだけ朱の面に白で抜き、判断は太い線、入出力は薄い地。
-  b.lines.push('  classDef terminator fill:#C0392B,stroke:#9C2C20,color:#ffffff;');
+  // 見た目の調整。教科書（JIS）のフローチャートに合わせる。
+  // 記号の意味は「形」で表し、面は塗らない。
+  //   端子（開始・終了）＝角丸の長方形／処理＝長方形／判断＝ひし形／入出力＝平行四辺形
+  // 端子を朱で塗ると、見なれた図と別物になるうえ、朱の面が増えてしまう。
+  b.lines.push('  classDef terminator fill:#FCFCFA,stroke:#16181A,stroke-width:2px,color:#16181A;');
   b.lines.push('  classDef decision fill:#FCFCFA,stroke:#16181A,stroke-width:2px,color:#16181A;');
   b.lines.push('  classDef io fill:#F4F5F2,stroke:#4A4E52,color:#16181A;');
   b.lines.push('  classDef junction fill:#D8DAD3,stroke:#D8DAD3,color:#D8DAD3,width:10px;');

@@ -159,7 +159,7 @@ function setThinkMode(on, quiet = false) {
 
   const button = $('think-btn');
   button.classList.toggle('btn-accent', on);
-  setIconLabel(button, 'bulb', on ? '補完をひかえる：入' : '補完をひかえる');
+  setIconLabel(button, 'bulb', on ? '先に予想：入' : '先に予想');
 
   // 補完のふるまいを切り替える（自動で答えを出さない）
   bench.completion.completionMode = on ? 'popup-only' : 'both';
@@ -172,7 +172,7 @@ function setThinkMode(on, quiet = false) {
   $('predict-panel').hidden = !on;
   if (!on) clearPrediction();
   if (!quiet) {
-    toast(on ? '補完はひかえめに。まず自分で考えてみましょう' : 'ふだんのモードに戻しました');
+    toast(on ? '実行の前に、出力を予想して書いてみましょう' : 'ふだんのモードに戻しました');
   }
 }
 

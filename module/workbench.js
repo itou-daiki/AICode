@@ -87,7 +87,8 @@ export function createWorkbench(options) {
   // Blockly のままだと原色のプラスチックに見えて、まわりから浮いてしまう。
   // 種類の見分けは残したいので、色相は保ったまま、彩度を落として紙になじませる。
   const inkTheme = Blockly.Theme.defineTheme('easycode-ink', {
-    base: Blockly.Themes.Zelos,
+    base: Blockly.Themes.Classic,
+    fontStyle: { family: "'BIZ UDPGothic', 'Hiragino Sans', sans-serif", weight: '700', size: 11 },
     componentStyles: {
       workspaceBackgroundColour: '#FCFCFA',
       toolboxBackgroundColour: '#F4F5F2',
@@ -118,7 +119,7 @@ export function createWorkbench(options) {
 
   const workspace = Blockly.inject(blocklyId, {
     toolbox: buildToolbox({ drawing }),
-    renderer: 'zelos',
+    renderer: 'geras',
     theme: inkTheme,
     grid: { spacing: 8, length: 1, colour: '#E9EAE5', snap: true },
     zoom: { controls: true, wheel: true, startScale: 0.8, minScale: 0.3, maxScale: 2 },
