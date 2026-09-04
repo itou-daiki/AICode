@@ -328,6 +328,7 @@ function inspectMermaid(definition) {
   const declared = new Set();
   const edges = [];
 
+  const invisible = [];
   for (const line of definition.split('\n').map(l => l.trim())) {
     if (!line || line === 'flowchart TD' || line.startsWith('classDef') ||
         line.startsWith('class ') || line.startsWith('subgraph') || line === 'end' ||
@@ -336,12 +337,17 @@ function inspectMermaid(definition) {
     const edge = line.match(/^(n\d+)\s*-->(?:\|[^|]*\|)?\s*(n\d+)$/);
     if (edge) { edges.push([edge[1], edge[2]]); continue; }
 
+    // 見えない線（~~~）。図には出ないが、上下の順番を決めるために使う。
+    // 流れの線ではないので、つながりの数には入れない。
+    const rank = line.match(/^(n\d+)\s*~~~\s*(n\d+)$/);
+    if (rank) { invisible.push([rank[1], rank[2]]); continue; }
+
     const node = line.match(/^(n\d+)[([{]/);
     if (node) { declared.add(node[1]); continue; }
 
     return { error: `読み取れない行: ${line}` };
   }
-  return { declared, edges };
+  return { declared, edges, invisible };
 }
 
 for (const [name, code] of Object.entries({ ...PROGRAMS, ...MESSY })) {
@@ -368,8 +374,8 @@ for (const [name, code] of Object.entries({ ...PROGRAMS, ...MESSY })) {
     }
     passed++;
 
-    // 線の両端は、必ず宣言された図形であること
-    const missing = info.edges.flat().filter(id => !info.declared.has(id));
+    // 線の両端は、必ず宣言された図形であること（見えない線もふくむ）
+    const missing = [...info.edges, ...info.invisible].flat().filter(id => !info.declared.has(id));
     check(`flowchart: ${label} の線がすべて図形につながる`, missing.length === 0,
       `\n  つながらない図形: ${[...new Set(missing)].join(', ')}`);
 

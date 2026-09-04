@@ -682,6 +682,71 @@ async function testP5BareNames() {
     { useGlobals: true, seconds: 5 },
   );
   equal('描画: Python の関数がそのまま使える', builtins.output.trim(), '5 3.14 1 9 1024');
+
+  // p5.js と同じで、外で作った変数を draw() の中から書きかえられること。
+  // これができないと「跳ね返るボール」や「回る図形」が書けない。
+  const moving = await runUserCode(pyodide, `x = 0
+d = 1
+
+def draw():
+    x = x + d
+    if x > 3:
+        d = -1
+
+draw()
+draw()
+draw()
+draw()
+draw()
+print(x, d)
+`, { useGlobals: true, seconds: 5, p5Globals: true });
+  equal('描画: 外の変数を draw() の中で書きかえられる', moving.output.trim(), '3 -1');
+
+  const counted = await runUserCode(pyodide, `count = 0
+
+def tick():
+    count = count + 1
+
+tick()
+tick()
+tick()
+print(count)
+`, { useGlobals: true, seconds: 5, p5Globals: true });
+  equal('描画: 書きかえた値が外にも残る', counted.output.trim(), '3');
+
+  // 関数の中だけで使う名前は、外に漏れないこと
+  const scoped = await runUserCode(pyodide, `total = 100
+
+def work():
+    inner = 5
+    return inner
+
+print(work(), total)
+`, { useGlobals: true, seconds: 5, p5Globals: true });
+  equal('描画: 関数の中だけの名前は外に出ない', scoped.output.trim(), '5 100');
+
+  // 引数と同じ名前は、引数のまま（外の変数を書きかえない）
+  const shadow = await runUserCode(pyodide, `size = 10
+
+def draw_one(size):
+    size = size * 2
+    return size
+
+print(draw_one(3), size)
+`, { useGlobals: true, seconds: 5, p5Globals: true });
+  equal('描画: 引数と同じ名前は外を書きかえない', shadow.output.trim(), '6 10');
+
+  // この置きかえは描画モードだけ。ふだんの実行では Python のきまりのまま
+  const normal = await runUserCode(pyodide, `n = 1
+
+def bump():
+    n = n + 1
+
+bump()
+`, { seconds: 5 });
+  check('描画: ふだんの実行では Python のきまりのまま',
+    normal.error !== null && normal.error.type === 'UnboundLocalError',
+    `\n  ${JSON.stringify(normal.error)}`);
 }
 
 

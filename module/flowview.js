@@ -33,7 +33,7 @@ export function setupMermaid() {
       padding: 8,
       // 段の間隔。mermaid の既定（50）だと、5 行のプログラムでも縦に 700px を超えて
       // 横長のパネルからはみ出す。字を小さくせずに収めるため、ここをつめる。
-      rankSpacing: 26,
+      rankSpacing: 20,
       nodeSpacing: 34,
       // ひし形はラベルの幅の 2 倍近くまで広がる。折り返して小さく収める
       wrappingWidth: 110,

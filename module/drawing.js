@@ -246,7 +246,7 @@ async function runCode() {
     if (/def\s+(setup|draw)\s*\(/.test(code)) {
       await runAnimation(code);
     } else {
-      const result = await runUserCode(pyodide, code, { useGlobals: true });
+      const result = await runUserCode(pyodide, code, { useGlobals: true, p5Globals: true });
       output.textContent = result.error
         ? explainError(result.error, code)
         : (result.output || '描きました（出力はありません）');
@@ -285,7 +285,7 @@ p5._looping = True
   const setupRun = await runUserCode(
     pyodide,
     code + "\nif 'setup' in globals():\n    setup()\n",
-    { useGlobals: true },
+    { useGlobals: true, p5Globals: true },
   );
 
   if (setupRun.error) {

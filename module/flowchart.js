@@ -204,13 +204,22 @@ class FlowBuilder {
     return id;
   }
 
-  /** 保留中の出口を指定ノードにつなぐ */
+  /**
+   * 保留中の出口を指定ノードにつなぐ
+   *
+   * 出口に rankAfter があるときは、そのノードより下に置かれるよう、
+   * 見えない線（~~~）を足す。こうしないと、繰り返しを抜けた先が
+   * 判断のすぐ横に並んでしまい、教科書の流れ図と形が変わってしまう。
+   */
   connect(from, toId) {
     if (!toId) return;
     for (const edge of from) {
       if (!edge.id) continue;
       const label = edge.label ? `|${escapeLabel(edge.label)}|` : '';
       this.lines.push(`  ${edge.id} -->${label} ${toId}`);
+      for (const below of edge.rankAfter || []) {
+        if (below && below !== toId) this.lines.push(`  ${below} ~~~ ${toId}`);
+      }
     }
   }
 
@@ -351,8 +360,11 @@ function renderIf(b, clauses, incoming, ctx, nested = false) {
 function renderLoop(b, stmt, incoming, ctx) {
   const clause = stmt.clauses[0];
   const isFor = stmt.keyword === 'for';
+  // 繰り返しの本体の終わり（ここから判断にもどる節点）。
+  // 抜けた先を、この下に置くために使う。
+  let tail = [];
   const exits = (cond, loopCtx) => {
-    const normal = [{ id: cond, label: 'いいえ' }];
+    const normal = [{ id: cond, label: 'いいえ', rankAfter: tail.filter(Boolean) }];
     const elseClause = stmt.clauses.find(c => c.keyword === 'else');
     const after = elseClause ? renderSequence(b, elseClause.body, normal, ctx) : normal;
     return [...after, ...loopCtx.loop.breaks];
@@ -366,6 +378,7 @@ function renderLoop(b, stmt, incoming, ctx) {
     const loopCtx = { ...ctx, loop: { head: cond, continueTarget: cond, breaks: [] } };
     const outs = renderSequence(b, clause.body, [{ id: cond, label: 'はい' }], loopCtx);
     b.connect(outs, cond);
+    tail = outs.map(e => e.id);
 
     return exits(cond, loopCtx);
   }
@@ -385,6 +398,7 @@ function renderLoop(b, stmt, incoming, ctx) {
     const outs = renderSequence(b, clause.body, [{ id: cond, label: 'はい' }], loopCtx);
     b.connect(outs, update);
     b.connect([{ id: update }], cond);
+    tail = [update];
 
     return exits(cond, loopCtx);
   }
@@ -403,6 +417,7 @@ function renderLoop(b, stmt, incoming, ctx) {
   const loopCtx = { ...ctx, loop: { head: cond, continueTarget: cond, breaks: [] } };
   const outs = renderSequence(b, clause.body, [{ id: take }], loopCtx);
   b.connect(outs, cond);
+  tail = outs.map(e => e.id);
 
   return exits(cond, loopCtx);
 }
