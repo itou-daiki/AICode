@@ -629,16 +629,47 @@ function simpleBlock(text, ctx) {
     if (mapped && mapped.kind === 'statement') return fromCallDef(mapped, callNode, ctx);
   }
 
-  // print(式)
+  // print(…)
   const printMatch = text.match(/^print\s*\((.*)\)$/s);
   if (printMatch) {
-    const arg = printMatch[1].trim();
-    const node = arg ? parseExpression(arg) : null;
-    if (arg === '' || node) {
-      return {
-        type: 'text_print',
-        inputs: { TEXT: input(node ? valueBlock(node, ctx) : { type: 'text', fields: { TEXT: '' } }) },
-      };
+    const inside = printMatch[1].trim();
+
+    // print() だけなら「改行する」
+    if (inside === '') return { type: 'py_newline' };
+
+    const parts = splitArguments(inside).map(part => part.trim());
+
+    // 最後が end="…" なら「改行せずに表示」
+    const endMatch = parts.length >= 1 && parts[parts.length - 1].match(/^end\s*=\s*(.+)$/s);
+    if (endMatch && parts.length === 2) {
+      const value = parseExpression(parts[0]);
+      const tail = parseExpression(endMatch[1]);
+      if (value && tail && tail.type === 'string') {
+        return {
+          type: 'py_print_end',
+          fields: { END: tail.value },
+          inputs: { TEXT: input(valueBlock(value, ctx)) },
+        };
+      }
+    }
+
+    // print(a, b) は「空白で区切って表示」
+    if (!endMatch && parts.length === 2) {
+      const a = parseExpression(parts[0]);
+      const b = parseExpression(parts[1]);
+      if (a && b) {
+        return {
+          type: 'py_print_two',
+          inputs: { A: input(valueBlock(a, ctx)), B: input(valueBlock(b, ctx)) },
+        };
+      }
+    }
+
+    if (!endMatch && parts.length === 1) {
+      const node = parseExpression(inside);
+      if (node) {
+        return { type: 'text_print', inputs: { TEXT: input(valueBlock(node, ctx)) } };
+      }
     }
   }
 

@@ -209,6 +209,29 @@ export function defineBlocks({ drawing = false } = {}) {
       tooltip: 'Python のコメント（# ...）になります',
     },
     {
+      type: 'py_newline', message0: '改行する',
+      previousStatement: null, nextStatement: null, colour: '#6B8E6B',
+      tooltip: '何も書かずに、次の行へ送ります（print()）',
+    },
+    {
+      type: 'py_print_end', message0: '%1 を表示して、うしろに %2 をつける',
+      args0: [
+        { type: 'input_value', name: 'TEXT' },
+        { type: 'field_input', name: 'END', text: ' ' },
+      ],
+      previousStatement: null, nextStatement: null, colour: '#6B8E6B', inputsInline: true,
+      tooltip: '改行せずに表示します（print(..., end="...")）。うしろにつける文字は変えられます',
+    },
+    {
+      type: 'py_print_two', message0: '%1 と %2 を空白で区切って表示',
+      args0: [
+        { type: 'input_value', name: 'A' },
+        { type: 'input_value', name: 'B' },
+      ],
+      previousStatement: null, nextStatement: null, colour: '#6B8E6B', inputsInline: true,
+      tooltip: 'print(a, b) と同じです。あいだに空白が 1 つ入ります',
+    },
+    {
       type: 'py_index', message0: '%1 の %2 番目',
       args0: [
         { type: 'input_value', name: 'LIST' },
@@ -263,6 +286,14 @@ export function defineBlocks({ drawing = false } = {}) {
   const MEMBER = 2.1;
   const MULTIPLICATIVE = 5;
 
+  /** 文字を Python の文字列リテラルにする */
+  const quote = (g, text) => (g.quote_ ? g.quote_(text) : JSON.stringify(text));
+
+  python.forBlock['py_newline'] = () => 'print()\n';
+  python.forBlock['py_print_end'] = (b, g) =>
+    `print(${value(b, g, 'TEXT', "''")}, end=${quote(g, b.getFieldValue('END') ?? '')})\n`;
+  python.forBlock['py_print_two'] = (b, g) =>
+    `print(${value(b, g, 'A', "''")}, ${value(b, g, 'B', "''")})\n`;
   python.forBlock['py_index'] = (b, g) => {
     const list = g.valueToCode(b, 'LIST', MEMBER) || '[]';
     const index = g.valueToCode(b, 'INDEX', Order.NONE) || '0';
@@ -402,6 +433,9 @@ export function buildToolbox({ drawing = false } = {}) {
         kind: 'category', name: '入出力', colour: '160',
         contents: [
           { kind: 'block', type: 'text_print', inputs: { TEXT: textShadow('こんにちは') } },
+          { kind: 'block', type: 'py_print_two' },
+          { kind: 'block', type: 'py_print_end', inputs: { TEXT: textShadow('*') } },
+          { kind: 'block', type: 'py_newline' },
           { kind: 'block', type: 'py_input', inputs: { PROMPT: textShadow('入力してください: ') } },
           { kind: 'block', type: 'py_to_int' },
           { kind: 'block', type: 'py_to_float' },

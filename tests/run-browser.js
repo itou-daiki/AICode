@@ -68,6 +68,8 @@ const PROGRAMS = [
   { name: '文字列のメソッド', inputs: [], code: `s = "  Hello World  "\nprint(s.strip().upper())\nparts = s.strip().split(" ")\nprint(len(parts))\n` },
   { name: '計算いろいろ', inputs: [], code: `a = 17\nb = 5\nprint(a + b, a - b, a * b, a / b, a % b, a ** 2)\nprint(a > b and b > 0)\nprint(not (a == b))\n` },
   { name: 'リストの操作', inputs: [], code: `items = []\nfor i in range(5):\n    items.append(i * i)\nitems.sort()\nprint(items)\nprint(items[0], items[-1])\n` },
+  { name: '九九の表', inputs: [], code: `for n in range(1, 10):\n    for m in range(1, 10):\n        print(n * m, end=" ")\n    print()\n` },
+  { name: 'print のいろいろ', inputs: [], code: `print()\nprint("a", end="")\nprint("b", end="-")\nprint()\nprint(1, 2)\n` },
   { name: '共通テストの二分探索', inputs: [], code: `Data = [3, 18, 29, 33, 48]\natai = 29\nhidari = 0\nmigi = len(Data) - 1\nowari = 0\nwhile hidari <= migi and owari == 0:\n    aida = (hidari + migi) // 2\n    if Data[aida] == atai:\n        print(aida)\n        owari = 1\n    elif Data[aida] < atai:\n        hidari = aida + 1\n    else:\n        migi = aida - 1\n` },
   { name: '複合代入と添字', inputs: [], code: `Data = [1, 2, 3]\ngokei = 0\nfor i in range(3):\n    gokei += Data[i]\nprint(gokei)\nprint(sum(Data), max(Data), min(Data))\n` },
   { name: 'クラス', inputs: [], code: `class Dog:\n    def __init__(self, name):\n        self.name = name\n\n    def bark(self):\n        print(self.name)\n\npochi = Dog("ポチ")\npochi.bark()\n` },
