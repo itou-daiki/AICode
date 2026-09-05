@@ -30,6 +30,8 @@ def draw():
 
 let bench = null;
 let pyodide = null;
+/** 左側のタブ（コード／ブロック／フローチャート／サンプル） */
+let stageTabs = null;
 let animating = false;
 let animationId = null;
 
@@ -186,11 +188,27 @@ function buildSamples() {
   }
 }
 
-/** サンプルをコードの最後に足す */
+/**
+ * サンプルをコードの最後に足す
+ *
+ * 足したあとはコードの面に移る。サンプルの面を見たままだと、
+ * 押しても何も起きていないように見えるため。
+ * @param {string} code 足す 1 行
+ */
 function insertSample(code) {
   const current = bench.getCode().replace(/\s*$/, '');
   bench.setCode(current ? `${current}\n${code}\n` : `${code}\n`);
-  toast('コードに追加しました');
+
+  if (stageTabs) stageTabs.select('panel-code');
+  requestAnimationFrame(() => {
+    const editor = bench.editor;
+    // 足した行の終わりにカーソルを置き、そこまでスクロールする
+    const line = Math.max(0, editor.lineCount() - 2);
+    editor.setCursor({ line, ch: editor.getLine(line).length });
+    editor.scrollIntoView({ line, ch: 0 }, 60);
+    editor.focus();
+  });
+  toast('コードの最後に足しました');
 }
 
 /* ============================================================
@@ -694,7 +712,7 @@ async function init() {
       onToggle: () => bench.refreshLayout(),
     });
     initMaximize(() => bench.refreshLayout());
-    initTabs({
+    stageTabs = initTabs({
       tabsId: 'stage-tabs',
       initial: 'panel-code',
       onChange: (stage) => {

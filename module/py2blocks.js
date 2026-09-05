@@ -248,12 +248,12 @@ function parseAdditive(s) {
 
 function parseMultiplicative(s) {
   let left = parseUnary(s);
-  while (['*', '/', '%'].includes(peek(s))) {
+  while (['*', '/', '%', '//'].includes(peek(s))) {
     const token = s.tokens[s.pos++];
     const right = parseUnary(s);
-    left = token === '%'
-      ? { type: 'modulo', a: left, b: right }
-      : { type: 'arith', op: token === '*' ? 'MULTIPLY' : 'DIVIDE', a: left, b: right };
+    if (token === '%') left = { type: 'modulo', a: left, b: right };
+    else if (token === '//') left = { type: 'floordiv', a: left, b: right };
+    else left = { type: 'arith', op: token === '*' ? 'MULTIPLY' : 'DIVIDE', a: left, b: right };
   }
   return left;
 }
@@ -316,12 +316,31 @@ function parseAtom(s) {
         do { args.push(parseOr(s)); } while (eat(s, ','));
       }
       expect(s, ')');
-      return { type: 'call', name, args };
+      return withIndex(s, { type: 'call', name, args });
     }
-    return { type: 'name', name };
+    return withIndex(s, { type: 'name', name });
   }
 
   throw new Error(`予期しない字句: ${token}`);
+}
+
+/**
+ * うしろに続く [ ] を読み取る（a[i] や Data[i][j]）
+ *
+ * 共通テストの表記でも配列の添字は 0 から数えるので、そのまま持つ。
+ * @param {object} s 読み取りの状態
+ * @param {object} node ここまでの式
+ * @returns {object}
+ */
+function withIndex(s, node) {
+  let current = node;
+  while (peek(s) === '[') {
+    s.pos++;
+    const index = parseOr(s);
+    expect(s, ']');
+    current = { type: 'index', target: current, index };
+  }
+  return current;
 }
 
 /** クオートを外して中身を取り出す */
@@ -355,6 +374,19 @@ function valueBlock(node, ctx) {
       return { type: 'logic_boolean', fields: { BOOL: node.value ? 'TRUE' : 'FALSE' } };
     case 'none':
       return { type: 'logic_null' };
+    case 'floordiv':
+      return {
+        type: 'py_floor_div',
+        inputs: { A: input(valueBlock(node.a, ctx)), B: input(valueBlock(node.b, ctx)) },
+      };
+    case 'index':
+      return {
+        type: 'py_index',
+        inputs: {
+          LIST: input(valueBlock(node.target, ctx)),
+          INDEX: input(valueBlock(node.index, ctx)),
+        },
+      };
     case 'name': {
       const named = NAME_BLOCK_INDEX.get(node.name);
       if (named) return { type: named.type };
@@ -439,6 +471,14 @@ function callBlock(node, ctx) {
       return { type: 'py_to_text', inputs: { VALUE: one() } };
     case 'len/1':
       return { type: 'text_length', inputs: { VALUE: one() } };
+    case 'sum/1':
+      return { type: 'math_on_list', fields: { OP: 'SUM' }, inputs: { LIST: one() } };
+    case 'max/1':
+      return { type: 'math_on_list', fields: { OP: 'MAX' }, inputs: { LIST: one() } };
+    case 'min/1':
+      return { type: 'math_on_list', fields: { OP: 'MIN' }, inputs: { LIST: one() } };
+    case 'round/2':
+      return { type: 'py_raw_value', fields: { CODE: unparse(node) } };
     case 'abs/1':
       return { type: 'math_single', fields: { OP: 'ABS' }, inputs: { NUM: one() } };
     case 'round/1':
@@ -489,6 +529,8 @@ function unparse(node, nested = false) {
     case 'boolean': return node.value ? 'True' : 'False';
     case 'none':    return 'None';
     case 'name':    return node.name;
+    case 'index':   return `${unparse(node.target, true)}[${unparse(node.index)}]`;
+    case 'floordiv': return wrap(`${unparse(node.a, true)} // ${unparse(node.b, true)}`);
     case 'call':    return `${node.name}(${node.args.map(a => unparse(a)).join(', ')})`;
     case 'list':    return `[${node.items.map(a => unparse(a)).join(', ')}]`;
     case 'not':     return wrap(`not ${unparse(node.value, true)}`);
@@ -600,6 +642,50 @@ function simpleBlock(text, ctx) {
     }
   }
 
+  // 変数 += 式（授業では「x += 1 は x = x + 1 と同じ」と教える形）
+  const augMatch = text.match(/^([A-Za-z_][A-Za-z0-9_]*)\s*(\*\*|\/\/|[-+*/%])=\s*(.+)$/s);
+  if (augMatch) {
+    const [, name, op, rest] = augMatch;
+    const node = parseExpression(rest);
+    const OPS = { '+': 'ADD', '-': 'MINUS', '*': 'MULTIPLY', '/': 'DIVIDE', '**': 'POWER' };
+    if (node && (OPS[op] || op === '%' || op === '//')) {
+      const left = { type: 'variables_get', fields: { VAR: ctx.variable(name) } };
+      const right = valueBlock(node, ctx);
+      let value;
+      if (op === '%') {
+        value = { type: 'math_modulo', inputs: { DIVIDEND: input(left), DIVISOR: input(right) } };
+      } else if (op === '//') {
+        value = { type: 'py_floor_div', inputs: { A: input(left), B: input(right) } };
+      } else {
+        value = {
+          type: 'math_arithmetic',
+          fields: { OP: OPS[op] },
+          inputs: { A: input(left), B: input(right) },
+        };
+      }
+      return {
+        type: 'variables_set',
+        fields: { VAR: ctx.variable(name) },
+        inputs: { VALUE: input(value) },
+      };
+    }
+  }
+
+  // リスト.append(式)
+  const appendMatch = text.match(/^([A-Za-z_][A-Za-z0-9_]*)\s*\.append\s*\((.*)\)$/s);
+  if (appendMatch) {
+    const node = parseExpression(appendMatch[2]);
+    if (node) {
+      return {
+        type: 'py_append',
+        inputs: {
+          LIST: input({ type: 'variables_get', fields: { VAR: ctx.variable(appendMatch[1]) } }),
+          ITEM: input(valueBlock(node, ctx)),
+        },
+      };
+    }
+  }
+
   // 変数 = 式
   const assignMatch = text.match(/^([A-Za-z_][A-Za-z0-9_]*)\s*=(?!=)\s*(.+)$/s);
   if (assignMatch) {
@@ -680,14 +766,28 @@ function forBlock(clause, ctx) {
         inputs: withBody({ TIMES: input(valueBlock(args[0], ctx)) }),
       };
     }
-    // range(a, b) / range(a, b, c) は「a から b まで」ブロックに戻す
-    if (args.length >= 2 && numbers[1] !== null) {
+    // range(n) / range(a, b) / range(a, b, c) は「a から b まで」ブロックに戻す。
+    // 終わりの値は range が「含まない」ので、1 引いた形にする。
+    if (args.length >= 1 && args.every(Boolean)) {
+      const endNode = args.length === 1 ? args[0] : args[1];
+      const to = endNode.type === 'number'
+        ? { type: 'math_number', fields: { NUM: endNode.value - 1 } }
+        : {
+          type: 'math_arithmetic',
+          fields: { OP: 'MINUS' },
+          inputs: {
+            A: input(valueBlock(endNode, ctx)),
+            B: input({ type: 'math_number', fields: { NUM: 1 } }),
+          },
+        };
       return {
         type: 'controls_for',
         fields: { VAR: ctx.variable(varName) },
         inputs: withBody({
-          FROM: input(valueBlock(args[0], ctx)),
-          TO: input({ type: 'math_number', fields: { NUM: numbers[1] - 1 } }),
+          FROM: input(args.length === 1
+            ? { type: 'math_number', fields: { NUM: 0 } }
+            : valueBlock(args[0], ctx)),
+          TO: input(to),
           BY: input(args[2] ? valueBlock(args[2], ctx) : { type: 'math_number', fields: { NUM: 1 } }),
         }),
       };

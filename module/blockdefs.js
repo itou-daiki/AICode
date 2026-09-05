@@ -87,6 +87,10 @@ export const P5_CALL_BLOCKS = [
   { type: 'p5_scale', call: 'p5.scale', kind: 'statement', colour: '#8A7391', tooltip: '拡大・縮小します',
     message: '拡大 横 %1 倍 縦 %2 倍',
     args: [{ name: 'X', shadow: 2 }, { name: 'Y', shadow: 2 }] },
+  { type: 'p5_create_canvas', call: 'p5.create_canvas', kind: 'statement', colour: '#8A7391',
+    tooltip: 'キャンバスの大きさを決めます（setup の中に書きます）',
+    message: 'キャンバスの大きさ 横 %1 縦 %2',
+    args: [{ name: 'W', shadow: 400 }, { name: 'H', shadow: 400 }] },
   { type: 'p5_clear', call: 'p5.clear', kind: 'statement', colour: '#8A7391', tooltip: 'キャンバスを消します',
     message: 'キャンバスを消す', args: [] },
   { type: 'p5_reset_matrix', call: 'p5.reset_matrix', kind: 'statement', colour: '#8A7391',
@@ -205,6 +209,33 @@ export function defineBlocks({ drawing = false } = {}) {
       tooltip: 'Python のコメント（# ...）になります',
     },
     {
+      type: 'py_index', message0: '%1 の %2 番目',
+      args0: [
+        { type: 'input_value', name: 'LIST' },
+        { type: 'input_value', name: 'INDEX' },
+      ],
+      output: null, colour: '#8A7391', inputsInline: true,
+      tooltip: 'リストの中身を取り出します（番号は 0 から数えます）',
+    },
+    {
+      type: 'py_append', message0: '%1 の最後に %2 を足す',
+      args0: [
+        { type: 'input_value', name: 'LIST' },
+        { type: 'input_value', name: 'ITEM' },
+      ],
+      previousStatement: null, nextStatement: null, colour: '#8A7391', inputsInline: true,
+      tooltip: 'リストの最後に 1 つ足します（append）',
+    },
+    {
+      type: 'py_floor_div', message0: '%1 ÷ %2 の商',
+      args0: [
+        { type: 'input_value', name: 'A' },
+        { type: 'input_value', name: 'B' },
+      ],
+      output: 'Number', colour: '#7A7A96', inputsInline: true,
+      tooltip: '割り算の商だけを整数で求めます（//）',
+    },
+    {
       type: 'py_raw', message0: 'Python %1',
       args0: [{ type: 'field_input', name: 'CODE', text: 'print("hello")' }],
       previousStatement: null, nextStatement: null, colour: '#6E7378',
@@ -227,6 +258,25 @@ export function defineBlocks({ drawing = false } = {}) {
   python.forBlock['py_to_int'] = (b, g) => [`int(${value(b, g, 'VALUE', '0')})`, Order.FUNCTION_CALL];
   python.forBlock['py_to_float'] = (b, g) => [`float(${value(b, g, 'VALUE', '0')})`, Order.FUNCTION_CALL];
   python.forBlock['py_to_text'] = (b, g) => [`str(${value(b, g, 'VALUE', "''")})`, Order.FUNCTION_CALL];
+  // Python の演算子の強さ（Blockly の Python 生成器と同じ数）。
+  // ここを NONE のままにすると (a + b) // 2 の括弧が落ちて、意味が変わってしまう。
+  const MEMBER = 2.1;
+  const MULTIPLICATIVE = 5;
+
+  python.forBlock['py_index'] = (b, g) => {
+    const list = g.valueToCode(b, 'LIST', MEMBER) || '[]';
+    const index = g.valueToCode(b, 'INDEX', Order.NONE) || '0';
+    return [`${list}[${index}]`, MEMBER];
+  };
+  python.forBlock['py_append'] = (b, g) => {
+    const list = g.valueToCode(b, 'LIST', MEMBER) || '[]';
+    return `${list}.append(${value(b, g, 'ITEM', 'None')})\n`;
+  };
+  python.forBlock['py_floor_div'] = (b, g) => {
+    const left = g.valueToCode(b, 'A', MULTIPLICATIVE) || '0';
+    const right = g.valueToCode(b, 'B', MULTIPLICATIVE) || '1';
+    return [`${left} // ${right}`, MULTIPLICATIVE];
+  };
   python.forBlock['py_comment'] = (b) => `# ${b.getFieldValue('TEXT')}\n`;
   python.forBlock['py_raw'] = (b) => `${b.getFieldValue('CODE') || ''}\n`;
   python.forBlock['py_raw_value'] = (b) => {
@@ -329,7 +379,8 @@ export function buildToolbox({ drawing = false } = {}) {
       kind: 'category', name: 'うごき', colour: '290',
       contents: [
         ...DEF_BLOCKS.map(def => ({ kind: 'block', type: def.type })),
-        ...['p5_push', 'p5_pop', 'p5_translate', 'p5_rotate', 'p5_scale', 'p5_reset_matrix', 'p5_clear']
+        ...['p5_create_canvas', 'p5_push', 'p5_pop', 'p5_translate', 'p5_rotate', 'p5_scale',
+          'p5_reset_matrix', 'p5_clear']
           .map(type => toToolboxBlock(P5_CALL_BLOCKS.find(d => d.type === type))),
         ...P5_NAME_BLOCKS.map(def => ({ kind: 'block', type: def.type })),
         ...['p5_random', 'p5_map', 'p5_cos', 'p5_sin']
@@ -391,6 +442,7 @@ export function buildToolbox({ drawing = false } = {}) {
           { kind: 'block', type: 'math_single', inputs: { NUM: numberShadow(9) } },
           { kind: 'block', type: 'math_round', inputs: { NUM: numberShadow(3.1) } },
           { kind: 'block', type: 'math_modulo', inputs: { DIVIDEND: numberShadow(64), DIVISOR: numberShadow(10) } },
+          { kind: 'block', type: 'py_floor_div', inputs: { A: numberShadow(7), B: numberShadow(2) } },
           { kind: 'block', type: 'math_number_property', inputs: { NUMBER_TO_CHECK: numberShadow(0) } },
           { kind: 'block', type: 'math_random_int', inputs: { FROM: numberShadow(1), TO: numberShadow(100) } },
           { kind: 'block', type: 'math_constant' },
@@ -416,6 +468,9 @@ export function buildToolbox({ drawing = false } = {}) {
           { kind: 'block', type: 'lists_create_with' },
           { kind: 'block', type: 'lists_repeat', inputs: { NUM: numberShadow(5) } },
           { kind: 'block', type: 'lists_length' },
+          { kind: 'block', type: 'py_index' },
+          { kind: 'block', type: 'py_append' },
+          { kind: 'block', type: 'math_on_list' },
           { kind: 'block', type: 'lists_isEmpty' },
           { kind: 'block', type: 'lists_indexOf' },
           { kind: 'block', type: 'lists_getIndex' },
@@ -466,6 +521,8 @@ export const CALL_BLOCK_INDEX = new Map();
 for (const def of P5_CALL_BLOCKS) {
   const bare = def.call.startsWith('p5.') ? def.call.slice(3) : def.call;
   const names = new Set([def.call, bare, toCamel(bare)]);
+  // Processing のつづり size(400, 400) も、同じブロックとして受ける
+  if (bare === 'create_canvas') names.add('size');
   for (const name of names) {
     CALL_BLOCK_INDEX.set(`${name}/${def.args.length}`, def);
   }
