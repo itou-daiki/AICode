@@ -24,6 +24,35 @@ export const KTPH_KEYWORDS = {
   builtin: ['表示する', '要素数', '整数', '実数', '文字列', '乱数', '【外部からの入力】'],
 };
 
+/**
+ * スケッチ（p5.js）の命令の、この画面だけの書き方。
+ * 共通テスト用の表記には絵を描く命令が無いので、表記の「表示する」「要素数」と同じく
+ * 日本語の関数名にそろえて読めるようにした。キーは snake_case。
+ */
+export const SKETCH_WORDS = {
+  create_canvas: 'キャンバスを作る', size: 'キャンバスを作る',
+  background: '背景色を決める', fill: '塗り色を決める', no_fill: '塗りをなしにする',
+  stroke: '線の色を決める', no_stroke: '線をなしにする', stroke_weight: '線の太さを決める',
+  circle: '円を描く', ellipse: '楕円を描く', rect: '長方形を描く', square: '正方形を描く',
+  triangle: '三角形を描く', quad: '四角形を描く', line: '線を引く', point: '点を打つ', arc: '弧を描く',
+  begin_shape: '形を始める', vertex: '頂点を加える', end_shape: '形を終える',
+  text: '文字を描く', text_size: '文字の大きさを決める', text_align: '文字のそろえ方を決める',
+  push: '設定を保存する', pop: '設定を戻す', translate: '原点を移す', rotate: '回転する', scale: '拡大する',
+  reset_matrix: '移動と回転を戻す', clear: 'キャンバスを消す',
+  frame_rate: 'コマ数を決める', no_loop: '繰り返しを止める', loop: '繰り返しを再開する',
+  angle_mode: '角度の単位を決める', rect_mode: '長方形の置き方を決める', ellipse_mode: '楕円の置き方を決める',
+  random: '乱数', noise: 'なめらかな乱数', dist: '距離',
+};
+
+/** setup / draw などの、p5.js が決まったときに呼ぶ関数（表記では行の終わりに説明を添える） */
+const SKETCH_HANDLERS = {
+  setup: '最初に 1 回だけ動く',
+  draw: 'くり返し動く',
+  mouse_pressed: 'マウスを押したときに動く',
+  mouse_released: 'マウスをはなしたときに動く',
+  key_pressed: 'キーを押したときに動く',
+};
+
 /** 表記に無い書き方の案内 */
 const NOT_IN_KTPH = '共通テスト用の表記には無い書き方です。試験では問題文の中で説明される形になります。';
 
@@ -32,10 +61,11 @@ const NOT_IN_KTPH = '共通テスト用の表記には無い書き方です。�
  * @param {string} python
  * @param {object} [options]
  * @param {boolean} [options.markers] ブロックの範囲を │ └ で示す（既定 true）
+ * @param {boolean} [options.sketch] スケッチ（p5.js）の命令も日本語にする（既定 false）
  * @returns {{ text: string, warnings: {line: number, message: string}[] }}
  */
 export function toKtph(python, options = {}) {
-  const { markers = true } = options;
+  const { markers = true, sketch = false } = options;
   const lines = String(python ?? '').replace(/\r\n?/g, '\n').split('\n');
   const warnings = [];
 
@@ -46,7 +76,7 @@ export function toKtph(python, options = {}) {
   const out = parsed.map((part, index) => {
     if (part.blank) return '';
 
-    const { converted, warning } = convertBody(part, arrays);
+    const { converted, warning } = convertBody(part, arrays, sketch);
     if (warning) warnings.push({ line: index + 1, message: warning });
 
     const prefix = markers ? markerPrefix(parsed, levels, index) : '    '.repeat(levels[index]);
@@ -161,7 +191,9 @@ function markerPrefix(parsed, levels, index) {
  * 配列名（リストを入れた名前は先頭を大文字にする）
  * ========================================================== */
 
-const NOT_ARRAY_NAMES = new Set(['range', 'print', 'input', 'len', 'int', 'str', 'float', 'list', 'dict', 'set']);
+// in [1, 2] や return [1] のような、Python の決まった言葉のあとの [ は配列ではない
+const NOT_ARRAY_NAMES = new Set(['range', 'print', 'input', 'len', 'int', 'str', 'float', 'list', 'dict', 'set',
+  'in', 'not', 'and', 'or', 'is', 'return', 'if', 'elif', 'while', 'for', 'yield', 'lambda', 'else', 'del', 'assert']);
 
 /** プログラム全体を見て、配列として使われている名前を集める */
 function collectArrayNames(lines) {
@@ -192,11 +224,29 @@ function capitalizeArrays(body, arrays) {
 /**
  * @returns {{ converted: string, warning: string|null }}
  */
-function convertBody(part, arrays) {
+function convertBody(part, arrays, sketch = false) {
   let body = capitalizeArrays(part.body, arrays);
   let warning = null;
 
   if (!body) return { converted: '', warning };
+
+  if (sketch) {
+    const special = convertSketchLine(body, part, arrays);
+    if (special !== null) return { converted: special, warning };
+    body = replaceSketch(body);
+  }
+
+  // x += 1 は表記に無いので x = x + 1 にする（//= は ÷ にあとで直る）
+  const augmented = /^([A-Za-z_][\w.]*(?:\[[^\]]*\])*)\s*(\*\*|\/\/|[-+*/%])=(?!=)\s*(.+)$/s.exec(body);
+  if (augmented) {
+    const [, target, op, rest] = augmented;
+    // x /= a * b は x = x / (a * b)。右が 1 つのかたまり（名前・数・呼び出し・添字・文字）でなければ、
+    // かっこでくくらないと計算の順番が変わってしまう。+ だけは、くくらなくても同じ意味になる
+    // （ただし x += a if c else b は、くくらないと意味が変わる）。
+    const single = /^-?[\w.]+(\([^()]*\)|\[[^\[\]]*\])*$/.test(rest.trim());
+    const safeForPlus = op === '+' && !/\b(if|else|and|or|not|lambda)\b/.test(rest);
+    body = `${target} = ${target} ${op} ${single || safeForPlus ? rest : `(${rest})`}`;
+  }
 
   // 表記に無い書き方は、そのまま残して知らせる
   if (/^(def|return|import|from|class|try|except|finally|with|lambda|global|nonlocal|pass|break|continue)\b/.test(body)
@@ -248,6 +298,38 @@ function replaceExpressions(body) {
   return result;
 }
 
+/**
+ * スケッチだけの行（def setup(): / global x / return x）を、この画面の書き方にする
+ * @returns {string|null} 当てはまらなければ null
+ */
+function convertSketchLine(body, part) {
+  const def = /^def\s+([A-Za-z_]\w*)\s*\((.*)\)\s*:$/.exec(body);
+  if (def) {
+    const role = SKETCH_HANDLERS[toSnake(def[1])];
+    const head = unmask(`関数 ${def[1]}(${replaceExpressions(def[2])}):`, part.strings);
+    // 説明は、もとのコメントが無いときだけ添える（行は増やさない）
+    return role && !def[2].trim() && !part.comment ? `${head}  # ${role}` : head;
+  }
+  const global = /^global\s+(.+)$/.exec(body);
+  if (global) return `外の変数 ${global[1].trim()} を使う`;
+  const ret = /^return\b\s*(.*)$/.exec(body);
+  if (ret) return ret[1] ? `${unmask(replaceSketch(replaceExpressions(ret[1])), part.strings)} を返す` : '呼び出し元に戻る';
+  return null;
+}
+
+/** circle(...) / p5.circle(...) / strokeWeight(...) を、表 SKETCH_WORDS の日本語にする */
+function replaceSketch(body) {
+  return body.replace(/(?<![\w.])(?:p5\.)?([A-Za-z_]\w*)\s*\(/g, (whole, name) => {
+    const word = SKETCH_WORDS[toSnake(name)];
+    return word ? `${word}(` : whole;
+  });
+}
+
+/** strokeWeight → stroke_weight */
+function toSnake(name) {
+  return name.replace(/([a-z0-9])([A-Z])/g, '$1_$2').toLowerCase();
+}
+
 /** for v in range(...) → v を A から B まで C ずつ増やしながら繰り返す: */
 function convertRange(variable, argText) {
   const args = splitTopLevel(argText).map(s => s.trim());
@@ -268,12 +350,18 @@ function convertRange(variable, argText) {
 
 /** range の終了値（含まない）を、表記の終了値（含む）に直す */
 function inclusiveEnd(expr, decreasing) {
-  if (/^-?\d+$/.test(expr)) return String(Number(expr) + (decreasing ? 1 : -1));
-  const plusOne = /^(.+?)\s*\+\s*1$/.exec(expr);
-  if (!decreasing && plusOne) return plusOne[1];
-  const minusOne = /^(.+?)\s*-\s*1$/.exec(expr);
-  if (decreasing && minusOne) return minusOne[1];
-  return decreasing ? `${expr}+1` : `${expr}-1`;
+  const shift = decreasing ? 1 : -1;
+  if (/^-?\d+$/.test(expr)) return String(Number(expr) + shift);
+
+  // 「kazu - 1」なら「kazu - 2」、「n + 1」なら「n」のように、最後の数にまとめる。
+  // 「kazu - 1-1」のように書くと、試験の表記と見くらべにくい。
+  const tail = /^(.+?)\s*([-+])\s*(\d+)$/.exec(expr);
+  if (tail && !/[-+*/%]\s*$/.test(tail[1])) {
+    const value = (tail[2] === '-' ? -1 : 1) * Number(tail[3]) + shift;
+    if (value === 0) return tail[1];
+    return `${tail[1]} ${value < 0 ? '-' : '+'} ${Math.abs(value)}`;
+  }
+  return decreasing ? `${expr} + 1` : `${expr} - 1`;
 }
 
 /** かっこの外側にあるカンマで分ける */

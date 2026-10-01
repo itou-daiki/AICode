@@ -72,6 +72,10 @@ const PROGRAMS = [
   { name: 'print のいろいろ', inputs: [], code: `print()\nprint("a", end="")\nprint("b", end="-")\nprint()\nprint(1, 2)\n` },
   { name: '共通テストの二分探索', inputs: [], code: `Data = [3, 18, 29, 33, 48]\natai = 29\nhidari = 0\nmigi = len(Data) - 1\nowari = 0\nwhile hidari <= migi and owari == 0:\n    aida = (hidari + migi) // 2\n    if Data[aida] == atai:\n        print(aida)\n        owari = 1\n    elif Data[aida] < atai:\n        hidari = aida + 1\n    else:\n        migi = aida - 1\n` },
   { name: '複合代入と添字', inputs: [], code: `Data = [1, 2, 3]\ngokei = 0\nfor i in range(3):\n    gokei += Data[i]\nprint(gokei)\nprint(sum(Data), max(Data), min(Data))\n` },
+  // 行をまたぐ三重引用符の文字列は、改行も空行も字下げも、そのまま残ること
+  { name: '行をまたぐ文字列', inputs: [], code: 'msg = """一行目\n\n  二行目"""\nprint(msg)\n\ndef show():\n    text = """A\n    B\n\nC"""\n    print(text)\n\nshow()\n' },
+  // 2 スペースで字下げした関数の中の文字列も、中身が変わらないこと
+  { name: '2 スペースの字下げと文字列', inputs: [], code: 'def f():\n  s = """a\n  b"""\n  print(s)\n\nf()\n' },
   { name: 'クラス', inputs: [], code: `class Dog:\n    def __init__(self, name):\n        self.name = name\n\n    def bark(self):\n        print(self.name)\n\npochi = Dog("ポチ")\npochi.bark()\n` },
 ];
 
@@ -79,6 +83,110 @@ const PROGRAMS = [
 const DRAWING_PROGRAMS = [
   { name: '静止画', code: `p5.background(240, 240, 250)\np5.fill(255, 0, 0)\np5.circle(200, 200, 80)\np5.no_stroke()\np5.rect(50, 50, 100, 60)\n` },
   { name: 'アニメーション', code: `def setup():\n    p5.background(245, 246, 250)\n\ndef draw():\n    x = 200 + 130 * cos(frameCount * 0.05)\n    p5.circle(x, 200, 26)\n` },
+  // ここから下は、授業でよく書くスケッチ。Python ブロックが 1 つも出ないこと
+  { name: 'はじめのコード', noRaw: true, code: `def setup():
+    createCanvas(400, 400)
+
+def draw():
+    background(220)
+` },
+  { name: 'はねるボール', noRaw: true, code: `x = 200
+y = 200
+dx = 3
+dy = 2
+
+def setup():
+    createCanvas(400, 400)
+
+def draw():
+    global x, y, dx, dy
+    background(220)
+    fill(255, 0, 0)
+    noStroke()
+    circle(x, y, 40)
+    x += dx
+    y += dy
+    if x < 20 or x > width - 20:
+        dx = -dx
+    if y < 20 or y > height - 20:
+        dy = -dy
+` },
+  { name: 'マウスでお絵かき', noRaw: true, code: `def setup():
+    createCanvas(400, 400)
+    background(255)
+
+def draw():
+    if mouseIsPressed:
+        stroke(0)
+        strokeWeight(4)
+        line(pmouseX, pmouseY, mouseX, mouseY)
+
+def keyPressed():
+    if key == 'c':
+        background(255)
+` },
+  { name: '文字と乱数', noRaw: true, code: `score = 0
+
+def setup():
+    createCanvas(400, 400)
+    frameRate(30)
+    textAlign(CENTER, CENTER)
+
+def draw():
+    background(30)
+    fill(255)
+    textSize(32)
+    text("score: " + str(score), width / 2, height / 2)
+    r = random(255)
+    fill(r, 100, 200, 150)
+    ellipse(random(width), random(height), 20)
+
+def mousePressed():
+    global score
+    score += 1
+` },
+  { name: '自分で作った関数', noRaw: true, code: `def setup():
+    createCanvas(400, 400)
+
+def star(x, y, size=20):
+    fill(255, 220, 0)
+    circle(x, y, size)
+
+def area(w, h):
+    if w <= 0:
+        return 0
+    return w * h
+
+def draw():
+    background(30)
+    star(100, 100)
+    star(mouseX, mouseY, 40)
+    a = area(3, 4)
+    pass
+` },
+  { name: 'かたちとくり返し', noRaw: true, code: `def setup():
+    createCanvas(400, 400)
+    noLoop()
+
+def draw():
+    background(240)
+    for i in range(10):
+        for j in range(10):
+            d = dist(i * 40 + 20, j * 40 + 20, 200, 200)
+            fill(map(d, 0, 280, 255, 0))
+            rect(i * 40, j * 40, 40, 40)
+    push()
+    translate(200, 200)
+    rotate(radians(45))
+    rectMode(CENTER)
+    square(0, 0, 80)
+    pop()
+    beginShape()
+    vertex(10, 10)
+    vertex(100, 30)
+    vertex(50, 90)
+    endShape(CLOSE)
+` },
 ];
 
 /* ============================================================
@@ -139,6 +247,14 @@ async function testRoundTrip(workspace, programs, { behaviour }) {
     pythonToBlocks(generated, workspace);
     const again = Blockly.Python.workspaceToCode(workspace);
     equal(`往復: ${program.name} は2回目も同じコード`, again, generated);
+
+    // 授業でよく書くスケッチは、Python ブロックにならずに全部ブロックになること
+    if (program.noRaw) {
+      equal(`往復: ${program.name} に Python ブロックが無い`, first.rawCount, 0);
+      const generatedAgain = pythonToBlocks(generated, workspace);
+      equal(`往復: ${program.name} は作り直したコードでも Python ブロックが無い`, generatedAgain.rawCount, 0);
+      Blockly.Python.workspaceToCode(workspace);
+    }
 
     // ブロックが1つも作られていないのは、明らかにおかしい
     check(`往復: ${program.name} のブロックができている`,
@@ -581,10 +697,11 @@ async function testEveryBlock(workspace) {
 
     // できたコードが Python として読めるか、実際に確かめる。
     // break / continue はループの中でしか使えないので、ループに入れてから見る。
+    // return は関数の中でしか使えないので、関数に入れてから見る。
     const needsLoop = entry.type === 'controls_flow_statements';
-    const testable = needsLoop
-      ? 'while True:\n' + code.split('\n').map(l => '    ' + l).join('\n')
-      : code;
+    const needsFunction = entry.type.startsWith('py_return');
+    const wrap = (head) => head + '\n' + code.split('\n').map(l => '    ' + l).join('\n');
+    const testable = needsLoop ? wrap('while True:') : needsFunction ? wrap('def f():') : code;
     pyodide.globals.set('_block_code', testable);
     const problem = pyodide.runPython(`
 try:
@@ -666,6 +783,60 @@ async function testRunner() {
 /* ============================================================
  * 3.7 描画は p5.js のリファレンスどおりに書ける
  * ========================================================== */
+
+/** ブロックから作り直したスケッチが、そのまま動くこと（setup と draw を 1 回ずつ） */
+async function testSketchesRun(workspace) {
+  // 「つなぐ」のかっこ: 左に続くときは付けず、右に入れたときは付ける（もとの形を変えない）
+  workspace.clear();
+  const join = (a, b) => ({ block: { type: 'py_join', inputs: { A: a, B: b } } });
+  const text = (t) => ({ block: { type: 'text', fields: { TEXT: t } } });
+  const name = (n) => ({ block: { type: 'variables_get', fields: { VAR: { name: n } } } });
+  const setX = (value) => ({ type: 'variables_set', fields: { VAR: { name: 'x' } }, inputs: { VALUE: value } });
+  Blockly.serialization.blocks.append(setX(join(join(text('a'), name('b')), text('c'))), workspace, { recordUndo: false });
+  equal('つなぐ: 左に続くときはかっこを付けない', Blockly.Python.workspaceToCode(workspace).trim(), "x = 'a' + b + 'c'");
+  workspace.clear();
+  Blockly.serialization.blocks.append(setX(join(text('a'), join(name('b'), text('c')))), workspace, { recordUndo: false });
+  equal('つなぐ: 右に入れたときはかっこを付ける', Blockly.Python.workspaceToCode(workspace).trim(), "x = 'a' + (b + 'c')");
+  workspace.clear();
+
+  // 関数の前後の空行は、ブロックを通しても残ること（setup と draw がくっつかない）
+  pythonToBlocks('x = 0\ndef setup():\n    createCanvas(400, 400)\ndef draw():\n    background(220)\nprint(x)\n', workspace);
+  equal('空行: 関数の前後に 1 行ずつ入る', Blockly.Python.workspaceToCode(workspace),
+    'x = 0\n\ndef setup():\n    createCanvas(400, 400)\n\ndef draw():\n    background(220)\n\nprint(x)\n');
+  pythonToBlocks('if True:\n    def f():\n        pass\n    f()\n', workspace);
+  equal('空行: 中に入った関数には入れない', Blockly.Python.workspaceToCode(workspace),
+    'if True:\n    def f():\n        pass\n    f()\n');
+
+  // 三重引用符の文字列の中には、空行を入れない（文字列の中身が変わってしまう）
+  const tripleSource = 'msg = """\ndef は関数を作る\n"""\nprint(msg)\n';
+  pythonToBlocks(tripleSource, workspace);
+  check('空行: 文字列の中には入れない', Blockly.Python.workspaceToCode(workspace).includes('"""\ndef は関数を作る\n"""'),
+    `\n${Blockly.Python.workspaceToCode(workspace)}`);
+
+  // 受け取るものが list のような名前だと、Blockly が中身だけ list2 にしてしまう。関数はコードのまま残す
+  pythonToBlocks('def average(list):\n    return sum(list) / len(list)\n', workspace);
+  const reserved = Blockly.Python.workspaceToCode(workspace);
+  check('関数: list という引数でも名前が変わらない', !reserved.includes('list2') && reserved.includes('sum(list)'), `\n${reserved}`);
+  // Data と data は Blockly では同じ変数になる。引数の data が外の Data に読みかわらないこと
+  pythonToBlocks('Data = [3, 1]\ndef first(data):\n    return data[0]\nprint(first([5]))\n', workspace);
+  const clash = Blockly.Python.workspaceToCode(workspace);
+  check('関数: data と Data を取りちがえない', clash.includes('return data[0]'), `\n${clash}`);
+
+  // def key_pressed(): のつづりは、ブロックを通しても変わらないこと（呼んでいる所が動かなくなる）
+  pythonToBlocks('def key_pressed():\n    print(1)\n', workspace);
+  const snake = Blockly.Python.workspaceToCode(workspace);
+  check('スケッチ: def key_pressed のつづりが変わらない', snake.includes('def key_pressed():'), `\n${snake}`);
+
+  for (const program of DRAWING_PROGRAMS.filter(p => p.noRaw)) {
+    await wait();
+    pythonToBlocks(program.code, workspace);
+    const generated = Blockly.Python.workspaceToCode(workspace);
+    const result = await runUserCode(pyodide, `${generated}\nsetup()\ndraw()\n`, { useGlobals: true, seconds: 5 });
+    check(`スケッチ: ${program.name} をブロックから作り直しても動く`, result.error === null,
+      `\n  ${JSON.stringify(result.error)}\n${generated}`);
+  }
+  workspace.clear();
+}
 
 async function testP5BareNames() {
   const cases = [
@@ -938,6 +1109,7 @@ async function main() {
 
     group('p5.js のリファレンスどおりの書き方');
     await testP5BareNames();
+    await testSketchesRun(workspace);
 
     group('レッスンの中身');
     await testLessonContent();

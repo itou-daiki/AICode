@@ -1,4 +1,5 @@
 // module/pyrun.js
+import { suggestSyntaxFix } from './pyfix.js';
 // 学習者のコードを走らせて、結果とエラーを受け取るところ。
 //
 // ここに集めたのには理由がある。
@@ -224,7 +225,10 @@ export function withBrowserInput(code) {
  * @returns {{label: string, name: string, line: number, code: string}|null}
  */
 export function suggestFix(code, error) {
-  if (!error || error.type !== 'UnboundLocalError' || !error.line) return null;
+  if (!error || !error.line) return null;
+
+  // 書き方のまちがい（JavaScript の癖・全角・: の書きわすれ・= と ==）
+  if (error.type !== 'UnboundLocalError') return suggestSyntaxFix(code, error);
 
   // UnboundLocalError は name を持たないことがある。メッセージの 'なまえ' から拾う
   const name = error.name || guessName(error);

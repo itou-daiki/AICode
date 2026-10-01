@@ -4,6 +4,7 @@ import { iconHtml, setIconLabel } from './icons.js';
 //
 //   confirmDialog() … window.confirm の代わりになる自前のダイアログ
 //   toast()         … 右下に一言だけ出すお知らせ
+//   watchTopbarHeight() … 上の帯が 2 段になったとき、下の区画の高さを合わせる（読みこむと自動で動く）
 //   initSidebar()   … 開閉できるサイドバー（既定は閉じた状態）
 //   initTabs()      … ステージの切り替えタブ
 //   initMaximize()  … パネルの拡大表示
@@ -89,6 +90,30 @@ export function toast(message, duration = 2200) {
 }
 
 /* ============================================================
+ * 2.5 上の帯の高さ
+ * ========================================================== */
+
+/**
+ * 上の帯が 2 段になったら、その高さを --topbar-h に入れる。
+ * 下の区画は calc(100vh - var(--topbar-h)) で高さを決めているので、
+ * これをしないと、帯が 2 段のとき画面の下が切れてしまう。
+ */
+export function watchTopbarHeight() {
+  const bar = document.querySelector('.topbar');
+  if (!bar || typeof ResizeObserver === 'undefined') return;
+  const apply = () => {
+    document.documentElement.style.setProperty('--topbar-h', `${Math.ceil(bar.getBoundingClientRect().height)}px`);
+  };
+  new ResizeObserver(apply).observe(bar);
+  apply();
+}
+
+if (typeof document !== 'undefined') {
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', watchTopbarHeight);
+  else watchTopbarHeight();
+}
+
+/* ============================================================
  * 3. サイドバー
  * ========================================================== */
 
@@ -130,7 +155,7 @@ export function showFix(fix, apply) {
   });
 
   const text = document.createElement('p');
-  text.textContent = 'この 1 行を入れると直ります。';
+  text.textContent = fix.why || 'この 1 行を入れると直ります。';
   note.append(text, button);
   output.parentElement.insertBefore(note, output.nextSibling);
 }
@@ -139,6 +164,8 @@ export function initSidebar({ sidebarId, toggleId, storageKey, onToggle, default
   const sidebar = document.getElementById(sidebarId);
   const button = document.getElementById(toggleId);
   if (!sidebar || !button) return { toggle() {}, isOpen: () => false };
+  const label = button.dataset.label || 'パネル';
+  const labelEl = button.querySelector('.sidebar-toggle-label');
 
   // 前に開いていたかを覚えておく。はじめて開いたときは defaultOpen にしたがう。
   const saved = storageKey ? localStorage.getItem(storageKey) : null;
@@ -148,7 +175,10 @@ export function initSidebar({ sidebarId, toggleId, storageKey, onToggle, default
     sidebar.classList.toggle('is-open', open);
     button.classList.toggle('is-on', open);
     button.setAttribute('aria-expanded', String(open));
-    button.title = open ? 'パネルを閉じる' : 'ヒントとAIサポートを開く';
+    // 図だけだと押して何が起きるか分からないので、「〇〇を開く／閉じる」と字でも書く。
+    const text = `${label}を${open ? '閉じる' : '開く'}`;
+    if (labelEl) labelEl.textContent = text;
+    button.title = text;
     if (storageKey) localStorage.setItem(storageKey, open ? '1' : '0');
     if (onToggle) onToggle(open);
   };

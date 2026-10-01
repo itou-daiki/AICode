@@ -227,13 +227,14 @@ export function createWorkbench(options) {
 
     // 図が同じなら描き直さない（ここが一番重い処理）。
     // 中身の判定だけ先にして、描くのは flowview.js にまかせる。
-    const preview = pythonToMermaid(editor.getValue(), { japanese: flowJapanese });
+    const preview = pythonToMermaid(editor.getValue(), { japanese: flowJapanese, sketch: drawing });
     if (!force && preview.definition && preview.definition === lastDefinition) return;
     lastDefinition = preview.definition || '';
 
     const result = await drawFlowchart(container, editor.getValue(), {
       japanese: flowJapanese,
       fit: flowFit,
+      sketch: drawing,
     });
     lineByNode = result.lineByNode || {};
     if (!preview.definition) lastDefinition = '';

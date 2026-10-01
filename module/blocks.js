@@ -139,6 +139,22 @@ async function runCode() {
   }
 }
 
+/**
+ * 「直す」ボタンが押されたときの動き
+ *
+ * 学習者のコードに、直した内容を実際に入れる。押したあとの画面で、
+ * 自分のコードが変わったのが見えるようにする。
+ * @param {string} code 直したコード
+ * @param {number} line 直した行
+ */
+function applyFix(code, line) {
+  bench.setCode(code);
+  const at = Math.max(0, Math.min(line - 1, bench.editor.lineCount() - 1));
+  bench.editor.setCursor({ line: at, ch: bench.editor.getLine(at).length });
+  bench.editor.focus();
+  toast('コードを直しました。もう一度「実行」を押してみましょう', 3600);
+}
+
 /* ============================================================
  * 2. ステップ実行（Python Tutor 風）
  * ========================================================== */

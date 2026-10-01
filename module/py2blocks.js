@@ -7,7 +7,31 @@
 // 対応できない書き方は「Python」ブロック（コードをそのまま持つブロック）になるので、
 // どんなコードでも必ず往復できる。
 
-import { CALL_BLOCK_INDEX, NAME_BLOCK_INDEX, DEF_BLOCK_INDEX } from './blockdefs.js';
+import { CALL_BLOCK_INDEX, NAME_BLOCK_INDEX, DEF_BLOCK_INDEX, CONSTANT_NAMES } from './blockdefs.js';
+
+/**
+ * そのブロックが今の画面で登録されているか。
+ * スケッチ用のブロック（mouseX や circle）は 03 スケッチでしか登録しないので、
+ * ほかの画面で key や width という変数を、スケッチのブロックに読みかえないようにする。
+ * @param {string} type
+ */
+function known(type) {
+  return typeof Blockly === 'undefined' || !Blockly.Blocks || Boolean(Blockly.Blocks[type]);
+}
+
+/** Blockly が Python のコードを作るとき、ぶつからないよう名前を変える言葉か */
+function isReservedName(name) {
+  if (typeof Blockly === 'undefined' || !Blockly.Python) return false;
+  const words = Blockly.Python.__easycodeReserved
+    || (Blockly.Python.__easycodeReserved = new Set(String(Blockly.Python.RESERVED_WORDS_ || '').split(',')));
+  return words.has(name);
+}
+
+/** 表から引いたブロック定義を、登録されているときだけ返す */
+function lookup(index, key) {
+  const def = index.get(key);
+  return def && known(def.type) ? def : null;
+}
 
 /* ============================================================
  * 1. 行の切り出し（論理行への変換）
@@ -32,24 +56,51 @@ function toLogicalLines(source) {
     if (!raw.trim() && !buffer) continue;
 
     if (buffer === null) {
-      buffer = { indent: indentWidth(raw), text: raw.trim(), line: index + 1 };
+      buffer = { indent: indentWidth(raw), text: raw.trim(), line: index + 1, raws: [raw], spansString: false };
     } else {
       buffer.text += ' ' + raw.trim();
+      buffer.raws.push(raw);
     }
 
     const scan = scanLine(raw, depth, triple);
     depth = scan.depth;
     triple = scan.triple;
+    if (triple !== null) buffer.spansString = true;
 
     const continues = depth > 0 || triple !== null || raw.trimEnd().endsWith('\\');
     if (!continues) {
-      result.push(buffer);
+      result.push(finishLogical(buffer));
       buffer = null;
     }
   }
 
-  if (buffer) result.push(buffer);
+  if (buffer) result.push(finishLogical(buffer));
   return result;
+}
+
+/**
+ * 三重引用符の文字列が行をまたぐときは、空白でつながず元の行のまま持つ。
+ * つないでしまうと、文字列の中の改行が空白に変わり、表示される文字が変わってしまう。
+ * 2 行目からは、その文の字下げのぶんだけ左に寄せておく（ブロックが字下げをつけ直すため）。
+ */
+function finishLogical(buffer) {
+  const { raws, spansString, ...line } = buffer;
+  if (spansString && raws.length > 1) {
+    line.rawLines = raws;
+    const strip = (text) => {
+      let i = 0;
+      while (i < line.indent && (text[i] === ' ' || text[i] === '\t')) i++;
+      return text.slice(i);
+    };
+    line.text = [raws[0].trim(), ...raws.slice(1).map(strip)].join('\n');
+    // 文の字下げより左にある文字列の行は、ブロックに入れると字下げがつき、中身が変わってしまう
+    // ブロックは 4 スペースずつ字下げをつけ直すので、2 スペースやタブで字下げした文の中の文字列も同じ。
+    // どちらも、まるごとコードのまま持つ印にする
+    line.underIndented = raws.slice(1).some(text => text.trim() && indentWidth(text) < line.indent)
+      || line.indent % 4 !== 0
+      || raws.some(text => /^[ ]*\t/.test(text));
+  }
+  return line;
 }
 
 /** 行頭の空白の幅（タブはスペース4つ換算） */
@@ -388,8 +439,11 @@ function valueBlock(node, ctx) {
         },
       };
     case 'name': {
-      const named = NAME_BLOCK_INDEX.get(node.name);
+      const named = lookup(NAME_BLOCK_INDEX, node.name);
       if (named) return { type: named.type };
+      if (CONSTANT_NAMES.has(node.name) && known('p5_constant')) {
+        return { type: 'p5_constant', fields: { NAME: node.name } };
+      }
       // p5.width のようなドット付きの名前は変数にできないのでコードのまま
       if (node.name.includes('.')) return { type: 'py_raw_value', fields: { CODE: node.name } };
       return { type: 'variables_get', fields: { VAR: ctx.variable(node.name) } };
@@ -409,8 +463,14 @@ function valueBlock(node, ctx) {
         inputs: { A: input(valueBlock(node.a, ctx)), B: input(valueBlock(node.b, ctx)) },
       };
     case 'arith':
-      // 文字列の連結は計算ブロックに入れられないので、コードのまま残す
-      if (isStringy(node)) return rawValue(node);
+      // 文字列の連結は計算ブロックに入れられないので、「つなぐ」ブロックにする
+      if (isStringy(node)) {
+        if (node.op !== 'ADD') return rawValue(node);
+        return {
+          type: 'py_join',
+          inputs: { A: input(valueBlock(node.a, ctx)), B: input(valueBlock(node.b, ctx)) },
+        };
+      }
       return {
         type: 'math_arithmetic',
         fields: { OP: node.op },
@@ -452,7 +512,7 @@ function valueBlock(node, ctx) {
 /** 関数呼び出しを対応するブロックに変換する */
 function callBlock(node, ctx) {
   // まず、表で定義したブロック（描画モードの random など）を探す
-  const mapped = CALL_BLOCK_INDEX.get(`${node.name}/${node.args.length}`);
+  const mapped = lookup(CALL_BLOCK_INDEX, `${node.name}/${node.args.length}`);
   if (mapped && mapped.kind === 'value') return fromCallDef(mapped, node, ctx);
 
   const [a, b] = node.args;
@@ -491,8 +551,23 @@ function callBlock(node, ctx) {
         inputs: { FROM: one(), TO: input(valueBlock(b, ctx)) },
       };
     default:
-      return rawValue(node);
+      return userCall(node, ctx, 'py_callv') || rawValue(node);
   }
+}
+
+/**
+ * 自分で作った関数（や、ブロックの無い関数）の呼び出しを「〜を呼ぶ」ブロックにする
+ * @param {object} node 呼び出しの AST
+ * @param {object} ctx
+ * @param {'py_call'|'py_callv'} kind 文として置くか、値として使うか
+ * @returns {object|null} 引数が多すぎるなど、ブロックにできなければ null
+ */
+function userCall(node, ctx, kind) {
+  const type = `${kind}_${node.args.length}`;
+  if (!known(type)) return null;
+  const inputs = {};
+  node.args.forEach((arg, i) => { inputs[`ARG${i}`] = input(valueBlock(arg, ctx)); });
+  return { type, fields: { NAME: node.name }, inputs };
 }
 
 /**
@@ -603,6 +678,9 @@ function tailOf(block) {
 function statementBlock(stmt, ctx) {
   if (stmt.kind === 'simple') return simpleBlock(stmt.text, ctx);
 
+  // 中に、字下げより左に書いた文字列の行があるときは、まるごとコードのまま持つ（中身を変えないため）
+  if (ctx.hasUnderIndented(stmt.startIndex, stmt.endIndex)) return rawRange(stmt.startIndex, stmt.endIndex, ctx);
+
   switch (stmt.keyword) {
     case 'if':    return ifBlock(stmt.clauses, ctx);
     case 'while': return whileBlock(stmt.clauses[0], ctx);
@@ -614,6 +692,9 @@ function statementBlock(stmt, ctx) {
 
 /** 単純文 */
 function simpleBlock(text, ctx) {
+  // 行をまたぐ三重引用符の文字列をふくむ文は、元のコードのまま持つ
+  if (text.includes('\n')) return rawStatement(text);
+
   // コメント
   if (text.startsWith('#')) {
     return { type: 'py_comment', fields: { TEXT: text.replace(/^#\s?/, '') } };
@@ -622,10 +703,25 @@ function simpleBlock(text, ctx) {
     return { type: 'controls_flow_statements', fields: { FLOW: text.toUpperCase() } };
   }
 
+  // return / pass
+  if (text === 'pass' && known('py_pass')) return { type: 'py_pass' };
+  if (text === 'return' && known('py_return_none')) return { type: 'py_return_none' };
+  const returnMatch = text.match(/^return\s+(.+)$/s);
+  if (returnMatch && known('py_return')) {
+    const node = parseExpression(returnMatch[1]);
+    if (node) return { type: 'py_return', inputs: { VALUE: input(valueBlock(node, ctx)) } };
+  }
+
+  // global x, y（関数の中から外の変数を書きかえる）
+  const globalMatch = text.match(/^global\s+([A-Za-z_]\w*(?:\s*,\s*[A-Za-z_]\w*)*)$/);
+  if (globalMatch) {
+    return { type: 'py_global', fields: { NAMES: globalMatch[1].split(',').map(n => n.trim()).join(', ') } };
+  }
+
   // p5.circle(...) のような、表で定義した呼び出し
   const callNode = parseExpression(text);
   if (callNode && callNode.type === 'call') {
-    const mapped = CALL_BLOCK_INDEX.get(`${callNode.name}/${callNode.args.length}`);
+    const mapped = lookup(CALL_BLOCK_INDEX, `${callNode.name}/${callNode.args.length}`);
     if (mapped && mapped.kind === 'statement') return fromCallDef(mapped, callNode, ctx);
   }
 
@@ -728,6 +824,12 @@ function simpleBlock(text, ctx) {
         inputs: { VALUE: input(valueBlock(node, ctx)) },
       };
     }
+  }
+
+  // ブロックの無い関数の呼び出し（自分で作った関数 move(1, 2) や、items.sort() など）
+  if (callNode && callNode.type === 'call') {
+    const called = userCall(callNode, ctx, 'py_call');
+    if (called) return called;
   }
 
   return rawStatement(text);
@@ -852,11 +954,31 @@ function rawRange(start, end, ctx) {
 function defBlock(stmt, ctx) {
   const clause = stmt.clauses[0];
   const header = clause.head.match(/^(\w+)\s*\(\s*\)$/);
-  const mapped = header && DEF_BLOCK_INDEX.get(header[1]);
-  if (!mapped) return rawRange(stmt.startIndex, stmt.endIndex, ctx);
+  const mapped = header && lookup(DEF_BLOCK_INDEX, header[1]);
+  if (mapped) {
+    const body = statementChain(clause.body, ctx);
+    return { type: mapped.type, inputs: body ? { BODY: { block: body } } : {} };
+  }
+
+  // 自分で作る関数。受け取るものは、そのままの書き方（a, b=1）で持つ。
+  // *args や型の注釈（a: int）、-> のような書き方は、コードのまま残す
+  const own = clause.head.match(/^([A-Za-z_]\w*)\s*\(([^()]*)\)$/);
+  const params = own ? own[2].split(',').map(p => p.trim()).filter(Boolean) : null;
+  const simple = params && params.every(p => /^[A-Za-z_]\w*(\s*=\s*[^,:*]+)?$/.test(p));
+  // 受け取るものの名前が list や sum のような Python の名前だと、Blockly は中身の側だけ
+  // list2 と名前を変えてしまう（見出しはそのままなので動かなくなる）。
+  // Data と data のように大文字小文字だけちがう名前も、Blockly は同じ変数とみなす。
+  // どちらも、関数をコードのまま残して、意味が変わらないようにする。
+  const names = params ? params.map(p => p.split('=')[0].trim()) : [];
+  const risky = names.some(name => isReservedName(name) || ctx.caseClash(name));
+  if (!own || !simple || risky || !known('py_def')) return rawRange(stmt.startIndex, stmt.endIndex, ctx);
 
   const body = statementChain(clause.body, ctx);
-  return { type: mapped.type, inputs: body ? { BODY: { block: body } } : {} };
+  return {
+    type: 'py_def',
+    fields: { NAME: own[1], PARAMS: params.join(', ') },
+    inputs: body ? { BODY: { block: body } } : {},
+  };
 }
 
 /**
@@ -867,7 +989,13 @@ function defBlock(stmt, ctx) {
  * @returns {object|null}
  */
 function rawStatement(code, lineNumbers = []) {
-  const lines = String(code).split('\n').filter(line => line.trim());
+  // 空行は捨てる。ただし三重引用符の文字列の中の空行は、文字列の一部なので残す
+  let triple = null;
+  const lines = String(code).split('\n').filter(line => {
+    const keep = Boolean(line.trim()) || triple !== null;
+    triple = scanLine(line, 0, triple).triple;
+    return keep;
+  });
   if (!lines.length) return null;
 
   const blocks = lines.map((line, index) => {
@@ -915,6 +1043,15 @@ function splitArguments(text) {
 export function pythonToBlocks(source, workspace) {
   const lines = toLogicalLines(source);
 
+  // 使われている名前を、小文字にしたものごとに集める（文字列とコメントの中は数えない）
+  const identifiers = new Map();
+  const bare = String(source).replace(/("""|''')[\s\S]*?\1|"(?:\\.|[^"\\\n])*"|'(?:\\.|[^'\\\n])*'|#.*$/gm, ' ');
+  for (const [name] of bare.matchAll(/[A-Za-z_]\w*/g)) {
+    const key = name.toLowerCase();
+    if (!identifiers.has(key)) identifiers.set(key, new Set());
+    identifiers.get(key).add(name);
+  }
+
   const ctx = {
     /** 変数名から Blockly の変数 ID を得る（無ければ作る） */
     variable(name) {
@@ -922,18 +1059,38 @@ export function pythonToBlocks(source, workspace) {
       if (!variable) variable = workspace.createVariable(name, '');
       return { id: variable.getId() };
     },
+    /** プログラムの中に、大文字小文字だけちがう別の名前があるか（Data と data） */
+    caseClash(name) {
+      const spellings = identifiers.get(name.toLowerCase());
+      return Boolean(spellings && spellings.size > 1);
+    },
     /** 元のコードの一部（複数行）をそのまま取り出す */
     sourceRange(start, end) {
       const slice = lines.slice(start, end);
       if (!slice.length) return '';
       const base = slice[0].indent;
+      // 行をまたぐ文字列の 2 行目からは、元の行から範囲の字下げ（base）ぶんだけ取りのぞく
+      const dedent = (text) => {
+        let i = 0;
+        while (i < base && (text[i] === ' ' || text[i] === '\t')) i++;
+        return text.slice(i);
+      };
       return slice
-        .map(line => ' '.repeat(Math.max(0, line.indent - base)) + line.text)
+        .map(line => {
+          const head = ' '.repeat(Math.max(0, line.indent - base));
+          if (!line.rawLines) return head + line.text;
+          return [head + line.rawLines[0].trim(), ...line.rawLines.slice(1).map(dedent)].join('\n');
+        })
         .join('\n');
     },
-    /** 上の範囲に対応する行番号 */
+    /** 範囲の中に、字下げより左に書いた文字列の行があるか */
+    hasUnderIndented(start, end) {
+      return lines.slice(start, end).some(line => line.underIndented);
+    },
+    /** 上の範囲に対応する行番号（行をまたぐ文は、またいだ行の数だけ） */
     sourceRangeLines(start, end) {
-      return lines.slice(start, end).map(line => line.line);
+      return lines.slice(start, end)
+        .flatMap(line => line.text.split('\n').map((_, i) => line.line + i));
     },
   };
 

@@ -786,7 +786,7 @@ function applyFix(code, line) {
   editorPy.setValue(code);
   editorPy.setCursor({ line: line - 1, ch: editorPy.getLine(line - 1).length });
   editorPy.focus();
-  toast('「global」を 1 行足しました。もう一度「実行」を押してみましょう', 3600);
+  toast('コードを直しました。もう一度「実行」を押してみましょう', 3600);
 }
 
 /* ============================================================

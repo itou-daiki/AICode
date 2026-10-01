@@ -13,6 +13,29 @@ TWO_PI = math.pi * 2
 HALF_PI = math.pi / 2
 QUARTER_PI = math.pi / 4
 
+# p5.js のリファレンスどおり textAlign(CENTER) や endShape(CLOSE) と書けるようにする。
+# 中身は、このライブラリが受けつける文字列にしておく。
+CENTER = 'center'
+LEFT = 'left'
+RIGHT = 'right'
+TOP = 'top'
+BOTTOM = 'bottom'
+BASELINE = 'baseline'
+CORNER = 'corner'
+CORNERS = 'corners'
+RADIUS = 'radius'
+DEGREES = 'degrees'
+RADIANS = 'radians'
+RGB = 'rgb'
+HSB = 'hsb'
+CLOSE = 'CLOSE'
+# 線の端とつなぎ目。p5.js の SQUARE は「平らに切る」で、canvas では 'butt' にあたる
+ROUND = 'round'
+SQUARE = 'butt'
+PROJECT = 'square'
+MITER = 'miter'
+BEVEL = 'bevel'
+
 class P5:
     def __init__(self, canvas_id='canvas'):
         import js
@@ -342,7 +365,8 @@ class P5:
             self.ctx.textBaseline = 'top'
         elif vertical == 'bottom':
             self.ctx.textBaseline = 'bottom'
-        elif vertical == 'middle':
+        elif vertical in ('middle', 'center'):
+            # p5.js では縦の中央も CENTER と書く
             self.ctx.textBaseline = 'middle'
         elif vertical == 'baseline':
             self.ctx.textBaseline = 'alphabetic'
@@ -648,6 +672,17 @@ def noise_seed(seed):
     _noise_seed = seed
 
 # 数学関数
+def map(*args):
+    """p5.js の map(値, 元の下限, 元の上限, 先の下限, 先の上限) と、Python の map の両方を受ける
+
+    p5.js のリファレンスどおり map(v, 0, 10, 0, 100) と書けるようにしておく。
+    引数が 5 つの数なら p5.js の意味、それ以外は Python のもとの map。
+    """
+    if len(args) == 5 and all(isinstance(a, (int, float)) for a in args):
+        return map_value(*args)
+    return _easycode_builtin_map(*args)
+
+
 def map_value(value, start1, stop1, start2, stop2):
     """値を範囲変換"""
     return start2 + (stop2 - start2) * ((value - start1) / (stop1 - start1))
@@ -897,6 +932,7 @@ p5._looping = True
 # ただし abs / max / min / pow / round は Python にもとからある関数なので、
 # こちらで上書きすると max(リスト) のような書き方が壊れてしまう。上書きしない。
 _EASYCODE_KEEP_BUILTINS = {'abs', 'max', 'min', 'pow', 'round'}
+_easycode_builtin_map = __builtins__['map'] if isinstance(__builtins__, dict) else __builtins__.map
 
 
 def _easycode_camel(name):

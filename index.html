@@ -100,6 +100,8 @@
       min-height: 100%;
     }
     #flowchart svg { max-width: 100%; height: auto; }
+    /* 共通テスト表記を出しているときは、表記の下に説明を並べる（横に並ぶと表記が細くなる） */
+    #flowchart:has(> pre) { flex-direction: column; align-items: stretch; gap: var(--sp-2); }
     #flowchart g.node.step-active > :is(rect, polygon, circle, ellipse, path) {
       stroke: var(--c-mark) !important;
       stroke-width: 3px !important;
@@ -174,7 +176,7 @@
   </div>
 
   <header class="topbar">
-    <button id="toggle-sidebar" class="icon-btn" aria-expanded="false" title="ヒントを開く"><svg viewBox="0 0 20 20" class="icon" aria-hidden="true"><path d="M4 4h5a2 2 0 0 1 2 2v10a2 2 0 0 0-2-2H4z"/><path d="M16 4h-5a2 2 0 0 0-2 2v10a2 2 0 0 1 2-2h5z"/></svg></button>
+    <button id="toggle-sidebar" class="btn sidebar-toggle" aria-expanded="false" data-label="ヒント"><svg viewBox="0 0 20 20" class="icon" aria-hidden="true"><path d="M4 4h5a2 2 0 0 1 2 2v10a2 2 0 0 0-2-2H4z"/><path d="M16 4h-5a2 2 0 0 0-2 2v10a2 2 0 0 1 2-2h5z"/></svg><span class="sidebar-toggle-label">ヒントを開く</span></button>
     <a class="brand" href="index.html">
       <span class="brand-name">easyCode<small>01 コーディング</small></span>
     </a>

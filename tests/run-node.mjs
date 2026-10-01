@@ -7,10 +7,11 @@
 // ブラウザが要るもの（ブロック変換・ステップ実行・p5）は tests/browser.html で確かめる。
 
 import { autoIndent, formatCode } from '../module/pyformat.js';
-import { humanizeStatement, humanizeCondition, humanizeValue } from '../module/humanize.js';
+import { humanizeStatement, humanizeCondition, humanizeValue, humanizeDefHead, setSketchMode } from '../module/humanize.js';
 import { pythonToMermaid, parsePython } from '../module/flowchart.js';
 import { getCompletions, analyzeCode } from '../module/pycomplete.js';
 import { explainError } from '../module/pyrun.js';
+import { jsToPython, toHalfWidth, hasFullWidth, suggestSyntaxFix, noticeSilentMistakes } from '../module/pyfix.js';
 import { sameOutput } from '../module/grade.js';
 import { toKtph } from '../module/ktph.js';
 import {
@@ -292,6 +293,42 @@ const SAY = [
 ];
 for (const [code, want] of SAY) equal(`言いかえ: ${code}`, humanizeStatement(code), want);
 
+// 意味がずれていた言いかえ
+const SAY_FIXED = [
+  // 引くのは y だけなので「y + 1 減らす」ではない
+  ['x = x - y + 1', 'x に x - y + 1 を入れる'],
+  ['x = x + y - 1', 'x を y - 1 増やす'],
+  // //= を代入と読みちがえて「x // に 2 を入れる」にならない
+  ['x //= 2', 'x を 2 で割った商にする'],
+  ['x %= 3', 'x を 3 で割ったあまりにする'],
+  // 文字をつなぐのは「増やす」ではない
+  ['s = s + "!"', 's のうしろに「!」をつなげる'],
+  ['s += "!"', 's のうしろに「!」をつなげる'],
+  // end= は表示するものではない
+  ['print("*", end="")', '「*」を表示し、改行しない'],
+  ['print(i, end=" ")', 'i を表示し、うしろに「 」をつける'],
+  ['print(a, b, sep=",")', 'a と b を、あいだに「,」をはさんで表示する'],
+  // 何を渡したかが消えない
+  ['greet("たろう")', '関数 greet を呼び出す（「たろう」を渡す）'],
+  ['x = round(3.14159, 2)', 'x に 3.14159 を小数第 2 位までに丸めた数 を入れる'],
+  ['m = max(data)', 'm に data の最大値 を入れる'],
+  ['import math', 'math を使えるようにする'],
+  // 条件がまざる式は、(x - y) if c else z なので「減らす」と読まない
+  ['x = x - y if c else z', 'x に x - y if c else z を入れる'],
+  ['x = x + 1 if c else 0', 'x に x + 1 if c else 0 を入れる'],
+  // 文字を作る式をつなぐのも「つなげる」
+  ['s += str(n)', 's のうしろに n を文字にしたもの をつなげる'],
+  ["s += 'a' + 'b'", 's のうしろに「a」と「b」をつなげる'],
+  ["s = 'a' + 'b'", 's に「a」と「b」を入れる'],
+  ['print(end="")', '何も表示しない'],
+  ['print(a, file=sys.stderr)', 'a を表示する'],
+];
+for (const [code, want] of SAY_FIXED) equal(`言いかえ（直したもの）: ${code}`, humanizeStatement(code), want);
+equal('条件: not in', humanizeCondition('x not in data'), 'x が data の中にない？');
+equal('条件: is None', humanizeCondition('x is not None'), 'x は なし ではない？');
+equal('条件: 空白が続いても is not', humanizeCondition('a is  not b'), 'a は b ではない？');
+equal('値: range の歩幅', humanizeValue('range(0, 10, 2)'), '0 から 10 の手前まで（2 ずつ）');
+
 const ASK = [
   ['i % 15 == 0', 'i は 15 で割り切れる？'],
   ['x > 10', 'x は 10 より大きい？'],
@@ -547,6 +584,8 @@ section('pyrun（エラーの言いかえ）');
 
 section('描画の言いかえ');
 {
+  // 描く命令の言いかえは、03 スケッチのコードとして読むときだけ（フローチャートが sketch を渡す）
+  setSketchMode(true);
   const cases = [
     ['background(250)', '背景を 250（明るさ） にする'],
     ['background(250, 120)', '背景を 250（明るさ・すけ具合 120） にする'],
@@ -563,11 +602,58 @@ section('描画の言いかえ');
     equal(`描画の言いかえ: ${code}`, humanizeStatement(code), want);
   }
 
+  // 「create_canvas を実行する」のように、コードの名前が残らないこと
+  setSketchMode(true);
+  const sketch = [
+    ['create_canvas(400, 400)', '横 400 縦 400 のキャンバスを作る'],
+    ['createCanvas(400, 400)', '横 400 縦 400 のキャンバスを作る'],
+    ['size(400, 400)', '横 400 縦 400 のキャンバスを作る'],
+    ['frameRate(30)', '1 秒に 30 コマ描くようにする'],
+    ['noLoop()', 'draw() のくり返しを止める'],
+    ['ellipse(100, 100, 50)', '中心 (100, 100) に直径 50 の円をかく'],
+    ['fill("red")', '塗り色を「red」にする'],
+    ['fill(c)', '塗り色を c にする'],
+    ['textAlign(CENTER, CENTER)', '文字のそろえ方を 横 中央 縦 中央 にする'],
+    ['angleMode(DEGREES)', '角度の単位を 度 にする'],
+    ['vertex(10, 20)', '頂点 (10, 20) を足す'],
+    ['endShape(CLOSE)', '集めた頂点で、閉じた形をかく'],
+    ['global x, d', '外の変数 x, d を使う'],
+    ['x = random(400)', 'x に 0 以上 400 未満のランダムな数 を入れる'],
+    ['x = random(10, 20)', 'x に 10 以上 20 未満のランダムな数 を入れる'],
+    ['y = mouseX', 'y に マウスの x 座標 を入れる'],
+  ];
+  for (const [code, want] of sketch) equal(`スケッチの言いかえ: ${code}`, humanizeStatement(code), want);
+  equal('スケッチの言いかえ: マウスの条件', humanizeCondition('mouseIsPressed'), 'マウスのボタンが押されている？');
+  // 式の中の名前も日本語にする（式の形は変えない）
+  equal('スケッチの言いかえ: 式の中の width', humanizeStatement('circle(width / 2, height / 2, 50)'),
+    '中心 (キャンバスの幅 / 2, キャンバスの高さ / 2) に直径 50 の円をかく');
+  equal('スケッチの言いかえ: 条件の中の式', humanizeCondition('mouseX > width / 2'), 'マウスの x 座標 は キャンバスの幅 / 2 より大きい？');
+  equal('スケッチの言いかえ: 文字列の中は変えない', humanizeValue('"width" + 1'), '「width」と 1');
+  // 自分で作った引数やループの名前は、p5.js の値と読みちがえない
+  setSketchMode(true, 'def bar(x, height):\n    rect(x, 0, 10, height * 2)\nfor key in d:\n    t = d[key] + 1\n');
+  equal('スケッチの言いかえ: 引数の height はそのまま', humanizeStatement('rect(x, 0, 10, height * 2)'),
+    '(x, 0) から 幅 10 高さ height * 2 の四角をかく');
+  equal('スケッチの言いかえ: ループの key はそのまま', humanizeValue('d[key] + 1'), 'd[key] + 1');
+  equal('スケッチの言いかえ: 渡す引数の名前はそのまま', humanizeStatement('f(width=3)'), '関数 f を呼び出す（width=3 を渡す）');
+  setSketchMode(true);
+  equal('スケッチの言いかえ: setup の見出し', humanizeDefHead('setup()'), '関数 setup（最初に 1 回だけ動く）');
+  equal('スケッチの言いかえ: draw の見出し', humanizeDefHead('draw()'), '関数 draw（くり返し動く）');
+  setSketchMode(false);
+  // ほかの画面では、push や size は自分で作った関数かもしれない
+  equal('スケッチ以外: push は関数の呼び出し', humanizeStatement('push(stack, 3)'), '関数 push を呼び出す（stack、3 を渡す）');
+  equal('スケッチ以外: math.sqrt は言いかえる', humanizeValue('math.sqrt(2)'), '2 の平方根');
+  // key や width は、ふつうのプログラムでは変数名なので言いかえない
+  equal('スケッチ以外: key はそのまま', humanizeCondition('key == "a"'), 'key は「a」と等しい？');
+  equal('スケッチ以外: 式の中の width もそのまま', humanizeValue('width / 2'), 'width / 2');
+  equal('スケッチ以外: setup はただの関数', humanizeDefHead('setup()'), '関数 setup');
+
   // undefined が文に混ざらないこと（これが出ると読めなくなる）
+  setSketchMode(true);
   for (const code of ['background()', 'fill(1, 2)', 'circle(1)', 'rect(1, 2)']) {
     const text = humanizeStatement(code);
     check(`描画の言いかえ: ${code} に undefined が出ない`, !text.includes('undefined'), `\n  実際: ${text}`);
   }
+  setSketchMode(false);
 }
 
 /* ============================================================
@@ -648,7 +734,7 @@ section('ktph（共通テスト用プログラム表記）');
     ['range 1つ', 'for x in range(10):\n    s = s + x', 'x を 0 から 9 まで 1 ずつ増やしながら繰り返す:'],
     ['range 2つ', 'for i in range(1, 6):\n    s = s + i', 'i を 1 から 5 まで 1 ずつ増やしながら繰り返す:'],
     ['range 3つ', 'for i in range(0, 10, 2):\n    s = s + i', 'i を 0 から 9 まで 2 ずつ増やしながら繰り返す:'],
-    ['変数 - 1', 'for i in range(0, kazu - 1):\n    s = s + i', 'i を 0 から kazu - 1-1 まで 1 ずつ増やしながら繰り返す:'],
+    ['変数 - 1', 'for i in range(0, kazu - 1):\n    s = s + i', 'i を 0 から kazu - 2 まで 1 ずつ増やしながら繰り返す:'],
     ['変数 + 1 は打ち消す', 'for i in range(0, n + 1):\n    s = s + i', 'i を 0 から n まで 1 ずつ増やしながら繰り返す:'],
     ['減らしながら', 'for i in range(9, -1, -1):\n    s = s + i', 'i を 9 から 0 まで 1 ずつ減らしながら繰り返す:'],
   ];
@@ -741,6 +827,59 @@ section('ktph（共通テスト用プログラム表記）');
     equal('ktph: 二分探索まるごと', toKtph(python).text, want);
   }
 
+  // x += 1 は表記に無いので、x = x + 1 にする
+  equal('ktph: += は x = x + 1', ktph('x += 1'), 'x = x + 1');
+  // 右がかたまりでなければ、かっこでくくる（x / a * b は (x / a) * b になってしまう）
+  equal('ktph: /= はかっこでくくる', ktph('x /= a * b'), 'x = x / (a * b)');
+  equal('ktph: %= はかっこでくくる', ktph('x %= a * b'), 'x = x % (a * b)');
+  equal('ktph: //= もかっこでくくる', ktph('x //= a * b'), 'x = x ÷ (a * b)');
+  equal('ktph: += でも if があればくくる', ktph('x += a if c else b'), 'x = x + (a if c else b)');
+  equal('ktph: 呼び出し 1 つならくくらない', ktph('x *= f(a - 1)'), 'x = x * f(a - 1)');
+  // in [ や return [ は配列の名前ではない
+  equal('ktph: in のあとの [ で in を大文字にしない',
+    ktph('if x in [1, 2]:\n    y = 1').split('\n')[0], 'もし x in [1, 2] ならば:');
+  equal('ktph: -= は右をかっこでくくる', ktph('s -= a + b'), 's = s - (a + b)');
+  equal('ktph: //= は ÷', ktph('x //= 2'), 'x = x ÷ 2');
+  equal('ktph: 配列の要素の +=', ktph('data = [1]\ndata[0] += 1'), 'Data = [1]\nData[0] = Data[0] + 1');
+  equal('ktph: 終わりの値をまとめる', ktph('for i in range(0, n - 3):\n    s = 1').split('\n')[0],
+    'i を 0 から n - 4 まで 1 ずつ増やしながら繰り返す:');
+
+  // スケッチ: 絵を描く命令も日本語の関数名にする
+  {
+    const sketch = (code) => toKtph(code, { sketch: true });
+    const program = [
+      'x = 0',
+      'def setup():',
+      '    createCanvas(400, 400)',
+      'def draw():',
+      '    global x',
+      '    background(220)',
+      '    p5.circle(x, 200, 50)',
+      '    stroke_weight(4)',
+      '    a = random(0, 400)',
+    ].join('\n');
+    const want = [
+      'x = 0',
+      '関数 setup():  # 最初に 1 回だけ動く',
+      '└ キャンバスを作る(400, 400)',
+      '関数 draw():  # くり返し動く',
+      '│ 外の変数 x を使う',
+      '│ 背景色を決める(220)',
+      '│ 円を描く(x, 200, 50)',
+      '│ 線の太さを決める(4)',
+      '└ a = 乱数(0, 400)',
+    ].join('\n');
+    const result = sketch(program);
+    equal('ktph スケッチ: まるごと', result.text, want);
+    check('ktph スケッチ: setup / draw / global に警告は出ない', result.warnings.length === 0,
+      `\n  実際: ${JSON.stringify(result.warnings)}`);
+    equal('ktph スケッチ: 関数の引数のはじめの値', sketch("def greet(name='Bob'):\n    return name").text,
+      '関数 greet(name="Bob"):\n└ name を返す');
+    equal('ktph スケッチ: return [ も「を返す」', sketch('def f():\n    return [1]').text, '関数 f():\n└ [1] を返す');
+    equal('ktph スケッチ: 名前の一部は変えない', sketch('textured = 1\nmyline(1)').text, 'textured = 1\nmyline(1)');
+    equal('ktph スケッチ: ふだんは描く命令を変えない', toKtph('circle(1, 2, 3)').text, 'circle(1, 2, 3)');
+  }
+
   // 壊れた入力でも落ちない
   for (const code of ['', '   ', '"閉じていない', 'if:', '(((', 'x'.repeat(500)]) {
     let fine = true;
@@ -753,6 +892,69 @@ section('ktph（共通テスト用プログラム表記）');
 /* ============================================================
  * 5.8 レッスンの答え合わせとデータ
  * ========================================================== */
+
+section('書き方の直し方（JavaScript の癖・全角・: と ==）');
+
+// 授業のスライドどおりの JavaScript が、そのまま Python になること
+const slideJs = `let x = 0;
+let d = 1;
+function setup() {
+  createCanvas(400, 400);
+}
+function draw() {
+  background(220);
+  circle(x, 200, 50);
+  x = x + d * 5;
+  if (x > 400) {
+    d = -1;
+  } else if (x < 0) {
+    d = 1;
+  }
+  // 色
+  if (x > 200 && d === 1) {
+    fill(255, 0, 0);
+  }
+  angle++;
+}`;
+const slidePy = jsToPython(slideJs);
+for (const [name, want] of [
+  ['let が消える', 'x = 0\n'],
+  ['function → def', 'def setup():'],
+  ['{ } → 字下げ', '    createCanvas(400, 400)\n'],
+  ['} else if → elif', '    elif x < 0:'],
+  ['// → #', '    # 色'],
+  ['&& と === → and と ==', '    if x > 200 and d == 1:'],
+  ['++ → += 1', '    angle += 1'],
+]) {
+  check(`JS→Python: ${name}`, slidePy.includes(want), `\n  ${JSON.stringify(slidePy)}`);
+}
+check('JS→Python: ; と } が残らない', !/[;{}]/.test(slidePy), `\n  ${JSON.stringify(slidePy)}`);
+check('JS→Python: 文字列の中は触らない', jsToPython('print("a && b; // x");').trim() === 'print("a && b; // x")',
+  `\n  ${JSON.stringify(jsToPython('print("a && b; // x");'))}`);
+
+// 全角
+equal('全角: 記号と数字が半角になる', toHalfWidth('circle（２００，200，50）：'), 'circle(200,200,50):');
+equal('全角: 文字列の中は残る', toHalfWidth('print("（全角）")'), 'print("（全角）")');
+equal('全角: 全角スペースの字下げ', toHalfWidth('　　circle(1, 2, 3)'), '  circle(1, 2, 3)');
+check('全角: 見つける', hasFullWidth('circle（1, 2, 3）') && !hasFullWidth('print("（）")'));
+
+// エラーから直し方
+const fw = suggestSyntaxFix('circle（200, 200, 50）', { type: 'SyntaxError', message: "invalid character '（' (U+FF08)", line: 1 });
+check('直し方: 全角 → 半角のボタンが出る', fw !== null && fw.code === 'circle(200, 200, 50)', `\n  ${JSON.stringify(fw)}`);
+const js = suggestSyntaxFix('function setup() {\n  createCanvas(400, 400);\n}', { type: 'SyntaxError', message: 'invalid syntax', line: 1 });
+check('直し方: JavaScript → Python のボタンが出る', js !== null && js.code.startsWith('def setup():'), `\n  ${JSON.stringify(js)}`);
+const colon = suggestSyntaxFix('def draw()\n    circle(1, 2, 3)', { type: 'SyntaxError', message: "expected ':'", line: 1 });
+equal('直し方: : を足す', colon && colon.code, 'def draw():\n    circle(1, 2, 3)');
+const eq = suggestSyntaxFix('x = 5\nif x = 5:\n    print(1)', { type: 'SyntaxError', message: "invalid syntax. Maybe you meant '==' or ':=' instead of '='?", line: 2 });
+equal('直し方: = を == に', eq && eq.code, 'x = 5\nif x == 5:\n    print(1)');
+check('直し方: ふつうの Python には出さない', suggestSyntaxFix('print(1', { type: 'SyntaxError', message: "'(' was never closed", line: 1 }) === null);
+
+// エラーにならないが動かないもの
+const silent = noticeSilentMistakes('def setup():\n    background(245)\n\ndef draw():\n    x = 0\n    circle(x, 200, 100)\n    x = x + 1\n');
+check('気づき: draw() の中で毎回 0 に戻している', silent.some(n => n.includes('x を毎回同じ値に戻している')), `\n  ${JSON.stringify(silent)}`);
+check('気づき: background が setup だけ', silent.some(n => n.includes('background()')), `\n  ${JSON.stringify(silent)}`);
+check('気づき: 正しいコードには出ない',
+  noticeSilentMistakes('x = 0\n\ndef draw():\n    global x\n    background(245)\n    circle(x, 200, 100)\n    x = x + 1\n').length === 0);
 
 section('レッスン（答え合わせとデータ）');
 {

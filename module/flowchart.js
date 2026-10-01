@@ -5,7 +5,7 @@
 // 「Python コード → フローチャート」という同じ経路を通る。
 // あわせて「どの図形が何行目か」も返すので、ステップ実行中に現在位置を光らせられる。
 
-import { humanizeStatement, humanizeCondition, humanizeValue, humanizeDefHead } from './humanize.js';
+import { humanizeStatement, humanizeCondition, humanizeValue, humanizeDefHead, setSketchMode } from './humanize.js';
 
 const MAX_LABEL_LENGTH = 62;
 const MAX_NODES = 250;
@@ -524,10 +524,12 @@ function renderDefinition(b, stmt, index) {
  * @param {string} source Python のソースコード
  * @param {object} [options]
  * @param {boolean} [options.japanese] やさしい日本語に言いかえるか（既定 true）
+ * @param {boolean} [options.sketch] スケッチ（p5.js）のコードとして読むか（mouseX なども日本語にする）
  * @returns {{definition: string|null, message: string|null, lineByNode: object}}
  */
-export function pythonToMermaid(source, { japanese = true } = {}) {
+export function pythonToMermaid(source, { japanese = true, sketch = false } = {}) {
   useJapanese = japanese;
+  setSketchMode(sketch, source);
 
   if (!source || !source.trim()) {
     return {

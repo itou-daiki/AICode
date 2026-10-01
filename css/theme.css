@@ -109,7 +109,8 @@
   --t-base: 160ms;
   --ease: cubic-bezier(0.2, 0, 0, 1);
 
-  --topbar-h: 52px;
+  --topbar-h: 52px;   /* 上の帯の高さ（2 段になったときは ui.js が書きかえる） */
+  --topbar-min: 52px;
   --sidebar-w: 320px;  /* 左に置くパネルの幅 */
   --gutter: 16px;      /* 両端に必ず残す余白。何もここまで伸びない */
   --ring: 0 0 0 2px var(--c-paper), 0 0 0 4px var(--c-mark);
@@ -262,7 +263,8 @@ kbd {
   z-index: 30;
   display: flex;
   align-items: center;
-  height: var(--topbar-h);
+  /* ボタンが 1 行に入りきらないときは 2 段になる。下の区画の高さは ui.js が実際の高さに合わせる */
+  min-height: var(--topbar-min, 52px);
   padding: 0 var(--gutter);
   background: var(--c-paper);
   color: var(--c-ink);
@@ -311,12 +313,12 @@ kbd {
   gap: var(--sp-2);
   flex: 1 1 auto;
   min-width: 0;
-  padding: 0 var(--sp-3);
-  overflow-x: auto;
-  scrollbar-width: none;
+  padding: var(--sp-1) var(--sp-3);
+  /* 横にスクロールさせると、右のボタンが隠れて見つからない。入りきらなければ折り返す */
+  flex-wrap: wrap;
+  row-gap: var(--sp-1);
   border-left: 1px solid var(--c-rule);
 }
-.topbar-tools::-webkit-scrollbar { display: none; }
 .topbar-end { display: flex; align-self: stretch; align-items: stretch; flex: 0 0 auto; }
 
 .topbar-divider {
@@ -536,6 +538,10 @@ kbd {
 .icon-btn.is-on { background: var(--c-paper); border-color: var(--c-mark); color: var(--c-mark); }
 .icon-btn svg { width: 16px; height: 16px; }
 
+/* サイドバーを開け閉めするボタン。図に「〇〇を開く／閉じる」の字を添える */
+.topbar .sidebar-toggle { flex: 0 0 auto; white-space: nowrap; }
+.topbar .sidebar-toggle.is-on { border-color: var(--c-mark); color: var(--c-mark); }
+
 /* 描いた線画。太さと角の処理をそろえる */
 .icon {
   width: 1em;
@@ -569,7 +575,9 @@ kbd {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: var(--sp-2);
+  /* 区画が狭いと、ボタンを並べきれない。そのときは見出しを潰さず、ボタンを次の段へ送る。 */
+  flex-wrap: wrap;
+  gap: var(--sp-1) var(--sp-2);
   flex: 0 0 auto;
   min-height: 34px;
   padding: var(--sp-1) var(--sp-2);
@@ -580,6 +588,9 @@ kbd {
   display: flex;
   align-items: center;
   gap: 0.4em;
+  /* 字の分の幅は必ず取る。区画そのものより長いときだけ「…」で切る */
+  flex: 0 0 auto;
+  max-width: 100%;
   min-width: 0;
   overflow: hidden;
   font-size: var(--text-xs);
@@ -596,7 +607,16 @@ kbd {
   letter-spacing: 0.1em;
   color: var(--c-ink-3);
 }
-.panel-tools { display: flex; align-items: center; gap: var(--sp-1); flex: 0 0 auto; }
+.panel-tools {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  align-items: center;
+  gap: var(--sp-1);
+  flex: 0 1 auto;
+  min-width: 0;
+  margin-left: auto;
+}
 .panel-body { position: relative; flex: 1 1 auto; min-height: 0; overflow: hidden; }
 
 /* 区画の見出しの中の小さなボタン */
@@ -1142,6 +1162,9 @@ dialog.dialog::backdrop { background: rgba(22, 24, 26, 0.45); }
   .icon-btn { width: 40px; height: 40px; }
   .mode-switch a { min-height: 40px; padding: var(--sp-1) 0.7em; }
   .tabs button { min-height: 40px; }
+  /* 「サンプル」まで 1 行に入らない幅では、折り返して全部見えるようにする */
+  .tabs { flex-wrap: wrap; max-width: 100%; }
+  .tabs button { flex: 1 1 auto; justify-content: center; }
   .tool-btn { min-height: 34px; }
 
   /* 狭い画面では、区画の見出しを 2 段にする。

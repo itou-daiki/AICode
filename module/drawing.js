@@ -13,19 +13,19 @@ import {
 import { callGemini, chatWithAI } from './ai.js';
 import { PYODIDE_CONFIG } from './config.js';
 import { runUserCode, explainError, suggestFix } from './pyrun.js';
+import { noticeSilentMistakes } from './pyfix.js';
 import { toKtph } from './ktph.js';
+import { SKETCH_NAMES } from './humanize.js';
 import { setIconLabel } from './icons.js';
 
 const STORAGE_KEY = 'easycode_drawing_workspace_v2';
 
 /** 最初に置いておくコード（説明はサンプルパネルにまとめてある） */
 const STARTER_CODE = `def setup():
-    background(245, 246, 250)
+    createCanvas(400, 400)
 
 def draw():
-    x = 200 + 130 * cos(frameCount * 0.05)
-    y = 200 + 130 * sin(frameCount * 0.05)
-    circle(x, y, 26)
+    background(220)
 `;
 
 let bench = null;
@@ -41,6 +41,17 @@ let animationId = null;
  * draw() を呼ぶ直前に Python 側へ渡す。
  */
 const pointer = { x: 0, y: 0, down: false, key: '', code: 0, keyDown: false };
+
+/**
+ * p5.js の mousePressed() / mouseReleased() / keyPressed() にあたる出来事。
+ * 起きた順にためておき、次のコマの前に 1 回ずつ学習者の関数を呼ぶ。
+ */
+const events = [];
+const EVENT_NAMES = {
+  pointerdown: ['mousePressed', 'mouse_pressed'],
+  pointerup: ['mouseReleased', 'mouse_released'],
+  keydown: ['keyPressed', 'key_pressed'],
+};
 
 /** キャンバスとキーボードの見張りを始める */
 function watchPointer() {
@@ -58,8 +69,8 @@ function watchPointer() {
   };
 
   canvas.addEventListener('pointermove', (e) => { Object.assign(pointer, toCanvas(e)); });
-  canvas.addEventListener('pointerdown', (e) => { Object.assign(pointer, toCanvas(e)); pointer.down = true; });
-  window.addEventListener('pointerup', () => { pointer.down = false; });
+  canvas.addEventListener('pointerdown', (e) => { Object.assign(pointer, toCanvas(e)); pointer.down = true; events.push('pointerdown'); });
+  window.addEventListener('pointerup', () => { if (pointer.down) events.push('pointerup'); pointer.down = false; });
   canvas.addEventListener('pointerleave', () => { pointer.down = false; });
 
   window.addEventListener('keydown', (e) => {
@@ -68,6 +79,7 @@ function watchPointer() {
     pointer.key = e.key.length === 1 ? e.key : '';
     pointer.code = e.keyCode || 0;
     pointer.keyDown = true;
+    events.push('keydown');
   });
   window.addEventListener('keyup', () => { pointer.keyDown = false; pointer.key = ''; pointer.code = 0; });
 }
@@ -323,8 +335,10 @@ p5._looping = True
   }
 
   animating = true;
+  events.length = 0;
   setCanvasState('アニメーション中', true);
   output.textContent += 'アニメーション実行中…（停止 で止まります）\n';
+  for (const note of noticeSilentMistakes(code)) output.textContent += `\n→ ${note}\n`;
 
   // p5.js と同じく、1 秒あたりのコマ数をそろえる。
   // そろえないと、図形の少ないプログラムは速く、多いプログラムは遅く動いてしまい、
@@ -332,6 +346,8 @@ p5._looping = True
   let nextFrameAt = 0;
   let targetFps = 60;
   let wasPaused = false;
+  /** マウスやキーの関数が print() したもの（コマごとの表示で上書きしない） */
+  let eventLog = '';
 
   // 画面の書きかえの合間にわずかな時間しかないと、1コマ飛ばしてしまい
   // 60 のつもりが 30 になる。少し早めでも描くようにして取りこぼしを防ぐ。
@@ -384,9 +400,32 @@ f"{p5._target_fps},{1 if p5._looping else 0}"
 `);
       const [fpsText, loopingText] = String(reported).split(',');
       targetFps = Number(fpsText) || 0;
+      let looping = loopingText === '1';
 
-      // noLoop() で止めているあいだは draw() を呼ばない（p5.js と同じ）
-      const paused = loopingText === '0';
+      // 押された・離された・キーが押された、があれば学習者の関数を呼ぶ。
+      // noLoop() で休んでいるあいだも呼ぶ（p5.js と同じ）。「クリックで再開」のスケッチが動くように。
+      const hadEvents = events.length > 0;
+      while (events.length) {
+        const names = EVENT_NAMES[events.shift()] || [];
+        const call = names.map(n => `if '${n}' in globals(): ${n}()`).join('\n');
+        const handled = await runUserCode(pyodide, call, { useGlobals: true, seconds: 3 });
+        // 関数の中の print() も見えるようにする（次のコマの表示で消えないよう、とっておく）
+        if (handled.output) {
+          eventLog = (eventLog + handled.output).slice(-2000);
+          output.textContent += handled.output;
+        }
+        if (handled.error) {
+          output.textContent = 'マウスやキーの関数でエラーが起きました\n' + explainError(handled.error, code);
+          showFix(suggestFix(code, handled.error), applyFix);
+          stopAnimation(null);
+          return;
+        }
+      }
+
+      // noLoop() で止めているあいだは draw() を呼ばない（p5.js と同じ）。
+      // 関数の中で loop() / noLoop() が呼ばれたかもしれないので、関数を呼んだコマだけ聞き直す
+      if (hadEvents) looping = Boolean(await pyodide.runPythonAsync('p5._looping'));
+      const paused = !looping;
       if (paused !== wasPaused) {
         wasPaused = paused;
         setCanvasState(paused ? 'noLoop() で休み中' : 'アニメーション中', true);
@@ -404,7 +443,7 @@ f"{p5._target_fps},{1 if p5._looping else 0}"
         stopAnimation(null);
         return;
       }
-      if (frame.output) output.textContent = frame.output;
+      if (frame.output) output.textContent = eventLog + frame.output;
       animationId = requestAnimationFrame(loop);
     } catch (e) {
       console.error('アニメーションエラー:', e);
@@ -428,7 +467,7 @@ function applyFix(code, line) {
   bench.setCode(code);
   bench.editor.setCursor({ line: line - 1, ch: bench.editor.getLine(line - 1).length });
   bench.editor.focus();
-  toast('「global」を 1 行足しました。もう一度「実行」を押してみましょう', 3600);
+  toast('コードを直しました。もう一度「実行」を押してみましょう', 3600);
 }
 
 /* ============================================================
@@ -614,7 +653,7 @@ function setupControls() {
       bench.scheduleFlowchart.cancel();
     }
 
-    const { text, warnings } = toKtph(bench.getCode());
+    const { text, warnings } = toKtph(bench.getCode(), { sketch: true });
     container.innerHTML = '';
     const box = document.createElement('pre');
     box.className = 'console';
@@ -622,6 +661,20 @@ function setupControls() {
     box.style.width = '100%';
     box.textContent = text || 'コードを書くと、ここに共通テストの表記で出ます';
     container.appendChild(box);
+
+    // 絵を描く命令は共通テストの表記に無い。この画面で決めた書き方だと、はっきり伝える。
+    if (text) {
+      const legend = document.createElement('div');
+      legend.className = 'note';
+      // 表記の中でも、変数の名前は試験と同じく英字のまま残す。使っているものだけ意味を添える
+      const used = [...new Set(text.match(/(?<![\w.])[A-Za-z_]\w*(?![\w(])/g) || [])]
+        .filter(name => Object.hasOwn(SKETCH_NAMES, name) && !/^(PI|TWO_PI|HALF_PI|QUARTER_PI)$/.test(name));
+      const names = used.length ? `${used.map(name => `${name} は${SKETCH_NAMES[name]}`).join('、')}です。` : '';
+      legend.textContent = '「円を描く」「背景色を決める」など絵を描く命令と、「関数」「外の変数」は、'
+        + '共通テストの表記にはないので、この画面で決めた書き方です。'
+        + '乱数(a, b) は a 以上 b 未満の数です。' + names;
+      container.appendChild(legend);
+    }
 
     if (warnings.length) {
       const note = document.createElement('div');

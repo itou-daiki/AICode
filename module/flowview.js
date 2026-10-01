@@ -51,14 +51,15 @@ let renderCount = 0;
  * @param {object} [options]
  * @param {boolean} [options.japanese] やさしい日本語にするか
  * @param {boolean} [options.fit] パネルに収めるか
+ * @param {boolean} [options.sketch] スケッチのコードとして読むか
  * @returns {Promise<{lineByNode: object, message: string|null}>}
  */
 export async function renderFlowchart(container, python, options = {}) {
-  const { japanese = true, fit = true } = options;
+  const { japanese = true, fit = true, sketch = false } = options;
   if (!container) return { lineByNode: {}, message: null };
 
   setupMermaid();
-  const result = pythonToMermaid(python, { japanese });
+  const result = pythonToMermaid(python, { japanese, sketch });
 
   if (!result.definition) {
     // 文章は textContent で入れる（HTML として解釈させない）

@@ -71,6 +71,8 @@
       padding: var(--sp-3); min-height: 100%;
     }
     #flowchart svg { max-width: 100%; height: auto; }
+    /* 共通テスト表記を出しているときは、表記の下に説明を並べる（横に並ぶと表記が細くなる） */
+    #flowchart:has(> pre) { flex-direction: column; align-items: stretch; gap: var(--sp-2); }
 
     /* サンプル（もとはエディタのコメントに書かれていた説明を、ここにまとめた） */
     #samples-body { overflow-y: auto; padding: var(--sp-3); background: var(--c-surface); }
@@ -143,7 +145,7 @@
   </div>
 
   <header class="topbar">
-    <button id="toggle-sidebar" class="icon-btn" aria-expanded="false" title="ヒントとAIサポートを開く"><svg viewBox="0 0 20 20" class="icon" aria-hidden="true"><path d="M4 4h5a2 2 0 0 1 2 2v10a2 2 0 0 0-2-2H4z"/><path d="M16 4h-5a2 2 0 0 0-2 2v10a2 2 0 0 1 2-2h5z"/></svg></button>
+    <button id="toggle-sidebar" class="btn sidebar-toggle" aria-expanded="false" data-label="ヒント・AI"><svg viewBox="0 0 20 20" class="icon" aria-hidden="true"><path d="M4 4h5a2 2 0 0 1 2 2v10a2 2 0 0 0-2-2H4z"/><path d="M16 4h-5a2 2 0 0 0-2 2v10a2 2 0 0 1 2-2h5z"/></svg><span class="sidebar-toggle-label">ヒント・AIを開く</span></button>
     <a class="brand" href="index.html">
       <span class="brand-name">easyCode<small>03 スケッチ</small></span>
     </a>
@@ -177,8 +179,10 @@
         <div class="expander-body stack">
           <p>キャンバスは <strong>400 × 400</strong>。左上が <code>(0, 0)</code>、右下が <code>(400, 400)</code> です。</p>
           <p><strong>そのまま描く</strong>：<code>circle(200, 200, 100)</code> などを並べると、その順に1回だけ描かれます。</p>
-          <p>書き方は <strong>p5.js のリファレンスと同じ</strong>です。<code>strokeWeight(4)</code> のような英語のつづりも、<code>stroke_weight(4)</code> のような Python らしいつづりも、どちらでも動きます。</p>
-          <p><strong>動かす</strong>：<code>setup()</code> と <code>draw()</code> を作ると <code>draw()</code> がくり返し呼ばれ、アニメーションになります。<code>frameCount</code> で今が何コマ目かが分かります。</p>
+          <p>書き方は <a href="https://p5js.org/reference/" target="_blank" rel="noopener"><strong>p5.js のリファレンス</strong></a>と同じです。<code>strokeWeight(4)</code> のような英語のつづりも、<code>stroke_weight(4)</code> のような Python らしいつづりも、どちらでも動きます。</p>
+          <p><strong>動かす</strong>：<code>setup()</code> と <code>draw()</code> の 2 つを作ると、アニメーションになります。</p>
+          <p><code>setup()</code> … はじめに <strong>1 回だけ</strong>動きます。<code>createCanvas(400, 400)</code> でキャンバスの大きさを決めるなど、最初の準備を書きます。</p>
+          <p><code>draw()</code> … そのあと <strong>1 秒に約 60 回、くり返し</strong>動きます。パラパラまんがの 1 コマを描く場所です。<code>background(220)</code> で毎回塗りなおしてから描くと、絵が動いて見えます。<code>frameCount</code> で今が何コマ目かが分かります。</p>
         </div>
       </details>
 
