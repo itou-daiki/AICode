@@ -466,6 +466,9 @@ export function createWorkbench(options) {
       syncedCode = code;
     } finally {
       syncing = false;
+      // 開いた直後に「元に戻す」を押すと、コードが空になってしまう。読みこみは履歴に残さない
+      editor.clearHistory();
+      workspace.clearUndo();
     }
   }
 

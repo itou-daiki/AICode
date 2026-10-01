@@ -320,6 +320,8 @@ function openProblem(ref) {
   const source = draft !== null ? draft
     : (problem.type === 'code' ? (problem.template || '') : (problem.program || ''));
   editorPy.setValue(source);
+  // 別の問題を開いたら、前の問題のコードには「元に戻す」で戻らないようにする
+  editorPy.clearHistory();
 
   // 共通テスト対策は、試験と同じ見た目（表記）から見せる
   tabs.select(problem.view === 'ktph' ? 'ktph' : 'python');
@@ -1026,6 +1028,8 @@ function openMockProblem() {
   exitStepMode();
 
   editorPy.setValue(current.type === 'code' ? (current.template || '') : (current.program || ''));
+  // 別の問題を開いたら、前の問題のコードには「元に戻す」で戻らないようにする
+  editorPy.clearHistory();
   tabs.select(current.view === 'ktph' ? 'ktph' : 'python');
   renderProblem(current);
   syncViews();
@@ -1207,6 +1211,8 @@ async function enterFreeCoding() {
   };
   answered = true;
   editorPy.setValue('# 好きなように書いてみましょう\nprint("こんにちは")\n');
+  // 別の問題を開いたら、前の問題のコードには「元に戻す」で戻らないようにする
+  editorPy.clearHistory();
   tabs.select('python');
   renderProblem(current);
   // URL に前の問題が残っていると、読み直したときに戻ってしまう
@@ -1291,6 +1297,16 @@ async function init() {
     $('next-problem').addEventListener('click', () => move(1));
     $('free-coding').addEventListener('click', enterFreeCoding);
     $('output-clear').addEventListener('click', () => { $('output').textContent = ''; });
+    // コードの「元に戻す」「やり直す」。ブロックの側には、もとからボタンがある
+    const historyButton = (id, redo) => $(id).addEventListener('click', () => {
+      const editor = editorPy;
+      const left = editor.historySize()[redo ? 'redo' : 'undo'];
+      if (!left) { toast(redo ? 'やり直せる変更はありません' : '戻せる変更はありません'); return; }
+      if (redo) editor.redo(); else editor.undo();
+      editor.focus();
+    });
+    historyButton('code-undo', false);
+    historyButton('code-redo', true);
     $('code-indent').addEventListener('click', () => { applyTransform(autoIndent); toast('字下げをそろえました'); });
     $('code-format').addEventListener('click', () => { applyTransform(formatCode); toast('コードを整えました'); });
 

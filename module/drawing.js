@@ -621,6 +621,16 @@ function setupControls() {
     toast('画像を保存しました');
   });
 
+  // コードの「元に戻す」「やり直す」。ブロックの側には、もとからボタンがある
+  const historyButton = (id, redo) => $(id).addEventListener('click', () => {
+    const editor = bench.editor;
+    const left = editor.historySize()[redo ? 'redo' : 'undo'];
+    if (!left) { toast(redo ? 'やり直せる変更はありません' : '戻せる変更はありません'); return; }
+    if (redo) editor.redo(); else editor.undo();
+    editor.focus();
+  });
+  historyButton('code-undo', false);
+  historyButton('code-redo', true);
   $('code-indent').addEventListener('click', () => {
     toast(bench.autoIndent() ? '字下げをそろえました' : 'すでに字下げは整っています');
   });
