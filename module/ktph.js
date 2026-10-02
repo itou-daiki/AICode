@@ -15,7 +15,7 @@
 //   x を 0 から 9 まで 1 ずつ増やしながら繰り返す:  ← for x in range(0, 10):  （終了値を含む）
 //   n < 10 の間繰り返す:    ← while n < 10:
 //   要素数(Data) 整数(x) 乱数()  ÷（整数商）  Data[2,4]（2 次元）  配列名は先頭大文字
-//   ブロックは │ と └ で範囲を表し、└ は制御文の終わり
+//   ブロックは ｜ と ⎿ で範囲を表し、⎿ は制御文の終わり
 
 /** 表記のハイライト用（ktph-mode.js が使う） */
 export const KTPH_KEYWORDS = {
@@ -60,7 +60,7 @@ const NOT_IN_KTPH = '共通テスト用の表記には無い書き方です。�
  * Python のコードを共通テスト用プログラム表記に言いかえる
  * @param {string} python
  * @param {object} [options]
- * @param {boolean} [options.markers] ブロックの範囲を │ └ で示す（既定 true）
+ * @param {boolean} [options.markers] ブロックの範囲を ｜ ⎿ で示す（既定 true）
  * @param {boolean} [options.sketch] スケッチ（p5.js）の命令も日本語にする（既定 false）
  * @returns {{ text: string, warnings: {line: number, message: string}[] }}
  */
@@ -85,6 +85,15 @@ export function toKtph(python, options = {}) {
   });
 
   return { text: out.join('\n'), warnings };
+}
+
+/**
+ * 穴埋めの選択肢のような、式や文の切れはしを表記にする（ブロックの印は付けない）
+ * @param {string} fragment 例 'otsuri // Kingaku[i]'
+ * @returns {string} 例 'otsuri ÷ Kingaku[i]'
+ */
+export function toKtphFragment(fragment) {
+  return toKtph(String(fragment ?? ''), { markers: false }).text.trim();
 }
 
 /* ============================================================
@@ -151,7 +160,7 @@ function unmask(body, strings) {
 }
 
 /* ============================================================
- * 字下げの段と、│ └ の付けかた
+ * 字下げの段と、｜ ⎿ の付けかた
  * ========================================================== */
 
 /** 各行が何段目にあるか（2 スペースでも 4 スペースでも段として数える） */
@@ -167,8 +176,8 @@ function computeLevels(parsed) {
 
 /**
  * 公式資料と同じ付けかた:
- *   │ … その段の制御文がまだ続く
- *   └ … その段の制御文がここで終わる（次の行が elif / else なら、まだ続いているので │）
+ *   ｜ … その段の制御文がまだ続く
+ *   ⎿ … その段の制御文がここで終わる（次の行が elif / else なら、まだ続いているので ｜）
  */
 function markerPrefix(parsed, levels, index) {
   const level = levels[index];
@@ -182,7 +191,8 @@ function markerPrefix(parsed, levels, index) {
   let prefix = '';
   for (let depth = 1; depth <= level; depth++) {
     const closes = nextLevel < depth && !(nextIsBranch && nextLevel === depth - 1);
-    prefix += closes ? '└ ' : '│ ';
+    // 大学入試センターの例示と同じ記号（全角の縦線 ｜ と、終わりの ⎿）
+    prefix += closes ? '⎿ ' : '｜ ';
   }
   return prefix;
 }
@@ -248,6 +258,12 @@ function convertBody(part, arrays, sketch = false) {
     body = `${target} = ${target} ${op} ${single || safeForPlus ? rest : `(${rest})`}`;
   }
 
+  // 例示には無いが、模試で使われている書き方
+  //   繰り返しを抜ける … 東京法令 模擬問題 第1回（Life is Tech は「繰り返しを終了する」）
+  //   ずっと繰り返す   … Life is Tech 2024年度 第2回
+  if (body === 'break') return { converted: '繰り返しを抜ける', warning };
+  if (/^while\s+True\s*:$/.test(body)) return { converted: 'ずっと繰り返す:', warning };
+
   // 表記に無い書き方は、そのまま残して知らせる
   if (/^(def|return|import|from|class|try|except|finally|with|lambda|global|nonlocal|pass|break|continue)\b/.test(body)
       || /^for\s+.+\s+in\s+(?!range\()/.test(body)) {
@@ -264,6 +280,21 @@ function convertBody(part, arrays, sketch = false) {
 
   body = replaceExpressions(body);
 
+  // Tokuten = [0] * 5 は、模試と同じく値を並べた形にする（数が多いときはそのまま）
+  body = body.replace(/^([A-Za-z_]\w*)\s*=\s*\[([^\[\],]+)\]\s*\*\s*(\d+)$/, (whole, name, item, count) =>
+    (Number(count) <= 20 ? `${name} = [${Array(Number(count)).fill(item.trim()).join(',')}]` : whole));
+
+  // print(…, end="") は「改行なしで表示する」、print() は「改行する」（Pスタディ演習問題の書き方。
+  // 進研模試は書き方を変えず「改行されないものとする」と注記する）
+  body = body.replace(new RegExp(`^表示する\\((.*?)\\s*,\\s*end\\s*=\\s*${MASK_OPEN}(\\d+)${MASK_CLOSE}\\s*\\)$`), (whole, inner, mask) => {
+    const raw = part.strings[Number(mask)] || '';
+    return raw.length === 2 ? `改行なしで表示する(${inner})` : whole;
+  });
+  if (body === '表示する()') body = '改行する';
+
+  // Data.append(x) は「Data に追加(x)」（Life is Tech 2024年度 第3回の書き方）
+  body = body.replace(/^([A-Za-z_]\w*)\.append\((.*)\)$/, '$1 に追加($2)');
+
   // 制御構文
   let m;
   if ((m = /^if\s+(.+?)\s*:$/.exec(body))) body = `もし ${m[1]} ならば:`;
@@ -279,6 +310,8 @@ function convertBody(part, arrays, sketch = false) {
 /** 関数名と演算子の言いかえ（文字列は退避済みなので安全） */
 function replaceExpressions(body) {
   let result = body
+    // random.randint(1, 6) は、例示の「整数(乱数()*6)+1」の形にする
+    .replace(/\b(?:random\.)?randint\(\s*([^,()]+?)\s*,\s*([^,()]+?)\s*\)/g, (_, a, b) => randintToKtph(a, b))
     .replace(/\brandom\.random\(\)/g, '乱数()')
     .replace(/\brandom\(\)/g, '乱数()')
     .replace(/\blen\(/g, '要素数(')
@@ -286,7 +319,9 @@ function replaceExpressions(body) {
     .replace(/\bfloat\(/g, '実数(')
     .replace(/\bstr\(/g, '文字列(')
     .replace(/\bprint\(/g, '表示する(')
-    .replace(/\/\//g, '÷');
+    .replace(/\/\//g, '÷')
+    // 余りは、例示どおり全角の ％ で書く
+    .replace(/%/g, '％');
 
   // Data[i][j] → Data[i,j]
   let previous;
@@ -328,6 +363,17 @@ function replaceSketch(body) {
 /** strokeWeight → stroke_weight */
 function toSnake(name) {
   return name.replace(/([a-z0-9])([A-Z])/g, '$1_$2').toLowerCase();
+}
+
+/** randint(a, b)（a 以上 b 以下の整数）を、整数(乱数()*個数)+a にする */
+function randintToKtph(a, b) {
+  const lo = a.trim();
+  const hi = b.trim();
+  const count = /^-?\d+$/.test(lo) && /^-?\d+$/.test(hi) ? String(Number(hi) - Number(lo) + 1)
+    : lo === '1' ? (/^\w+$/.test(hi) ? hi : `(${hi})`)
+      : lo === '0' ? `(${hi}+1)` : `(${hi}-${lo}+1)`;
+  const offset = lo === '0' ? '' : /^-/.test(lo) ? `-${lo.slice(1)}` : `+${lo}`;
+  return `整数(乱数()*${count})${offset}`;
 }
 
 /** for v in range(...) → v を A から B まで C ずつ増やしながら繰り返す: */

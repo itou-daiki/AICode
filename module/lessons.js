@@ -13,7 +13,7 @@ import { CodeCompletionEngine } from './completion.js';
 import { autoIndent, formatCode } from './pyformat.js';
 import { initSidebar, initTabs, initMaximize, toast, confirmDialog, debounce, showFix } from './ui.js';
 import { PYODIDE_CONFIG, EDITOR_CONFIG } from './config.js';
-import { toKtph } from './ktph.js';
+import { toKtph, toKtphFragment } from './ktph.js';
 import { defineKtphMode } from './ktph-mode.js';
 import { renderFlowchart, fitFlowchart, highlightFlowLine } from './flowview.js';
 import { explainError, suggestFix } from './pyrun.js';
@@ -525,7 +525,8 @@ function renderAnswerArea(problem) {
       blank.choices.forEach((choice, index) => {
         const option = document.createElement('option');
         option.value = String(index);
-        option.textContent = choice;
+        // 共通テスト対策では、プログラムと同じ表記で選択肢を見せる（// ではなく ÷ など）
+        option.textContent = problem.courseId === 'kyotsu' ? toKtphFragment(choice) : choice;
         select.appendChild(option);
       });
       select.addEventListener('change', () => {

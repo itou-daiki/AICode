@@ -709,7 +709,7 @@ section('ktph（共通テスト用プログラム表記）');
     ['整数と入力', 'atai = int(input())', 'atai = 【外部からの入力】'],
     ['入力だけ', 'namae = input()', 'namae = 【外部からの入力】'],
     ['整数の商', 'aida = (a + b) // 2', 'aida = (a + b) ÷ 2'],
-    ['あまり', 'amari = n % 3', 'amari = n % 3'],
+    ['あまり（例示どおり全角の ％）', 'amari = n % 3', 'amari = n ％ 3'],
     ['べき乗', 'x = 2 ** 10', 'x = 2 ** 10'],
     ['複数の文', 'x = 1; y = 2', 'x = 1 , y = 2'],
     ['乱数', 'atai = random.random()', 'atai = 乱数()'],
@@ -720,14 +720,14 @@ section('ktph（共通テスト用プログラム表記）');
   }
 
   // 制御構文（中身がある形で確かめる）
-  equal('ktph: もし〜ならば', ktph('if x < 3:\n    x = x + 1'), 'もし x < 3 ならば:\n└ x = x + 1');
+  equal('ktph: もし〜ならば', ktph('if x < 3:\n    x = x + 1'), 'もし x < 3 ならば:\n⎿ x = x + 1');
   equal('ktph: そうでなければ',
     ktph('if x < 3:\n    x = 1\nelse:\n    x = 2'),
-    'もし x < 3 ならば:\n│ x = 1\nそうでなければ:\n└ x = 2');
+    'もし x < 3 ならば:\n｜ x = 1\nそうでなければ:\n⎿ x = 2');
   equal('ktph: そうでなくもし',
     ktph('if x < 3:\n    x = 1\nelif x < 5:\n    x = 2\nelse:\n    x = 3'),
-    'もし x < 3 ならば:\n│ x = 1\nそうでなくもし x < 5 ならば:\n│ x = 2\nそうでなければ:\n└ x = 3');
-  equal('ktph: の間繰り返す', ktph('while n < 10:\n    n = n + 1'), 'n < 10 の間繰り返す:\n└ n = n + 1');
+    'もし x < 3 ならば:\n｜ x = 1\nそうでなくもし x < 5 ならば:\n｜ x = 2\nそうでなければ:\n⎿ x = 3');
+  equal('ktph: の間繰り返す', ktph('while n < 10:\n    n = n + 1'), 'n < 10 の間繰り返す:\n⎿ n = n + 1');
 
   // 繰り返しの終了値は「含む」形に直す
   const forCases = [
@@ -757,7 +757,7 @@ section('ktph（共通テスト用プログラム表記）');
 
   // 穴埋めのしるしは壊さない
   equal('ktph: 【ア】は壊れない', ktph('if Data[【ア】] == atai:\n    owari = 1'),
-    'もし Data[【ア】] == atai ならば:\n└ owari = 1');
+    'もし Data[【ア】] == atai ならば:\n⎿ owari = 1');
 
   // 表記に無い書き方は、そのまま残して知らせる
   {
@@ -815,23 +815,40 @@ section('ktph（共通テスト用プログラム表記）');
       'hidari = 0 , migi = kazu - 1',
       'owari = 0',
       'hidari <= migi and owari == 0 の間繰り返す:',
-      '│ aida = (hidari + migi) ÷ 2',
-      '│ もし Data[aida] == atai ならば:',
-      '│ │ 表示する(atai, "は", aida, "番目にありました")',
-      '│ │ owari = 1',
-      '│ そうでなくもし Data[aida] < atai ならば:',
-      '│ │ hidari = aida + 1',
-      '│ そうでなければ:',
-      '└ └ migi = aida - 1',
+      '｜ aida = (hidari + migi) ÷ 2',
+      '｜ もし Data[aida] == atai ならば:',
+      '｜ ｜ 表示する(atai, "は", aida, "番目にありました")',
+      '｜ ｜ owari = 1',
+      '｜ そうでなくもし Data[aida] < atai ならば:',
+      '｜ ｜ hidari = aida + 1',
+      '｜ そうでなければ:',
+      '⎿ ⎿ migi = aida - 1',
     ].join('\n');
     equal('ktph: 二分探索まるごと', toKtph(python).text, want);
   }
+
+  // 大学入試センターの例示と同じ書き方
+  equal('ktph: さいころは 整数(乱数()*6)+1', ktph('saikoro = random.randint(1, 6)'), 'saikoro = 整数(乱数()*6)+1');
+  equal('ktph: 0 からの乱数', ktph('x = random.randint(0, 9)'), 'x = 整数(乱数()*10)');
+  equal('ktph: 変数の範囲の乱数', ktph('x = random.randint(1, n)'), 'x = 整数(乱数()*n)+1');
+  equal('ktph: 文字列の中の % は変えない', ktph('print("100%")'), '表示する("100%")');
+  equal('ktph: ブロックの印は ｜ と ⎿', ktph('while n < 3:\n    n = n + 1\n    print(n)'),
+    'n < 3 の間繰り返す:\n｜ n = n + 1\n⎿ 表示する(n)');
+
+  // 模試で使われている書き方
+  equal('ktph: while True は ずっと繰り返す', ktph('while True:\n    break'), 'ずっと繰り返す:\n⎿ 繰り返しを抜ける');
+  check('ktph: break に警告は出ない', toKtph('while True:\n    break').warnings.length === 0);
+  equal('ktph: end="" は 改行なしで表示する', ktph('print("*", end="")'), '改行なしで表示する("*")');
+  equal('ktph: print() は 改行する', ktph('print()'), '改行する');
+  equal('ktph: append は 追加', ktph('kekka = []\nkekka.append(3)'), 'Kekka = []\nKekka に追加(3)');
+  equal('ktph: [0] * 5 は値を並べる', ktph('Tokuten = [0] * 5'), 'Tokuten = [0,0,0,0,0]');
+  equal('ktph: 数が多いときは並べない', ktph('T = [0] * 100'), 'T = [0] * 100');
 
   // x += 1 は表記に無いので、x = x + 1 にする
   equal('ktph: += は x = x + 1', ktph('x += 1'), 'x = x + 1');
   // 右がかたまりでなければ、かっこでくくる（x / a * b は (x / a) * b になってしまう）
   equal('ktph: /= はかっこでくくる', ktph('x /= a * b'), 'x = x / (a * b)');
-  equal('ktph: %= はかっこでくくる', ktph('x %= a * b'), 'x = x % (a * b)');
+  equal('ktph: %= はかっこでくくる', ktph('x %= a * b'), 'x = x ％ (a * b)');
   equal('ktph: //= もかっこでくくる', ktph('x //= a * b'), 'x = x ÷ (a * b)');
   equal('ktph: += でも if があればくくる', ktph('x += a if c else b'), 'x = x + (a if c else b)');
   equal('ktph: 呼び出し 1 つならくくらない', ktph('x *= f(a - 1)'), 'x = x * f(a - 1)');
@@ -861,21 +878,21 @@ section('ktph（共通テスト用プログラム表記）');
     const want = [
       'x = 0',
       '関数 setup():  # 最初に 1 回だけ動く',
-      '└ キャンバスを作る(400, 400)',
+      '⎿ キャンバスを作る(400, 400)',
       '関数 draw():  # くり返し動く',
-      '│ 外の変数 x を使う',
-      '│ 背景色を決める(220)',
-      '│ 円を描く(x, 200, 50)',
-      '│ 線の太さを決める(4)',
-      '└ a = 乱数(0, 400)',
+      '｜ 外の変数 x を使う',
+      '｜ 背景色を決める(220)',
+      '｜ 円を描く(x, 200, 50)',
+      '｜ 線の太さを決める(4)',
+      '⎿ a = 乱数(0, 400)',
     ].join('\n');
     const result = sketch(program);
     equal('ktph スケッチ: まるごと', result.text, want);
     check('ktph スケッチ: setup / draw / global に警告は出ない', result.warnings.length === 0,
       `\n  実際: ${JSON.stringify(result.warnings)}`);
     equal('ktph スケッチ: 関数の引数のはじめの値', sketch("def greet(name='Bob'):\n    return name").text,
-      '関数 greet(name="Bob"):\n└ name を返す');
-    equal('ktph スケッチ: return [ も「を返す」', sketch('def f():\n    return [1]').text, '関数 f():\n└ [1] を返す');
+      '関数 greet(name="Bob"):\n⎿ name を返す');
+    equal('ktph スケッチ: return [ も「を返す」', sketch('def f():\n    return [1]').text, '関数 f():\n⎿ [1] を返す');
     equal('ktph スケッチ: 名前の一部は変えない', sketch('textured = 1\nmyline(1)').text, 'textured = 1\nmyline(1)');
     equal('ktph スケッチ: ふだんは描く命令を変えない', toKtph('circle(1, 2, 3)').text, 'circle(1, 2, 3)');
   }
@@ -1060,7 +1077,7 @@ section('レッスン（答え合わせとデータ）');
     const filled = fillBlanks('if Data[【ア】] == atai:\n    owari = 1',
       [{ key: 'ア', choices: ['naka'], answer: 0 }], { ア: 0 });
     equal('穴埋め: 埋めたあと表記にできる',
-      toKtph(filled).text, 'もし Data[naka] == atai ならば:\n└ owari = 1');
+      toKtph(filled).text, 'もし Data[naka] == atai ならば:\n⎿ owari = 1');
   }
 }
 

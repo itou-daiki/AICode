@@ -1,11 +1,107 @@
 {
   "id": "kyotsu",
-  "note": "共通テスト用プログラム表記のきまり：配列の添字は 0 から始まり、配列名は先頭が大文字です。繰り返しの「〜まで」は、その値を含みます。表示する() はカンマで区切ると、間に空白が入ります。",
+  "note": "共通テスト用プログラム表記のきまり（大学入試センターの例示）：配列の添字は 0 から始まり、配列名は先頭が大文字です。繰り返しの「〜まで」は、その値を含みます。｜ と ⎿ はブロックの範囲で、⎿ はその制御文の終わりです。整数の商は ÷、余りは ％ で書きます。表示する() はカンマで区切ると、間に空白が入ります。模試や本番では「添字は 1 から」のように書き方が変わることがあるので、問題文の説明を先に読みましょう。",
   "lessons": [
     {
-      "id": "basic-loop",
-      "title": "1. 基本と繰り返し",
+      "id": "read",
+      "title": "1. 表記を読む",
       "problems": [
+        {
+          "id": "assign-overwrite",
+          "type": "trace",
+          "title": "代入は上書き",
+          "difficulty": 1,
+          "description": "変数 `a` と `b` の値を入れかえるつもりで書いたプログラムです。\n\nこのプログラムを実行すると、何が表示されるでしょうか。",
+          "program": "a = 3\nb = 5\na = b\nb = a\nprint(a, b)\n",
+          "question": "表示される 2 つの値を、空白で区切って答えなさい。",
+          "check": {
+            "kind": "output"
+          },
+          "answer": "5 5",
+          "explanation": "3 行目の `a = b` で、`a` に 5 が入ります。このとき、もとの 3 は消えます。4 行目の `b = a` は、`b` に今の `a`（5）を入れるだけです。入れかえるには、片方の値を別の変数に取っておく必要があります（「入れかえと整列」の段階で使います）。",
+          "hint": [
+            "1 行ずつ、`a` と `b` に入っている値を書き出してみましょう。",
+            "3 行目を実行したあと、`a` に入っているのは 3 と 5 のどちらでしょうか。"
+          ]
+        },
+        {
+          "id": "quot-rem",
+          "type": "trace",
+          "title": "商と余り（÷ と ％）",
+          "difficulty": 1,
+          "description": "135 分が何時間何分かを求めるプログラムです。表記では、整数の商を `÷`、余りを `％` で書きます。\n\nこのプログラムを実行すると、何が表示されるでしょうか。",
+          "program": "jikan = 135\nji = jikan // 60\nfun = jikan % 60\nprint(ji, fun)\n",
+          "question": "表示される 2 つの値を、空白で区切って答えなさい。",
+          "check": {
+            "kind": "output"
+          },
+          "answer": "2 15",
+          "explanation": "135 ÷ 60 の商は 2、余りは 135 − 60 × 2 = 15 です。`/` で割ると 2.25 という小数になるので、時間と分に分けるときは `÷` と `％` を使います。",
+          "hint": [
+            "60 分で 1 時間です。135 分の中に 60 分はいくつ入るでしょうか。",
+            "残った分が余り（％）です。"
+          ]
+        },
+        {
+          "id": "index-last",
+          "type": "trace",
+          "title": "添字は 0 から",
+          "difficulty": 1,
+          "description": "配列 `Data` には 4 つの値が入っています。添字は 0 から始まります。\n\nこのプログラムを実行すると、何が表示されるでしょうか。",
+          "program": "Data = [8, 3, 9, 4]\nkazu = len(Data)\nprint(Data[kazu - 1], Data[0] + Data[2])\n",
+          "question": "表示される 2 つの値を、空白で区切って答えなさい。",
+          "check": {
+            "kind": "output"
+          },
+          "answer": "4 17",
+          "explanation": "要素数は 4 なので、最後の要素は `Data[3]`（添字 = 要素数 − 1）で 4 です。`Data[0]` は先頭の 8、`Data[2]` は 3 番目の 9 なので、足すと 17 です。",
+          "hint": [
+            "添字と値の表を書いてみましょう。添字 0 の値は 8 です。",
+            "要素数が 4 のとき、最後の添字は 4 ではありません。"
+          ]
+        },
+        {
+          "id": "branch-order",
+          "type": "trace",
+          "title": "条件を調べる順番",
+          "difficulty": 2,
+          "description": "点数から評価を決めるプログラムです。80 点以上を A、70 点以上を B、60 点以上を C、それより下を D にするつもりでした。\n\nこのプログラムを実行すると、何が表示されるでしょうか。",
+          "program": "tokuten = 85\nif tokuten >= 60:\n    print(\"C\")\nelif tokuten >= 70:\n    print(\"B\")\nelif tokuten >= 80:\n    print(\"A\")\nelse:\n    print(\"D\")\n",
+          "question": "表示される文字を答えなさい。",
+          "check": {
+            "kind": "output"
+          },
+          "answer": "C",
+          "explanation": "「もし … ならば」「そうでなくもし … ならば」は上から順に調べ、最初に当てはまったところだけを実行します。85 は最初の `tokuten >= 60` に当てはまるので、C が表示されて終わります。ねらいどおりにするには、80 以上 → 70 以上 → 60 以上 の順に、厳しい条件から調べます。",
+          "hint": [
+            "85 は、いちばん上の条件 `tokuten >= 60` に当てはまるでしょうか。",
+            "当てはまる条件が見つかったら、その下の「そうでなくもし」は調べません。"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "basic-loop",
+      "title": "2. 繰り返しの型",
+      "problems": [
+        {
+          "id": "loop-count",
+          "type": "trace",
+          "title": "何回繰り返す？",
+          "difficulty": 1,
+          "description": "繰り返しの「〜から〜まで」は、終わりの値を含みます。\n\nこのプログラムを実行すると、何が表示されるでしょうか。",
+          "program": "kaisu = 0\nsaigo = 0\nfor i in range(2, 12, 3):\n    kaisu = kaisu + 1\n    saigo = i\nprint(kaisu, saigo)\n",
+          "question": "表示される 2 つの値を、空白で区切って答えなさい。",
+          "check": {
+            "kind": "output"
+          },
+          "answer": "4 11",
+          "explanation": "`i` は 2, 5, 8, 11 と 3 ずつ増えます。14 は 11 を超えるので、繰り返しの中では使われません。4 回繰り返し、最後に `saigo` に入った値は 11 です。",
+          "hint": [
+            "`i` がとる値を、2 から順に書き出してみましょう。",
+            "「11 まで」なので、11 は含みます。14 は含みません。"
+          ]
+        },
         {
           "id": "sum-avg",
           "type": "trace",
@@ -18,12 +114,81 @@
             "kind": "output"
           },
           "answer": "400 80.0",
-          "explanation": "合計は 60+75+80+95+90 = 400、平均は 400 ÷ 5 = 80.0 です。`/` で割ると小数になるので `80.0` と表示されます。",
+          "explanation": "合計は 60+75+80+95+90 = 400、平均は 400 / 5 = 80.0 です。`/` は小数まで計算する割り算なので `80.0` と表示されます（`÷` なら 80）。",
           "hint": [
             "まず 5 つの点数を足します。そのあと人数で割ります。",
             "`/` で割ると小数になります。整数では出ません。"
           ]
         },
+        {
+          "id": "count-cond",
+          "type": "trace",
+          "title": "条件に合う数を数える",
+          "difficulty": 2,
+          "description": "配列の中で、60 以上のものが何個あるかを数えます。",
+          "program": "Tokuten = [45, 72, 60, 38, 91, 59, 88]\nkosu = 0\nfor i in range(0, len(Tokuten)):\n    if Tokuten[i] >= 60:\n        kosu = kosu + 1\nprint(kosu)\n",
+          "question": "表示される値を答えなさい。",
+          "check": {
+            "kind": "output"
+          },
+          "answer": "4",
+          "explanation": "72, 60, 91, 88 の 4 つが 60 以上です。60 ちょうども「以上」に入ります。",
+          "hint": [
+            "`>=` は「以上」です。",
+            "60 ちょうどは数に入るでしょうか。"
+          ]
+        },
+        {
+          "id": "fizzbuzz",
+          "type": "trace",
+          "title": "3 と 5 の倍数",
+          "difficulty": 2,
+          "description": "1 から 15 までについて、3 の倍数なら `Fizz`、5 の倍数なら `Buzz`、両方なら `FizzBuzz`、それ以外は数をそのまま表示します。\n\n最後の行には何が表示されるでしょうか。",
+          "program": "for i in range(1, 16):\n    if i % 15 == 0:\n        print(\"FizzBuzz\")\n    elif i % 3 == 0:\n        print(\"Fizz\")\n    elif i % 5 == 0:\n        print(\"Buzz\")\n    else:\n        print(i)\n",
+          "question": "最後の行に表示されるものを答えなさい。",
+          "check": {
+            "kind": "lastLine"
+          },
+          "answer": "FizzBuzz",
+          "explanation": "15 は 3 でも 5 でも割り切れるので `FizzBuzz` です。上から順に調べるので、15 の判定をいちばん上に書く必要があります。",
+          "hint": [
+            "最後は i が 15 のときです。15 は 3 でも 5 でも割り切れます。",
+            "上から順に調べるので、いちばん厳しい条件がどこにあるかを見ます。"
+          ]
+        },
+        {
+          "id": "sentinel-input",
+          "type": "blank",
+          "title": "−1 が来るまで足す",
+          "difficulty": 2,
+          "description": "入力された数を足していき、−1 が入力されたら合計を表示するプログラムです。−1 は「ここで終わり」の合図で、合計には入れません。\n\n`【外部からの入力】` は、実行されるたびに値を 1 つ受け取ります。入力は 30, 45, 25, −1 の順です。【ア】に入るものを選びましょう。",
+          "program": "goukei = 0\natai = int(input())\nwhile 【ア】:\n    goukei = goukei + atai\n    atai = int(input())\nprint(goukei)\n",
+          "input": "30\n45\n25\n-1\n",
+          "blanks": [
+            {
+              "key": "ア",
+              "choices": [
+                "atai != -1",
+                "atai == -1",
+                "goukei != -1",
+                "atai >= -1"
+              ],
+              "answer": 0
+            }
+          ],
+          "expectedOutput": "100",
+          "explanation": "−1 でない間だけ足して、次の値を入力します。−1 が入力された時点で条件が成り立たなくなり、繰り返しを出て合計 100 を表示します。`atai >= -1` にすると −1 のときも足してしまい、さらに次の入力を待ち続けます。",
+          "hint": [
+            "繰り返しを続けたいのは、どんな値が入力されている間でしょうか。",
+            "−1 が入力されたら、繰り返しを終わりにしたいのです。"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "array",
+      "title": "3. 配列を使う型",
+      "problems": [
         {
           "id": "max-value",
           "type": "blank",
@@ -51,64 +216,116 @@
           ]
         },
         {
-          "id": "fizzbuzz",
-          "type": "trace",
-          "title": "3 と 5 の倍数",
-          "difficulty": 2,
-          "description": "1 から 15 までについて、3 の倍数なら `Fizz`、5 の倍数なら `Buzz`、両方なら `FizzBuzz`、それ以外は数をそのまま表示します。\n\n最後の行には何が表示されるでしょうか。",
-          "program": "for i in range(1, 16):\n    if i % 15 == 0:\n        print(\"FizzBuzz\")\n    elif i % 3 == 0:\n        print(\"Fizz\")\n    elif i % 5 == 0:\n        print(\"Buzz\")\n    else:\n        print(i)\n",
-          "question": "最後の行に表示されるものを答えなさい。",
-          "check": {
-            "kind": "lastLine"
-          },
-          "answer": "FizzBuzz",
-          "explanation": "15 は 3 でも 5 でも割り切れるので `FizzBuzz` です。上から順に調べるので、15 の判定をいちばん上に書く必要があります。",
+          "id": "max-position",
+          "type": "blank",
+          "title": "いちばん大きい値の場所",
+          "difficulty": 3,
+          "description": "配列 `Tokuten` の中で、いちばん高い点数がある場所（添字）を探します。同じ点数が 2 つ以上あるときは、後ろのほうの場所を答えにします。\n\n【ア】に入るものを選びましょう。",
+          "program": "Tokuten = [72, 90, 65, 90, 81]\nbasho = 0\nfor i in range(1, len(Tokuten)):\n    if 【ア】:\n        basho = i\nprint(basho, Tokuten[basho])\n",
+          "blanks": [
+            {
+              "key": "ア",
+              "choices": [
+                "Tokuten[i] >= Tokuten[basho]",
+                "Tokuten[i] > Tokuten[basho]",
+                "Tokuten[i] >= basho",
+                "i > basho"
+              ],
+              "answer": 0
+            }
+          ],
+          "expectedOutput": "3 90",
+          "explanation": "今までの最大 `Tokuten[basho]` と同じ点数のときも場所を入れ直せば、後ろのほうが残ります。`>` だと同じ点数では入れ直さないので、先に見つけた添字 1 のままになります。比べるのは場所 `basho` ではなく、その場所の点数 `Tokuten[basho]` です。",
           "hint": [
-            "最後は i が 15 のときです。15 は 3 でも 5 でも割り切れます。",
-            "上から順に調べるので、いちばん厳しい条件がどこにあるかを見ます。"
+            "90 点が添字 1 と添字 3 の 2 か所にあります。添字 3 のとき、場所を入れ直すべきでしょうか。",
+            "`>` と `>=` のちがいは、同じ値のときに成り立つかどうかです。"
           ]
         },
         {
-          "id": "digit-sum",
+          "id": "indirect-index",
           "type": "trace",
-          "title": "けたの数を足す",
+          "title": "配列の値を添字に使う",
           "difficulty": 3,
-          "description": "3 けたの数の、各けたの数を足すプログラムです。\n\n`//` は商、`%` はあまりです。共通テストの表記では `//` を `÷` と書きます。",
-          "program": "kazu = 472\ngoukei = 0\nwhile kazu > 0:\n    goukei = goukei + kazu % 10\n    kazu = kazu // 10\nprint(goukei)\n",
+          "description": "5 回の試合の順位が配列 `Juni` に入っています（0 が 1 位、1 が 2 位、…）。順位ごとにもらえる点数は配列 `Ten` に入っています。\n\nこのプログラムを実行すると、何が表示されるでしょうか。",
+          "program": "Ten = [10, 6, 3, 0]\nJuni = [2, 0, 3, 0, 1]\ngoukei = 0\nfor i in range(0, len(Juni)):\n    goukei = goukei + Ten[Juni[i]]\nprint(goukei)\n",
           "question": "表示される値を答えなさい。",
           "check": {
             "kind": "output"
           },
-          "answer": "13",
-          "explanation": "4 + 7 + 2 = 13 です。`kazu % 10` で一の位を取り出し、`kazu // 10` で一の位を切り落とす、をくり返します。",
+          "answer": "29",
+          "explanation": "`Ten[Juni[i]]` は、まず `Juni[i]`（順位）を求め、その値を `Ten` の添字に使います。順位は 2, 0, 3, 0, 1 なので、点数は 3 + 10 + 0 + 10 + 6 = 29 です。`Ten[i]` と取りちがえないように注意します。",
           "hint": [
-            "`% 10` で一の位が取り出せます。`// 10` で一の位を切り落とせます。",
-            "472 → 47 → 4 → 0 と減っていきます。取り出した数を足していきます。"
+            "`i = 0` のとき、`Juni[0]` は 2 です。では `Ten[2]` はいくつでしょうか。",
+            "内側の `Juni[i]` から先に求めます。"
           ]
         },
         {
-          "id": "gcd",
+          "id": "freq-table",
           "type": "trace",
-          "title": "最大公約数",
+          "title": "度数分布をつくる",
           "difficulty": 3,
-          "description": "2 つの数の最大公約数を求めるプログラム（ユークリッドの互除法）です。\n\n大きい方を小さい方で割ったあまりに置きかえる、をくり返します。",
-          "program": "a = 48\nb = 18\nwhile b != 0:\n    amari = a % b\n    a = b\n    b = amari\nprint(a)\n",
-          "question": "表示される値を答えなさい。",
+          "description": "サイコロの出目を数える表 `Dosu` を作ります。`Dosu[0]` が 1 の目、`Dosu[5]` が 6 の目の回数です。\n\n最後に表示されるのは何でしょうか。",
+          "program": "Deme = [3, 1, 4, 1, 5, 3, 3, 2]\nDosu = [0, 0, 0, 0, 0, 0]\nfor i in range(0, len(Deme)):\n    Dosu[Deme[i] - 1] = Dosu[Deme[i] - 1] + 1\nprint(Dosu)\n",
+          "question": "表示される内容を、そのまま答えなさい。",
           "check": {
             "kind": "output"
           },
-          "answer": "6",
-          "explanation": "48 と 18 → 18 と 12 → 12 と 6 → 6 と 0 となり、b が 0 になったときの a が最大公約数です。",
+          "answer": "[2, 1, 3, 1, 1, 0]",
+          "explanation": "1 が 2 回、2 が 1 回、3 が 3 回、4 が 1 回、5 が 1 回、6 が 0 回です。目が 1 のとき添字は 0 なので `- 1` しています。",
           "hint": [
-            "a と b を「b と a%b」に置きかえ続けます。",
-            "48 と 18 から始めて、b が 0 になるまで紙に書き出してみましょう。"
+            "目が 1 のとき、どの添字に足すべきかを考えます。",
+            "添字は 0 から始まるので、目の数から 1 を引きます。"
+          ]
+        },
+        {
+          "id": "prefix-sum",
+          "type": "trace",
+          "title": "そこまでの合計",
+          "difficulty": 3,
+          "description": "先頭からその場所までの合計を、次々に配列へ入れていきます。",
+          "program": "Data = [5, 3, 8, 2]\nRuisekі = [0, 0, 0, 0]\nRuisekі[0] = Data[0]\nfor i in range(1, len(Data)):\n    Ruisekі[i] = Ruisekі[i - 1] + Data[i]\nprint(Ruisekі)\n",
+          "question": "表示される内容を、そのまま答えなさい。",
+          "check": {
+            "kind": "output"
+          },
+          "answer": "[5, 8, 16, 18]",
+          "explanation": "1 つ前までの合計に、今の値を足していきます。5、5+3=8、8+8=16、16+2=18 です。",
+          "hint": [
+            "1 つ前までの合計を使いまわします。",
+            "5、5+3、8+8、16+2 と順に計算してみましょう。"
+          ]
+        },
+        {
+          "id": "reverse-array",
+          "type": "blank",
+          "title": "配列を逆順に表示する",
+          "difficulty": 3,
+          "description": "配列を後ろから順に表示します。\n\n【ア】に入るものを選びましょう。",
+          "program": "Data = [10, 20, 30, 40, 50]\nkazu = len(Data)\nfor i in range(0, kazu):\n    print(Data[【ア】])\n",
+          "blanks": [
+            {
+              "key": "ア",
+              "choices": [
+                "kazu - 1 - i",
+                "kazu - i",
+                "i - kazu",
+                "kazu + i"
+              ],
+              "answer": 0
+            }
+          ],
+          "expectedOutput": "50\n40\n30\n20\n10",
+          "explanation": "i が 0 のとき最後の添字 `kazu - 1`、i が最後のとき 0 になってほしいので `kazu - 1 - i` です。`kazu - i` だと最初に範囲の外を見てしまいます。",
+          "hint": [
+            "i が 0 のとき、いちばん後ろを指してほしい式を選びます。",
+            "最後の添字は `kazu - 1` です。i が増えるほど、前に戻る式にします。"
           ]
         }
       ]
     },
     {
       "id": "search",
-      "title": "2. 探索",
+      "title": "4. 探索ととなりの要素",
       "problems": [
         {
           "id": "linear-search",
@@ -122,10 +339,28 @@
             "kind": "output"
           },
           "answer": "3",
-          "explanation": "8 は先頭から 4 番目ですが、添字は 0 から数えるので 3 です。",
+          "explanation": "8 は先頭から 4 つ目にありますが、添字は 0 から数えるので 3 です。",
           "hint": [
             "添字は 0 から数えます。",
-            "15 が 0 番目、3 が 1 番目…と数えると、8 は何番目でしょうか。"
+            "15 の添字が 0、3 の添字が 1…と数えると、8 の添字はいくつでしょうか。"
+          ]
+        },
+        {
+          "id": "adjacent-up",
+          "type": "trace",
+          "title": "となりと比べる",
+          "difficulty": 3,
+          "description": "6 日分の最高気温が配列 `Kion` に入っています。前の日より気温が上がった回数を数えます。\n\nこのプログラムを実行すると、何が表示されるでしょうか。",
+          "program": "Kion = [12, 15, 14, 18, 21, 19]\nkaisu = 0\nfor i in range(0, len(Kion) - 1):\n    if Kion[i] < Kion[i + 1]:\n        kaisu = kaisu + 1\nprint(kaisu)\n",
+          "question": "表示される値を答えなさい。",
+          "check": {
+            "kind": "output"
+          },
+          "answer": "3",
+          "explanation": "となり同士は 12→15（上がる）、15→14、14→18（上がる）、18→21（上がる）、21→19 の 5 組で、上がったのは 3 回です。`Kion[i + 1]` を使うので、`i` は 要素数 − 2 までで止めます。要素数 − 1 まで回すと、存在しない `Kion[6]` を読もうとしてエラーになります。",
+          "hint": [
+            "となり同士の組を、左から順に書き出してみましょう。",
+            "もし i を 5 まで回すと、`Kion[i + 1]` は `Kion[6]` になります。`Kion` の最後の添字はいくつでしょうか。"
           ]
         },
         {
@@ -133,7 +368,7 @@
           "type": "blank",
           "title": "二分探索",
           "difficulty": 4,
-          "description": "小さい順にならんだ配列から、目あての値を **半分ずつしぼって** さがします。\n\n`hidari` と `migi` ではさんだ範囲のまん中 `aida` を調べ、目あてより小さければ左半分を捨て、大きければ右半分を捨てます。\n\n【ア】【イ】に入るものを選びましょう。",
+          "description": "小さい順にならんだ配列から、目あての値を **半分ずつしぼって** さがします。\n\n`hidari` と `migi` ではさんだ範囲のまん中 `aida` を調べ、目あてより小さければ左半分を捨て、大きければ右半分を捨てます。\n\n繰り返しの条件の `and` は「かつ」で、両方が成り立つ間だけ繰り返します。\n\n【ア】【イ】に入るものを選びましょう。",
           "program": "Data = [3, 18, 29, 33, 48, 52, 62, 77, 89, 97]\natai = 29\nhidari = 0\nmigi = len(Data) - 1\nowari = 0\nwhile hidari <= migi and owari == 0:\n    aida = (hidari + migi) // 2\n    if Data[aida] == atai:\n        print(aida)\n        owari = 1\n    elif Data[aida] < atai:\n        hidari = 【ア】\n    else:\n        migi = 【イ】\n",
           "blanks": [
             {
@@ -163,141 +398,119 @@
             "まん中を調べたあと、まん中そのものはもう調べ終わっています。",
             "次に調べる範囲は、まん中を含むべきでしょうか、含まないべきでしょうか。"
           ]
-        },
-        {
-          "id": "count-cond",
-          "type": "trace",
-          "title": "条件に合う数を数える",
-          "difficulty": 2,
-          "description": "配列の中で、60 以上のものが何個あるかを数えます。",
-          "program": "Tokuten = [45, 72, 60, 38, 91, 59, 88]\nkosu = 0\nfor i in range(0, len(Tokuten)):\n    if Tokuten[i] >= 60:\n        kosu = kosu + 1\nprint(kosu)\n",
-          "question": "表示される値を答えなさい。",
-          "check": {
-            "kind": "output"
-          },
-          "answer": "4",
-          "explanation": "72, 60, 91, 88 の 4 つが 60 以上です。60 ちょうども「以上」に入ります。",
-          "hint": [
-            "`>=` は「以上」です。",
-            "60 ちょうどは数に入るでしょうか。"
-          ]
         }
       ]
     },
     {
-      "id": "array",
-      "title": "3. 配列と表",
+      "id": "table",
+      "title": "5. 二重の繰り返しと表",
       "problems": [
-        {
-          "id": "freq-table",
-          "type": "trace",
-          "title": "度数分布をつくる",
-          "difficulty": 3,
-          "description": "サイコロの出目を数える表 `Dosu` を作ります。`Dosu[0]` が 1 の目、`Dosu[5]` が 6 の目の回数です。\n\n最後に表示されるのは何でしょうか。",
-          "program": "Deme = [3, 1, 4, 1, 5, 3, 3, 2]\nDosu = [0, 0, 0, 0, 0, 0]\nfor i in range(0, len(Deme)):\n    Dosu[Deme[i] - 1] = Dosu[Deme[i] - 1] + 1\nprint(Dosu)\n",
-          "question": "表示される内容を、そのまま答えなさい。",
-          "check": {
-            "kind": "output"
-          },
-          "answer": "[2, 1, 3, 1, 1, 0]",
-          "explanation": "1 が 2 回、2 が 1 回、3 が 3 回、4 が 1 回、5 が 1 回、6 が 0 回です。目が 1 のとき添字は 0 なので `- 1` しています。",
-          "hint": [
-            "目が 1 のとき、どの添字に足すべきかを考えます。",
-            "添字は 0 から始まるので、目の数から 1 を引きます。"
-          ]
-        },
-        {
-          "id": "matrix-row-sum",
-          "type": "trace",
-          "title": "表の行ごとの合計",
-          "difficulty": 3,
-          "description": "2 次元の配列（表）です。共通テストの表記では `Hyo[1,2]` のようにカンマで書きます。\n\n1 行目（添字 1）の合計を求めます。",
-          "program": "Hyo = [[10, 20, 30], [40, 50, 60], [70, 80, 90]]\ngoukei = 0\nfor j in range(0, 3):\n    goukei = goukei + Hyo[1][j]\nprint(goukei)\n",
-          "question": "表示される値を答えなさい。",
-          "check": {
-            "kind": "output"
-          },
-          "answer": "150",
-          "explanation": "添字 1 の行は [40, 50, 60] なので、40 + 50 + 60 = 150 です。添字は 0 から数えるので、1 は 2 行目にあたります。",
-          "hint": [
-            "`Hyo[1]` は、上から何番目の行でしょうか。",
-            "添字は 0 から数えるので、1 は 2 行目です。"
-          ]
-        },
         {
           "id": "multiplication",
           "type": "trace",
-          "title": "二重のくり返し",
+          "title": "二重の繰り返し",
           "difficulty": 3,
-          "description": "くり返しの中に、もう 1 つくり返しがあります。\n\n何回 `print` されるでしょうか。",
+          "description": "繰り返しの中に、もう 1 つ繰り返しがあります。\n\n`kaisu = kaisu + 1` は何回実行されるでしょうか。",
           "program": "kaisu = 0\nfor i in range(1, 4):\n    for j in range(1, 5):\n        kaisu = kaisu + 1\nprint(kaisu)\n",
           "question": "表示される値を答えなさい。",
           "check": {
             "kind": "output"
           },
           "answer": "12",
-          "explanation": "外側が 3 回（1, 2, 3）、内側が 4 回（1, 2, 3, 4）なので 3 × 4 = 12 回です。",
+          "explanation": "外側が 3 回（i = 1, 2, 3）、そのそれぞれで内側が 4 回（j = 1, 2, 3, 4）まわるので、3 × 4 = 12 回です。",
           "hint": [
             "外側が 1 回まわるあいだに、内側は何回まわるでしょうか。",
             "外側の回数 × 内側の回数 になります。"
           ]
         },
         {
-          "id": "reverse-array",
-          "type": "blank",
-          "title": "配列を逆順に表示する",
-          "difficulty": 3,
-          "description": "配列を後ろから順に表示します。\n\n【ア】に入るものを選びましょう。",
-          "program": "Data = [10, 20, 30, 40, 50]\nkazu = len(Data)\nfor i in range(0, kazu):\n    print(Data[【ア】])\n",
-          "blanks": [
-            {
-              "key": "ア",
-              "choices": [
-                "kazu - 1 - i",
-                "kazu - i",
-                "i - kazu",
-                "kazu + i"
-              ],
-              "answer": 0
-            }
-          ],
-          "expectedOutput": "50\n40\n30\n20\n10",
-          "explanation": "i が 0 のとき最後の添字 `kazu - 1`、i が最後のとき 0 になってほしいので `kazu - 1 - i` です。`kazu - i` だと最初に範囲の外を見てしまいます。",
-          "hint": [
-            "i が 0 のとき、いちばん後ろを指してほしい式を選びます。",
-            "最後の添字は `kazu - 1` です。i が増えるほど、前に戻る式にします。"
-          ]
-        },
-        {
-          "id": "prefix-sum",
+          "id": "matrix-row-sum",
           "type": "trace",
-          "title": "そこまでの合計",
+          "title": "表の 1 行分の合計",
           "difficulty": 3,
-          "description": "先頭からその場所までの合計を、次々に配列へ入れていきます。",
-          "program": "Data = [5, 3, 8, 2]\nRuisekі = [0, 0, 0, 0]\nRuisekі[0] = Data[0]\nfor i in range(1, len(Data)):\n    Ruisekі[i] = Ruisekі[i - 1] + Data[i]\nprint(Ruisekі)\n",
-          "question": "表示される内容を、そのまま答えなさい。",
+          "description": "二次元配列（表）です。表記では `Hyo[1,2]` のようにカンマで書きます。\n\n添字 1 の行（上から 2 行目）の合計を求めます。",
+          "program": "Hyo = [[10, 20, 30], [40, 50, 60], [70, 80, 90]]\ngoukei = 0\nfor j in range(0, 3):\n    goukei = goukei + Hyo[1][j]\nprint(goukei)\n",
+          "question": "表示される値を答えなさい。",
           "check": {
             "kind": "output"
           },
-          "answer": "[5, 8, 16, 18]",
-          "explanation": "1 つ前までの合計に、今の値を足していきます。5、5+3=8、8+8=16、16+2=18 です。",
+          "answer": "150",
+          "explanation": "添字 1 の行は [40, 50, 60] なので、40 + 50 + 60 = 150 です。",
           "hint": [
-            "1 つ前までの合計を使いまわします。",
-            "5、5+3、8+8、16+2 と順に計算してみましょう。"
+            "`Hyo[1,j]` は、上から何番目の行でしょうか。",
+            "添字は 0 から数えるので、添字 1 の行は上から 2 行目です。"
+          ]
+        },
+        {
+          "id": "reset-position",
+          "type": "trace",
+          "title": "0 に戻す場所",
+          "difficulty": 3,
+          "description": "3 人が 3 回ずつゲームをした得点が、二次元配列 `Ten` に入っています（`Ten[i,j]` は、添字 i の人の、添字 j の回の得点）。人ごとの合計を表示したいのですが、ねらいどおりになりません。\n\nこのプログラムを実行すると、最後に何が表示されるでしょうか。",
+          "program": "Ten = [[3, 5, 2], [4, 4, 4], [1, 0, 6]]\ngoukei = 0\nfor i in range(0, 3):\n    for j in range(0, 3):\n        goukei = goukei + Ten[i][j]\n    print(goukei)\n",
+          "question": "最後に表示される値を選びなさい。",
+          "check": {
+            "kind": "lastLine"
+          },
+          "choices": [
+            "29",
+            "7",
+            "19",
+            "10"
+          ],
+          "answerIndex": 0,
+          "explanation": "`goukei = 0` が繰り返しの外にあるので、2 人目・3 人目のときも前の人の合計に足し続けます。表示は 10, 22, 29 になります。人ごとに 0 から数え直すには、`goukei = 0` を外側の繰り返しの中（内側の繰り返しの前）に置きます。そうすると 10, 12, 7 と表示されます。",
+          "hint": [
+            "1 人目の合計 10 を表示したあと、`goukei` は 0 に戻るでしょうか。",
+            "`goukei = 0` は何回実行されるでしょうか。"
           ]
         }
       ]
     },
     {
       "id": "sort",
-      "title": "4. 整列と応用",
+      "title": "6. 入れかえと整列",
       "problems": [
+        {
+          "id": "swap-temp",
+          "type": "blank",
+          "title": "値を入れかえる",
+          "difficulty": 2,
+          "description": "配列 `Data` の 2 つの値を入れかえます。1 段階目の「代入は上書き」で見たとおり、そのまま代入すると、もとの値は消えます。そこで、片方を別の変数 `temp` に取っておきます。\n\n【ア】【イ】に入るものを選びましょう。",
+          "program": "Data = [7, 2]\ntemp = Data[0]\nData[0] = 【ア】\nData[1] = 【イ】\nprint(Data)\n",
+          "blanks": [
+            {
+              "key": "ア",
+              "choices": [
+                "Data[1]",
+                "temp",
+                "Data[0]"
+              ],
+              "answer": 0
+            },
+            {
+              "key": "イ",
+              "choices": [
+                "temp",
+                "Data[0]",
+                "Data[1]"
+              ],
+              "answer": 0
+            }
+          ],
+          "expectedOutput": "[2, 7]",
+          "explanation": "まず `Data[0]` の 7 を `temp` に取っておきます。次に `Data[0]` に `Data[1]` の 2 を入れます。最後に、取っておいた 7 を `Data[1]` に入れます。【イ】を `Data[0]` にすると、そこにはもう 2 が入っているので [2, 2] になります。",
+          "hint": [
+            "3 行目のあと、`Data[0]` にはもう 7 が残っていません。7 はどこに取ってあるでしょうか。",
+            "1 行ずつ、`Data[0]`、`Data[1]`、`temp` の値を書いてみましょう。"
+          ]
+        },
         {
           "id": "bubble-1pass",
           "type": "trace",
           "title": "となりと入れかえる（1 周ぶん）",
           "difficulty": 4,
-          "description": "となりどうしを見くらべて、大きい方を右へ送ります。1 周だけ行ったあとの配列を答えます。",
+          "description": "となり同士を見くらべて、大きい方を右へ送ります。1 周だけ行ったあとの配列を答えます。",
           "program": "Data = [5, 2, 9, 1, 7]\nfor i in range(0, len(Data) - 1):\n    if Data[i] > Data[i + 1]:\n        temp = Data[i]\n        Data[i] = Data[i + 1]\n        Data[i + 1] = temp\n",
           "question": "1 周し終えたあとの配列 Data を答えなさい。",
           "check": {
@@ -307,8 +520,26 @@
           "answer": "[2, 5, 1, 7, 9]",
           "explanation": "5と2を入れかえ [2,5,9,1,7]、5と9はそのまま、9と1を入れかえ [2,5,1,9,7]、9と7を入れかえ [2,5,1,7,9]。いちばん大きい 9 が右端に来ます。",
           "hint": [
-            "左から順に、となりどうしを見くらべて入れかえます。",
+            "左から順に、となり同士を見くらべて入れかえます。",
             "1 周し終えたとき、いちばん大きい数はどこに来ているでしょうか。"
+          ]
+        },
+        {
+          "id": "compare-count",
+          "type": "trace",
+          "title": "比べる回数を数える",
+          "difficulty": 3,
+          "description": "となり同士を比べて入れかえる整列（バブルソート）で、比べた回数を `hikaku` に数えます。\n\nこのプログラムを実行すると、何が表示されるでしょうか。",
+          "program": "Data = [5, 1, 4, 2, 3]\nkazu = len(Data)\nhikaku = 0\nfor i in range(0, kazu - 1):\n    for j in range(0, kazu - i - 1):\n        hikaku = hikaku + 1\n        if Data[j] > Data[j + 1]:\n            temp = Data[j]\n            Data[j] = Data[j + 1]\n            Data[j + 1] = temp\nprint(hikaku, Data)\n",
+          "question": "表示されるものを、そのまま答えなさい。",
+          "check": {
+            "kind": "output"
+          },
+          "answer": "10 [1, 2, 3, 4, 5]",
+          "explanation": "外側の `i` が 0, 1, 2, 3 のとき、内側はそれぞれ 4, 3, 2, 1 回繰り返します（1 周ごとに、いちばん大きい値が後ろに決まるため）。比べる回数は 4 + 3 + 2 + 1 = 10 回です。要素数が n のときは n(n − 1) ÷ 2 回になります。比べる回数は、並び方に関係なく同じです。",
+          "hint": [
+            "内側の繰り返しは「j を 0 から kazu - i - 2 まで」です。`i = 0` のとき何回繰り返すでしょうか。",
+            "`i` が 1 増えるごとに、内側の回数は 1 減ります。"
           ]
         },
         {
@@ -335,6 +566,101 @@
           "hint": [
             "「今までで最小」より小さいものが見つかったとき、何を覚え直すのでしょうか。",
             "覚えるのは値ではなく、場所（添字）です。"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "apply",
+      "title": "7. 乱数・関数・総合",
+      "problems": [
+        {
+          "id": "dice-range",
+          "type": "trace",
+          "title": "乱数の範囲",
+          "difficulty": 2,
+          "description": "`乱数()` は 0 以上 1 未満の小数を返します。サイコロの目は、例示では `整数(乱数()*6)+1` と書きます。1000 回ふって、出た目のいちばん小さい値と大きい値を調べます。\n\n最後に何が表示されるでしょうか。",
+          "prelude": "import random\nrandom.seed(7)\n",
+          "program": "saisho = 100\nsaidai = 0\nfor i in range(0, 1000):\n    me = int(random.random() * 6) + 1\n    if me < saisho:\n        saisho = me\n    if me > saidai:\n        saidai = me\nprint(saisho, saidai)\n",
+          "question": "表示されるものを選びなさい。",
+          "check": {
+            "kind": "output"
+          },
+          "choices": [
+            "1 6",
+            "0 5",
+            "0 6",
+            "1 7"
+          ],
+          "answerIndex": 0,
+          "explanation": "`乱数()*6` は 0 以上 6 未満なので、`整数(…)` で小数点以下を切り捨てると 0〜5 になります。それに 1 を足すので 1〜6 です。7 が出るには `乱数()*6` が 6 以上になる必要がありますが、`乱数()` は 1 未満なので、`乱数()*6` は 6 未満です。だから 7 は出ません。\n\n`saisho` の最初の値 100 は、どの目よりも大きい値です。こうしておくと、1 回目の目で必ず入れ直されます（`saidai` の 0 も同じ考え方です）。",
+          "hint": [
+            "`乱数()` がとりうる、いちばん小さい値といちばん大きい値を考えます。",
+            "`整数()` は小数点以下を切り捨てます。5.99… は 5 になります。"
+          ]
+        },
+        {
+          "id": "dice-sim",
+          "type": "blank",
+          "title": "くじを引いて数える",
+          "difficulty": 4,
+          "description": "1〜4 の番号のくじを 100 回引いて、4 が出た回数を数えます。どの番号も同じ割合で出るようにします。\n\n【ア】に入るものを選びましょう。（この問題は、いつ実行しても同じ結果になるようにしてあります）",
+          "prelude": "import random\nrandom.seed(2024)\n",
+          "program": "kaisu = 0\nfor i in range(0, 100):\n    me = 【ア】\n    if me == 4:\n        kaisu = kaisu + 1\nprint(kaisu)\n",
+          "blanks": [
+            {
+              "key": "ア",
+              "choices": [
+                "int(random.random() * 4) + 1",
+                "int(random.random() * 4)",
+                "int(random.random() * 5)",
+                "int(random.random()) + 4"
+              ],
+              "answer": 0
+            }
+          ],
+          "expectedOutput": "22",
+          "explanation": "`乱数()*4` は 0 以上 4 未満なので、`整数(…)` にすると 0〜3 です。1 を足して 1〜4 にします。`整数(乱数()*5)` は 0〜4 になり、0 という番号が出てしまいます。",
+          "hint": [
+            "`乱数()*4` がとりうる範囲を考えます。それを `整数()` にすると、どの整数になるでしょうか。",
+            "ほしいのは 1〜4 です。0〜3 から 1〜4 にするには、いくつ足せばよいでしょうか。"
+          ]
+        },
+        {
+          "id": "func-desc",
+          "type": "blank",
+          "title": "説明だけの関数を使う",
+          "difficulty": 3,
+          "description": "試験では、関数の中身は書かれず、説明だけが示されることがあります。\n\n【関数の説明と例】\n送料(omosa) … 重さ omosa（グラム）の荷物 1 個の送料を返す。1000 g 以下は 600 円、2000 g 以下は 800 円、それより重いと 1000 円。\n例：送料(1500) は 800 を返す。\n\n900 g と 700 g の荷物を、別々に送るときとまとめて送るときの送料を表示します。【ア】【イ】に入るものを選びましょう。",
+          "prelude": "def 送料(omosa):\n    if omosa <= 1000:\n        return 600\n    elif omosa <= 2000:\n        return 800\n    else:\n        return 1000\n",
+          "program": "omosa_a = 900\nomosa_b = 700\nbetsubetsu = 【ア】\nmatomete = 【イ】\nprint(betsubetsu, matomete)\n",
+          "blanks": [
+            {
+              "key": "ア",
+              "choices": [
+                "送料(omosa_a) + 送料(omosa_b)",
+                "送料(omosa_a + omosa_b)",
+                "送料(omosa_a) + omosa_b",
+                "omosa_a + omosa_b"
+              ],
+              "answer": 0
+            },
+            {
+              "key": "イ",
+              "choices": [
+                "送料(omosa_a + omosa_b)",
+                "送料(omosa_a) + 送料(omosa_b)",
+                "送料(omosa_a) * 2",
+                "omosa_a + omosa_b"
+              ],
+              "answer": 0
+            }
+          ],
+          "expectedOutput": "1200 800",
+          "explanation": "別々に送るときは、1 個ずつの送料を求めて足します（600 + 600 = 1200）。まとめるときは、重さを足してから送料を 1 回求めます（1600 g なので 800）。関数に何を渡すか（引数）と、返ってくる値（戻り値）を分けて考えます。",
+          "hint": [
+            "別々に送るなら、送料を何回求めるでしょうか。",
+            "まとめて送るとき、関数に渡す重さはいくつでしょうか。"
           ]
         },
         {
@@ -367,10 +693,46 @@
             }
           ],
           "expectedOutput": "7",
-          "explanation": "その硬貨で何枚払えるかは商 `//`、残りはあまり `%` です。500 円 1 枚、100 円 2 枚、50 円 1 枚、10 円 3 枚で合わせて 7 枚になります。",
+          "explanation": "その硬貨で何枚払えるかは商 `÷`、払ったあとの残りは余り `％` で求めます。500 円 1 枚、100 円 2 枚、50 円 1 枚、10 円 3 枚で、合わせて 7 枚です。",
           "hint": [
-            "「その硬貨で何枚払えるか」と「残りいくらか」を、別々の記号で出します。",
-            "何枚かは商 `//`、残りはあまり `%` です。"
+            "「その硬貨で何枚払えるか」と「残りはいくらか」は、別の記号で求めます。",
+            "780 ÷ 500 は 1、780 ％ 500 は 280 です。"
+          ]
+        },
+        {
+          "id": "digit-sum",
+          "type": "trace",
+          "title": "けたの数を足す",
+          "difficulty": 3,
+          "description": "3 けたの数の、各けたの数を足すプログラムです。\n\n`÷` は整数の商、`％` は余りです。",
+          "program": "kazu = 472\ngoukei = 0\nwhile kazu > 0:\n    goukei = goukei + kazu % 10\n    kazu = kazu // 10\nprint(goukei)\n",
+          "question": "表示される値を答えなさい。",
+          "check": {
+            "kind": "output"
+          },
+          "answer": "13",
+          "explanation": "`kazu ％ 10` で一の位を取り出し、`kazu ÷ 10` で一の位を切り落とす、を繰り返します。472 → 47 → 4 → 0 と変わり、足すのは 2 + 7 + 4 = 13 です。",
+          "hint": [
+            "`kazu ％ 10` は一の位、`kazu ÷ 10` は一の位を切り落とした数です。",
+            "472 → 47 → 4 → 0 と変わっていきます。取り出した一の位を足していきます。"
+          ]
+        },
+        {
+          "id": "gcd",
+          "type": "trace",
+          "title": "最大公約数",
+          "difficulty": 3,
+          "description": "2 つの数の最大公約数を求めるプログラム（ユークリッドの互除法）です。\n\n大きい方を小さい方で割った余りに置きかえる、を繰り返します。",
+          "program": "a = 48\nb = 18\nwhile b != 0:\n    amari = a % b\n    a = b\n    b = amari\nprint(a)\n",
+          "question": "表示される値を答えなさい。",
+          "check": {
+            "kind": "output"
+          },
+          "answer": "6",
+          "explanation": "48 と 18 → 18 と 12 → 12 と 6 → 6 と 0 となり、b が 0 になったときの a が最大公約数です。",
+          "hint": [
+            "a と b を「b と a ％ b」に置きかえ続けます。",
+            "48 と 18 から始めて、b が 0 になるまで紙に書き出してみましょう。"
           ]
         },
         {
@@ -393,37 +755,10 @@
             }
           ],
           "expectedOutput": "素数でない",
-          "explanation": "`n % i == 0` は「i で割り切れる」という意味です。91 は 7 × 13 なので素数ではありません。",
+          "explanation": "`n ％ i == 0` は「n は i で割り切れる」という意味です。91 は 7 × 13 なので、i = 7 のとき割り切れ、素数ではありません。",
           "hint": [
             "「割り切れる」を式で書くとどうなるでしょうか。",
             "割り切れたら素数ではありません。素数でない印を立てます。"
-          ]
-        },
-        {
-          "id": "dice-sim",
-          "type": "blank",
-          "title": "サイコロをふって数える",
-          "difficulty": 4,
-          "description": "サイコロを 100 回ふって、6 が出た回数を数えます。\n\n`乱数()` は 0 以上 1 未満の小数を返します。これを 1〜6 の整数にするには、6 倍して整数にし、1 を足します。\n\n【ア】に入るものを選びましょう。（この問題は、いつ実行しても同じ結果になるようにしてあります）",
-          "prelude": "import random\nrandom.seed(2024)\n",
-          "program": "kaisu = 0\nfor i in range(0, 100):\n    me = 【ア】\n    if me == 6:\n        kaisu = kaisu + 1\nprint(kaisu)\n",
-          "blanks": [
-            {
-              "key": "ア",
-              "choices": [
-                "int(random.random() * 6) + 1",
-                "int(random.random() * 6)",
-                "int(random.random()) + 1",
-                "int(random.random() * 7)"
-              ],
-              "answer": 0
-            }
-          ],
-          "expectedOutput": "16",
-          "explanation": "`random.random() * 6` は 0 以上 6 未満なので、整数にすると 0〜5 です。1 を足して 1〜6 にします。この種（seed）では 6 が 16 回出ます。",
-          "hint": [
-            "`random.random()` は 0 以上 1 未満です。6 倍すると 0 以上 6 未満になります。",
-            "整数にすると 0〜5 になります。1〜6 にするには、いくつ足せばよいでしょうか。"
           ]
         },
         {
@@ -431,17 +766,17 @@
           "type": "trace",
           "title": "文字を 1 つずつ数える",
           "difficulty": 3,
-          "description": "文字列の中に「a」がいくつあるかを数えます。文字列も、配列と同じように添字で 1 文字ずつ取り出せます。",
-          "program": "moji = \"banana\"\nkosu = 0\nfor i in range(0, len(moji)):\n    if moji[i] == \"a\":\n        kosu = kosu + 1\nprint(kosu)\n",
+          "description": "単語を 1 文字ずつ配列 `Moji` に入れてあります。「a」がいくつあるかを数えます。",
+          "program": "Moji = [\"b\", \"a\", \"n\", \"a\", \"n\", \"a\"]\nkosu = 0\nfor i in range(0, len(Moji)):\n    if Moji[i] == \"a\":\n        kosu = kosu + 1\nprint(kosu)\n",
           "question": "表示される値を答えなさい。",
           "check": {
             "kind": "output"
           },
           "answer": "3",
-          "explanation": "banana には a が 3 つあります。`len(moji)` は文字数（6）です。",
+          "explanation": "`要素数(Moji)` は 6 なので、i は 0 から 5 まで動きます。「a」は添字 1, 3, 5 の 3 つです。",
           "hint": [
-            "文字列も、リストと同じように添字で 1 文字ずつ取り出せます。",
-            "b-a-n-a-n-a と 1 文字ずつ見ていきます。"
+            "添字と文字の表を書いてみましょう。添字 0 は「b」です。",
+            "「a」が入っている添字を数えます。"
           ]
         }
       ]
