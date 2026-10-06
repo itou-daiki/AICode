@@ -283,7 +283,7 @@
           "title": "そこまでの合計",
           "difficulty": 3,
           "description": "先頭からその場所までの合計を、次々に配列へ入れていきます。",
-          "program": "Data = [5, 3, 8, 2]\nRuisekі = [0, 0, 0, 0]\nRuisekі[0] = Data[0]\nfor i in range(1, len(Data)):\n    Ruisekі[i] = Ruisekі[i - 1] + Data[i]\nprint(Ruisekі)\n",
+          "program": "Data = [5, 3, 8, 2]\nRuiseki = [0, 0, 0, 0]\nRuiseki[0] = Data[0]\nfor i in range(1, len(Data)):\n    Ruiseki[i] = Ruiseki[i - 1] + Data[i]\nprint(Ruiseki)\n",
           "question": "表示される内容を、そのまま答えなさい。",
           "check": {
             "kind": "output"

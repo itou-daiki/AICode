@@ -363,6 +363,231 @@ function needsBlankLineBefore(block) {
 }
 
 /* ============================================================
+ * 1.6 いろいろな書き方を受けとめるブロック
+ *
+ * Python ブロックがなるべく出ないよう、生徒がよく書く書き方にブロックを用意する。
+ * どれも、書いたコードと同じ意味のコードに戻る（tests/run-browser.js で ast を比べて確かめる）。
+ * ========================================================== */
+
+/** 値を入れる穴 */
+const hole = (name, check) => ({ type: 'input_value', name, ...(check ? { check } : {}) });
+/** 文字を書く欄 */
+const field = (name, text = '') => ({ type: 'field_input', name, text });
+const STMT = { previousStatement: null, nextStatement: null };
+
+/** メソッド呼び出し（値に続けて書く .名前(…)）を用意する引数の数 */
+const METHOD_ARITIES = [0, 1, 2, 3];
+/** タプルの個数・辞書の組の数・まとめて代入する個数 */
+const TUPLE_SIZES = [0, 1, 2, 3, 4, 5];
+const DICT_SIZES = [0, 1, 2, 3, 4];
+const MULTI_SIZES = [1, 2, 3, 4];
+
+const holes = (n, prefix = 'ARG', from = 2) => Array.from({ length: n }, (_, i) => `%${i + from}`).join(' , ');
+
+/** いろいろな書き方のブロックの JSON */
+function extraBlocksJson() {
+  return [
+    // --- 値 ---
+    { type: 'py_attr', message0: '%1 の %2', args0: [hole('OBJ'), field('NAME', 'real')],
+      output: null, colour: '#7A7A96', inputsInline: true, tooltip: '値の中の名前を使います（a.b）' },
+    { type: 'py_dotted', message0: '%1', args0: [field('NAME', 'math.pi')],
+      output: null, colour: '#7A7A96', tooltip: 'モジュールの中の名前です（math.pi など）' },
+    { type: 'py_literal', message0: '%1', args0: [field('TEXT', '1e3')],
+      output: null, colour: '#4E7A8A', tooltip: '書いたままの値です（1e3、0x10、r"…" など）' },
+    { type: 'py_fstring', message0: '値を入れた文字 f %1', args0: [field('TEXT', '{x} 点')],
+      output: 'String', colour: '#6B8E6B', tooltip: '{ } の中に書いた値が入る文字です（f"…"）' },
+    ...METHOD_ARITIES.flatMap(n => {
+      const args0 = [hole('OBJ'), field('NAME', 'split'), ...Array.from({ length: n }, (_, i) => hole(`ARG${i}`))];
+      const tail = n ? `（ ${holes(n, 'ARG', 3)} ）` : '（）';
+      return [
+        { type: `py_method_${n}`, message0: `%1 の %2 ${tail}`, args0,
+          output: null, colour: '#A55B80', inputsInline: true, tooltip: '値に続けてメソッドを呼びます（a.b(…)）' },
+        { type: `py_methods_${n}`, message0: `%1 の %2 ${tail} を実行`, args0, ...STMT,
+          colour: '#A55B80', inputsInline: true, tooltip: '値に続けてメソッドを呼びます（a.b(…)）' },
+      ];
+    }),
+    { type: 'py_kwarg', message0: '%1 = %2', args0: [field('NAME', 'sep'), hole('VALUE')],
+      output: null, colour: '#7A7A96', inputsInline: true, tooltip: '名前をつけて渡す引数です（sep="," など）' },
+    { type: 'py_star', message0: '%1 %2 をばらして', args0: [
+      { type: 'field_dropdown', name: 'STARS', options: [['*', '*'], ['**', '**']] }, hole('VALUE')],
+      output: null, colour: '#7A7A96', inputsInline: true, tooltip: '中身をばらして渡します（*Data）' },
+    { type: 'py_slice', message0: '%1 の [ %2 : %3 : %4 ]', args0: [hole('LIST'), hole('START'), hole('STOP'), hole('STEP')],
+      output: null, colour: '#8A7391', inputsInline: true,
+      tooltip: '一部を切り出します（s[1:3]）。空の穴は「はじめから」「最後まで」です' },
+    { type: 'py_slice2', message0: '%1 の [ %2 : %3 ]', args0: [hole('LIST'), hole('START'), hole('STOP')],
+      output: null, colour: '#8A7391', inputsInline: true,
+      tooltip: '一部を切り出します（s[1:3]）。空の穴は「はじめから」「最後まで」です' },
+    { type: 'py_membership', message0: '%1 が %2 の中に %3', args0: [hole('A'), hole('B'),
+      { type: 'field_dropdown', name: 'OP', options: [['ある（in）', 'in'], ['ない（not in）', 'not in']] }],
+      output: 'Boolean', colour: '#5B80A5', inputsInline: true, tooltip: '中にあるかどうかを調べます（in）' },
+    { type: 'py_identity', message0: '%1 %2 %3', args0: [hole('A'),
+      { type: 'field_dropdown', name: 'OP', options: [['is', 'is'], ['is not', 'is not']] }, hole('B')],
+      output: 'Boolean', colour: '#5B80A5', inputsInline: true, tooltip: '同じものかどうかを調べます（x is None など）' },
+    { type: 'py_chain', message0: '%1 %2 %3 %4 %5', args0: [hole('A'),
+      { type: 'field_dropdown', name: 'OP1', options: CHAIN_OPS }, hole('B'),
+      { type: 'field_dropdown', name: 'OP2', options: CHAIN_OPS }, hole('C')],
+      output: 'Boolean', colour: '#5B80A5', inputsInline: true, tooltip: 'つなげた比べ方です（0 < x < 10 は「0 < x かつ x < 10」）' },
+    { type: 'py_repeat', message0: '%1 を %2 回つなげる', args0: [hole('VALUE'), hole('TIMES')],
+      output: null, colour: '#6B8E6B', inputsInline: true, tooltip: '同じものを何回もつなげます（"*" * 5）' },
+    ...TUPLE_SIZES.map(n => ({
+      type: `py_tuple_${n}`, message0: n ? `組 ( ${holes(n, 'I', 1)} )` : '空の組 ( )',
+      args0: Array.from({ length: n }, (_, i) => hole(`I${i}`)),
+      output: null, colour: '#8A7391', inputsInline: true, tooltip: 'いくつかの値をひと組にします（タプル）',
+    })),
+    ...DICT_SIZES.map(n => ({
+      type: `py_dict_${n}`,
+      message0: n ? `辞書 { ${Array.from({ length: n }, (_, i) => `%${i * 2 + 1} : %${i * 2 + 2}`).join(' , ')} }` : '空の辞書 { }',
+      args0: Array.from({ length: n }, (_, i) => [hole(`K${i}`), hole(`V${i}`)]).flat(),
+      output: null, colour: '#8A7391', inputsInline: true, tooltip: 'キーと値の組を集めます（辞書）',
+    })),
+    { type: 'py_comp', message0: '[ %1 を %2 が %3 の中を動く間 ]', args0: [hole('VALUE'), field('VARS', 'x'), hole('ITER')],
+      output: null, colour: '#8A7391', inputsInline: true, tooltip: 'くり返しでリストを作ります（[x*x for x in Data]）' },
+    { type: 'py_comp_if', message0: '[ %1 を %2 が %3 の中を動く間、 %4 のときだけ ]',
+      args0: [hole('VALUE'), field('VARS', 'x'), hole('ITER'), hole('COND')],
+      output: null, colour: '#8A7391', inputsInline: true, tooltip: '条件に合うものだけでリストを作ります' },
+    { type: 'py_lambda', message0: '%1 を受け取って %2 を返す関数', args0: [field('PARAMS', 'x'), hole('VALUE')],
+      output: null, colour: '#A55B80', inputsInline: true, tooltip: '名前のない短い関数です（lambda）' },
+    { type: 'py_callexpr', message0: '%1 を呼ぶ（ %2 ）', args0: [hole('CALLEE'), hole('ARG0')],
+      output: null, colour: '#A55B80', inputsInline: true, tooltip: '値を関数として呼びます' },
+
+    // --- 文 ---
+    { type: 'py_set_index', message0: '%1 の [ %2 ] %3 %4', args0: [hole('LIST'), hole('INDEX'),
+      { type: 'field_dropdown', name: 'OP', options: ASSIGN_OPS }, hole('VALUE')],
+      ...STMT, colour: '#A55B80', inputsInline: true,
+      tooltip: '配列や辞書の中身を書きかえます（Data[i] = 値、Data[i] += 1）' },
+    { type: 'py_set_attr', message0: '%1 の %2 %3 %4', args0: [hole('OBJ'), field('NAME', 'x'),
+      { type: 'field_dropdown', name: 'OP', options: ASSIGN_OPS }, hole('VALUE')],
+      ...STMT, colour: '#A55B80', inputsInline: true, tooltip: '値の中の名前に入れます（a.b = 値）' },
+    ...MULTI_SIZES.map(n => ({
+      type: `py_multi_${n}`, message0: `%1 に まとめて ${holes(n, 'V', 2)} を入れる`,
+      args0: [field('TARGETS', 'a, b'), ...Array.from({ length: n }, (_, i) => hole(`V${i}`))],
+      ...STMT, colour: '#A55B80', inputsInline: true,
+      tooltip: 'いくつかの変数にまとめて入れます（a, b = b, a）',
+    })),
+    { type: 'py_chain_assign', message0: '%1 に同じ %2 を入れる', args0: [field('TARGETS', 'x = y'), hole('VALUE')],
+      ...STMT, colour: '#A55B80', inputsInline: true, tooltip: 'いくつかの変数に同じ値を入れます（x = y = 0）' },
+    { type: 'py_aug', message0: '%1 %2 %3', args0: [field('TARGET', 'x'),
+      { type: 'field_dropdown', name: 'OP', options: ASSIGN_OPS.slice(1) }, hole('VALUE')],
+      ...STMT, colour: '#A55B80', inputsInline: true, tooltip: '今の値に計算して入れ直します（x += 1）' },
+    { type: 'py_for_vars', message0: '%1 が %2 の中を順に動く間 %3 %4', args0: [field('VARS', 'i, x'), hole('ITER'),
+      { type: 'input_dummy' }, { type: 'input_statement', name: 'DO' }],
+      ...STMT, colour: '#5BA55B', tooltip: 'いくつかの変数で順に取り出します（for i, x in enumerate(Data)）' },
+    { type: 'py_try', message0: 'ためしにやってみる %1 うまくいかなかったら（ %2 ） %3',
+      args0: [{ type: 'input_statement', name: 'BODY' }, field('EXC', 'ValueError'), { type: 'input_statement', name: 'HANDLER' }],
+      ...STMT, colour: '#6E7378', tooltip: 'エラーになったときの動きを決めます（try / except）。（ ）は空でもかまいません' },
+    { type: 'py_assert', message0: '%1 のはず（ちがったら止める）', args0: [hole('VALUE')],
+      ...STMT, colour: '#6E7378', inputsInline: true, tooltip: '成り立つはずのことを確かめます（assert）' },
+    { type: 'py_del', message0: '%1 を消す', args0: [hole('VALUE')],
+      ...STMT, colour: '#6E7378', inputsInline: true, tooltip: '配列の中身などを消します（del）' },
+    { type: 'py_import', message0: '%1 を使えるようにする', args0: [field('NAME', 'math')],
+      ...STMT, colour: '#6E7378', tooltip: 'モジュールを読みこみます（import）' },
+    { type: 'py_from', message0: '%1 から %2 を使えるようにする', args0: [field('MODULE', 'random'), field('NAMES', 'randint')],
+      ...STMT, colour: '#6E7378', tooltip: 'モジュールの一部を読みこみます（from … import …）' },
+    { type: 'py_expr', message0: '%1 を実行', args0: [hole('VALUE')],
+      ...STMT, colour: '#6E7378', inputsInline: true, tooltip: '式を実行します' },
+  ];
+}
+
+/** Blockly の Python 生成器と同じ、演算子の強さ（数が小さいほど強い） */
+const PY_ORDER = {
+  ATOMIC: 0, COLLECTION: 1, MEMBER: 2.1, FUNCTION_CALL: 2.2, EXPONENTIATION: 3, UNARY_SIGN: 4,
+  MULTIPLICATIVE: 5, ADDITIVE: 6, RELATIONAL: 11, LOGICAL_NOT: 12, LOGICAL_AND: 13, LOGICAL_OR: 14,
+  CONDITIONAL: 15, LAMBDA: 16, NONE: 99,
+};
+
+const CHAIN_OPS = [['<', '<'], ['<=', '<='], ['>', '>'], ['>=', '>='], ['==', '=='], ['!=', '!=']];
+const ASSIGN_OPS = [['= 入れる', '='], ['+= 増やす', '+='], ['-= 減らす', '-='], ['*= 倍にする', '*='],
+  ['/= 割る', '/='], ['//= 商にする', '//='], ['%= 余りにする', '%='], ['**= 乗する', '**=']];
+
+/**
+ * いろいろな書き方のブロックの Python 生成
+ * @param {object} python Blockly の Python 生成器
+ * @param {object} Order 演算子の強さ
+ */
+function defineExtraGenerators(python, Order = PY_ORDER) {
+  const code = (b, g, name, order = Order.NONE) => g.valueToCode(b, name, order);
+  const args = (b, g, n) => Array.from({ length: n }, (_, i) => code(b, g, `ARG${i}`) || 'None').join(', ');
+  const quote = (text) => (String(text).includes('"') && !String(text).includes("'") ? `'${text}'` : `"${text}"`);
+
+  // 5.real と書くと小数点と読まれるので、整数のあとは (5).real にする
+  const objCode = (b, g) => {
+    const obj = code(b, g, 'OBJ', Order.MEMBER) || 'None';
+    return /^\d+$/.test(obj) ? `(${obj})` : obj;
+  };
+  python.forBlock['py_attr'] = (b, g) => [`${objCode(b, g)}.${b.getFieldValue('NAME')}`, Order.MEMBER];
+  python.forBlock['py_dotted'] = (b) => [b.getFieldValue('NAME') || 'None', Order.MEMBER];
+  python.forBlock['py_literal'] = (b) => [b.getFieldValue('TEXT') || 'None', Order.ATOMIC];
+  python.forBlock['py_fstring'] = (b) => [`f${quote(b.getFieldValue('TEXT') ?? '')}`, Order.ATOMIC];
+  for (const n of METHOD_ARITIES) {
+    const call = (b, g) => `${objCode(b, g)}.${b.getFieldValue('NAME')}(${args(b, g, n)})`;
+    python.forBlock[`py_method_${n}`] = (b, g) => [call(b, g), Order.FUNCTION_CALL];
+    python.forBlock[`py_methods_${n}`] = (b, g) => `${call(b, g)}\n`;
+  }
+  python.forBlock['py_kwarg'] = (b, g) => [`${b.getFieldValue('NAME')}=${code(b, g, 'VALUE') || 'None'}`, Order.NONE];
+  python.forBlock['py_star'] = (b, g) => [`${b.getFieldValue('STARS')}${code(b, g, 'VALUE', Order.UNARY_SIGN) || 'None'}`, Order.NONE];
+  python.forBlock['py_slice'] = (b, g) => [
+    `${code(b, g, 'LIST', Order.MEMBER) || 'None'}[${code(b, g, 'START')}:${code(b, g, 'STOP')}:${code(b, g, 'STEP')}]`, Order.MEMBER];
+  python.forBlock['py_slice2'] = (b, g) => [
+    `${code(b, g, 'LIST', Order.MEMBER) || 'None'}[${code(b, g, 'START')}:${code(b, g, 'STOP')}]`, Order.MEMBER];
+  python.forBlock['py_membership'] = (b, g) => [
+    `${code(b, g, 'A', Order.RELATIONAL) || 'None'} ${b.getFieldValue('OP')} ${code(b, g, 'B', Order.RELATIONAL) || 'None'}`, Order.RELATIONAL];
+  python.forBlock['py_identity'] = (b, g) => [
+    `${code(b, g, 'A', Order.RELATIONAL) || 'None'} ${b.getFieldValue('OP')} ${code(b, g, 'B', Order.RELATIONAL) || 'None'}`, Order.RELATIONAL];
+  python.forBlock['py_chain'] = (b, g) => [
+    `${code(b, g, 'A', Order.RELATIONAL) || '0'} ${b.getFieldValue('OP1')} ${code(b, g, 'B', Order.RELATIONAL) || '0'} ${b.getFieldValue('OP2')} ${code(b, g, 'C', Order.RELATIONAL) || '0'}`,
+    Order.RELATIONAL];
+  python.forBlock['py_repeat'] = (b, g) => [
+    `${code(b, g, 'VALUE', Order.MULTIPLICATIVE) || "''"} * ${code(b, g, 'TIMES', Order.MULTIPLICATIVE + 0.5) || '1'}`, Order.MULTIPLICATIVE];
+  for (const n of TUPLE_SIZES) {
+    python.forBlock[`py_tuple_${n}`] = (b, g) => {
+      const items = Array.from({ length: n }, (_, i) => code(b, g, `I${i}`) || 'None');
+      return [n === 1 ? `(${items[0]},)` : `(${items.join(', ')})`, Order.ATOMIC];
+    };
+  }
+  for (const n of DICT_SIZES) {
+    python.forBlock[`py_dict_${n}`] = (b, g) => [
+      `{${Array.from({ length: n }, (_, i) => `${code(b, g, `K${i}`) || 'None'}: ${code(b, g, `V${i}`) || 'None'}`).join(', ')}}`, Order.ATOMIC];
+  }
+  python.forBlock['py_comp'] = (b, g) => [
+    `[${code(b, g, 'VALUE') || 'None'} for ${b.getFieldValue('VARS')} in ${code(b, g, 'ITER', Order.LOGICAL_OR) || '[]'}]`, Order.ATOMIC];
+  python.forBlock['py_comp_if'] = (b, g) => [
+    `[${code(b, g, 'VALUE') || 'None'} for ${b.getFieldValue('VARS')} in ${code(b, g, 'ITER', Order.LOGICAL_OR) || '[]'} if ${code(b, g, 'COND', Order.LOGICAL_OR) || 'True'}]`, Order.ATOMIC];
+  python.forBlock['py_lambda'] = (b, g) => {
+    const params = b.getFieldValue('PARAMS').trim();
+    return [`lambda${params ? ` ${params}` : ''}: ${code(b, g, 'VALUE', Order.LAMBDA) || 'None'}`, Order.LAMBDA];
+  };
+  python.forBlock['py_callexpr'] = (b, g) => [`${code(b, g, 'CALLEE', Order.FUNCTION_CALL) || 'None'}(${code(b, g, 'ARG0')})`, Order.FUNCTION_CALL];
+
+  python.forBlock['py_set_index'] = (b, g) =>
+    `${code(b, g, 'LIST', Order.MEMBER) || 'None'}[${code(b, g, 'INDEX') || '0'}] ${b.getFieldValue('OP')} ${code(b, g, 'VALUE') || 'None'}\n`;
+  python.forBlock['py_set_attr'] = (b, g) =>
+    `${code(b, g, 'OBJ', Order.MEMBER) || 'None'}.${b.getFieldValue('NAME')} ${b.getFieldValue('OP')} ${code(b, g, 'VALUE') || 'None'}\n`;
+  for (const n of MULTI_SIZES) {
+    python.forBlock[`py_multi_${n}`] = (b, g) => {
+      const values = Array.from({ length: n }, (_, i) => code(b, g, `V${i}`) || 'None');
+      return `${b.getFieldValue('TARGETS')} = ${values.join(', ')}\n`;
+    };
+  }
+  python.forBlock['py_chain_assign'] = (b, g) => `${b.getFieldValue('TARGETS')} = ${code(b, g, 'VALUE') || 'None'}\n`;
+  python.forBlock['py_aug'] = (b, g) => `${b.getFieldValue('TARGET')} ${b.getFieldValue('OP')} ${code(b, g, 'VALUE') || '0'}\n`;
+  python.forBlock['py_for_vars'] = (b, g) => {
+    const body = g.statementToCode(b, 'DO') || `${g.INDENT}pass\n`;
+    return `for ${b.getFieldValue('VARS')} in ${code(b, g, 'ITER') || '[]'}:\n${body}`;
+  };
+  python.forBlock['py_try'] = (b, g) => {
+    const body = g.statementToCode(b, 'BODY') || `${g.INDENT}pass\n`;
+    const handler = g.statementToCode(b, 'HANDLER') || `${g.INDENT}pass\n`;
+    const exc = (b.getFieldValue('EXC') || '').trim();
+    return `try:\n${body}except${exc ? ` ${exc}` : ''}:\n${handler}`;
+  };
+  python.forBlock['py_assert'] = (b, g) => `assert ${code(b, g, 'VALUE') || 'True'}\n`;
+  python.forBlock['py_del'] = (b, g) => `del ${code(b, g, 'VALUE') || 'None'}\n`;
+  python.forBlock['py_import'] = (b) => `import ${b.getFieldValue('NAME')}\n`;
+  python.forBlock['py_from'] = (b) => `from ${b.getFieldValue('MODULE')} import ${b.getFieldValue('NAMES')}\n`;
+  python.forBlock['py_expr'] = (b, g) => `${code(b, g, 'VALUE') || 'None'}\n`;
+}
+
+/* ============================================================
  * 2. Blockly へブロックを登録する
  * ========================================================== */
 
@@ -398,11 +623,45 @@ export function defineBlocks({ drawing = false } = {}) {
 
   // Blockly は使った変数を先頭で「x = None」と宣言する。
   // Python では不要で、コードとブロックを往復させると邪魔になるので消す。
+  // Blockly は変数名に英数字以外があると、合計 → _E5_90_88_… のように書きかえる。
+  // Python では日本語の名前も使えるので、Python の名前として正しければそのまま使う。
+  if (!Blockly.Names.prototype.__easycodeSafeName) {
+    const originalSafeName = Blockly.Names.prototype.safeName;
+    Blockly.Names.prototype.safeName = function (name) {
+      return /^[\p{L}_][\p{L}\p{N}_]*$/u.test(name) ? name : originalSafeName.call(this, name);
+    };
+    Blockly.Names.prototype.__easycodeSafeName = true;
+  }
+  // Python は型を決めずに書く言語なので、if n % 2: や for c in "abc": のような書き方もある。
+  // Blockly の型の確かめ（数の穴に文字は入れない など）で止めると、読みこみ全体が Python ブロックに
+  // なってしまうので、型では止めない。
+  if (!Blockly.ConnectionChecker.prototype.__easycodeLoose) {
+    Blockly.ConnectionChecker.prototype.doTypeChecks = function () { return true; };
+    Blockly.ConnectionChecker.prototype.__easycodeLoose = true;
+  }
+
   if (!python.__easycodeInit) {
     const originalInit = python.init.bind(python);
     python.init = function (workspace) {
       originalInit(workspace);
       delete this.definitions_['variables'];
+      this.__easycodeWorkspace = workspace;
+    };
+    // Blockly は乱数や平方根のブロックがあると、先頭に import random / import math を足す。
+    // 自分で import を書いてあるときは、同じ行が 2 回並ばないよう足さない
+    const originalFinish = python.finish.bind(python);
+    python.finish = function (code) {
+      const workspace = this.__easycodeWorkspace;
+      if (workspace) {
+        const imported = new Set(workspace.getAllBlocks(false)
+          .filter(b => b.type === 'py_import' && !b.getSurroundParent())
+          .flatMap(b => String(b.getFieldValue('NAME')).split(',').map(name => name.trim()))
+          .filter(name => /^[\w.]+$/.test(name)));
+        for (const key of Object.keys(this.definitions_)) {
+          if (key.startsWith('import_') && imported.has(key.slice('import_'.length))) delete this.definitions_[key];
+        }
+      }
+      return originalFinish(code);
     };
     python.__easycodeInit = true;
   }
@@ -532,6 +791,7 @@ export function defineBlocks({ drawing = false } = {}) {
       tooltip: '何もしません（pass）。中身をあとで書くときの、場所とりに使います',
     },
     ...CALL_ARITIES.flatMap(n => callBlockJson(n)),
+    ...extraBlocksJson(),
     {
       type: 'py_raw', message0: 'Python %1',
       args0: [{ type: 'field_input', name: 'CODE', text: 'print("hello")' }],
@@ -551,7 +811,7 @@ export function defineBlocks({ drawing = false } = {}) {
   const value = (block, generator, name, fallback) =>
     generator.valueToCode(block, name, Order.NONE) || fallback;
 
-  python.forBlock['py_input'] = (b, g) => [`input(${value(b, g, 'PROMPT', "''")})`, Order.FUNCTION_CALL];
+  python.forBlock['py_input'] = (b, g) => [`input(${g.valueToCode(b, 'PROMPT', Order.NONE)})`, Order.FUNCTION_CALL];
   python.forBlock['py_to_int'] = (b, g) => [`int(${value(b, g, 'VALUE', '0')})`, Order.FUNCTION_CALL];
   python.forBlock['py_to_float'] = (b, g) => [`float(${value(b, g, 'VALUE', '0')})`, Order.FUNCTION_CALL];
   python.forBlock['py_to_text'] = (b, g) => [`str(${value(b, g, 'VALUE', "''")})`, Order.FUNCTION_CALL];
@@ -604,9 +864,19 @@ export function defineBlocks({ drawing = false } = {}) {
     const params = String(b.getFieldValue('PARAMS') || '').split(',').map(p => p.trim()).filter(Boolean).join(', ');
     return `def ${b.getFieldValue('NAME') || 'nanika'}(${params}):\n${body}`;
   };
-  python.forBlock['py_return'] = (b, g) => `return ${value(b, g, 'VALUE', 'None')}\n`;
+  python.forBlock['py_return'] = (b, g) => {
+    // return a, b はかっこを付けずに書く（書いたままの形に戻すため）
+    const child = b.getInputTargetBlock('VALUE');
+    if (child && /^py_tuple_([2-9])$/.test(child.type)) {
+      const n = Number(child.type.split('_')[2]);
+      const items = Array.from({ length: n }, (_, i) => g.valueToCode(child, `I${i}`, Order.NONE) || 'None');
+      return `return ${items.join(', ')}\n`;
+    }
+    return `return ${value(b, g, 'VALUE', 'None')}\n`;
+  };
   python.forBlock['py_return_none'] = () => 'return\n';
   python.forBlock['py_pass'] = () => 'pass\n';
+  defineExtraGenerators(python);
   for (const n of CALL_ARITIES) {
     const args = (b, g) => Array.from({ length: n }, (_, i) => value(b, g, `ARG${i}`, 'None')).join(', ');
     python.forBlock[`py_call_${n}`] = (b, g) => `${b.getFieldValue('NAME') || 'nanika'}(${args(b, g)})\n`;
@@ -616,10 +886,18 @@ export function defineBlocks({ drawing = false } = {}) {
   // 関数（def）の前後には空行を 1 つ入れる。ブロックを通すたびに空行が消えて、
   // setup と draw がくっついて読みにくくなるのを防ぐ
   if (!python.__easycodeBlankLines) {
-    const originalScrub = python.scrub_.bind(python);
+    // ブロックに付けたコメントは、行の上ではなく、その行の末尾に「  # 説明」で書く（読みこんだときの形に戻す）
     python.scrub_ = function (block, code, thisOnly) {
-      const out = originalScrub(block, code, thisOnly);
-      return needsBlankLineBefore(block) ? `\n${out}` : out;
+      let out = code;
+      const comment = block.outputConnection ? null : block.getCommentText();
+      if (comment && typeof out === 'string') {
+        const text = comment.replace(/\s*\n\s*/g, ' ');
+        const end = out.indexOf('\n');
+        out = end >= 0 ? `${out.slice(0, end)}  # ${text}${out.slice(end)}` : `${out}  # ${text}`;
+      }
+      const next = block.nextConnection && block.nextConnection.targetBlock();
+      const result = out + (thisOnly ? '' : this.blockToCode(next));
+      return needsBlankLineBefore(block) ? `\n${result}` : result;
     };
     python.__easycodeBlankLines = true;
   }

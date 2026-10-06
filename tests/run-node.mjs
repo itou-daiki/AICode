@@ -328,6 +328,8 @@ equal('条件: not in', humanizeCondition('x not in data'), 'x が data の中�
 equal('条件: is None', humanizeCondition('x is not None'), 'x は なし ではない？');
 equal('条件: 空白が続いても is not', humanizeCondition('a is  not b'), 'a は b ではない？');
 equal('値: range の歩幅', humanizeValue('range(0, 10, 2)'), '0 から 10 の手前まで（2 ずつ）');
+equal('値: enumerate', humanizeValue('enumerate(Data)'), 'Data の番号と値');
+check('値: sorted に key があっても null と出ない', !humanizeValue('sorted(Data, key=len)').includes('null'));
 
 const ASK = [
   ['i % 15 == 0', 'i は 15 で割り切れる？'],

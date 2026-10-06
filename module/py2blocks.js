@@ -23,7 +23,7 @@ function known(type) {
 function isReservedName(name) {
   if (typeof Blockly === 'undefined' || !Blockly.Python) return false;
   const words = Blockly.Python.__easycodeReserved
-    || (Blockly.Python.__easycodeReserved = new Set(String(Blockly.Python.RESERVED_WORDS_ || '').split(',')));
+    || (Blockly.Python.__easycodeReserved = new Set(String(Blockly.Python.RESERVED_WORDS_ || '').split(',').filter(Boolean)));
   return words.has(name);
 }
 
@@ -62,6 +62,11 @@ function toLogicalLines(source) {
       buffer.raws.push(raw);
     }
 
+    // かっこの中で行をまたぐ文の途中にあるコメント（[1,  # 説明）は、つなぐと後ろの行まで
+    // コメントになってしまうので、元の行のまま持つ
+    if (buffer.raws.length > 1 || depth > 0) {
+      if (splitComment(raw).comment !== null && triple === null) buffer.spansString = true;
+    }
     const scan = scanLine(raw, depth, triple);
     depth = scan.depth;
     triple = scan.triple;
@@ -168,11 +173,14 @@ function parseStatements(lines, start, parentIndent) {
   while (i < lines.length && lines[i].indent >= blockIndent) {
     if (lines[i].indent > blockIndent) { i++; continue; }
 
-    const { text } = lines[i];
+    const { text: fullText } = lines[i];
+    // 見出しの行末コメントは切り分けて、ブロックに付ける
+    const split = COMPOUND_RE.test(fullText) ? splitComment(fullText) : { code: fullText, comment: null };
+    const text = split.comment !== null && split.code.endsWith(':') ? split.code : fullText;
     const match = text.endsWith(':') ? text.match(COMPOUND_RE) : null;
 
     if (!match) {
-      stmts.push({ kind: 'simple', text, line: lines[i].line });
+      stmts.push({ kind: 'simple', text: fullText, line: lines[i].line });
       i++;
       continue;
     }
@@ -183,7 +191,10 @@ function parseStatements(lines, start, parentIndent) {
     const { stmts: body, next } = parseStatements(lines, i + 1, blockIndent);
     i = next;
 
-    const clause = { keyword, head, body, headIndex, endIndex: i, line: lines[headIndex].line };
+    const clause = {
+      keyword, head, body, headIndex, endIndex: i, line: lines[headIndex].line,
+      comment: text !== fullText ? split.comment : null,
+    };
 
     if (['elif', 'else', 'except', 'finally'].includes(keyword)) {
       const prev = stmts[stmts.length - 1];
@@ -205,193 +216,376 @@ function parseStatements(lines, start, parentIndent) {
 
 /* ============================================================
  * 3. 式の解析
+ *
+ * Python の式の優先順位どおりに読む（弱い順）:
+ *   lambda → 条件式（a if c else b）→ or → and → not → 比較（== < in is、つなげた比較）
+ *   → + - → * / // % → 単項の - + → ** → うしろに続くもの（.名前 (呼び出し) [添字・切り出し]）→ 値
+ * 読めた式には、元のコードの文字列（src）も持たせる。ブロックにできないときは
+ * それをそのまま使うので、引用符やかっこの書き方が変わらない。
  * ========================================================== */
 
 const TOKEN_RE = new RegExp([
-  '\\s+',                                   // 空白
-  '(?:\\d+\\.\\d+|\\.\\d+|\\d+)',           // 数値
-  '(?:"(?:[^"\\\\]|\\\\.)*"|\'(?:[^\'\\\\]|\\\\.)*\')', // 文字列
-  '[A-Za-z_][A-Za-z0-9_]*',                 // 名前
-  '\\*\\*|//|==|!=|<=|>=',                  // 2文字演算子
-  '[-+*/%<>=(),\\[\\]{}.:]',                // 1文字記号
-].join('|'), 'g');
+  '\\s+',                                                     // 空白
+  '0[xX][0-9a-fA-F_]+|0[oO][0-7_]+|0[bB][01_]+',               // 16 進・8 進・2 進
+  '(?:\\d[\\d_]*\\.?[\\d_]*|\\.\\d[\\d_]*)(?:[eE][-+]?\\d+)?j?', // 数値（小数・指数）
+  '(?:[rRbBfFuU]{1,2})?(?:"(?:[^"\\\\]|\\\\.)*"|\'(?:[^\'\\\\]|\\\\.)*\')', // 文字列（f"" r"" も）
+  '[\\p{L}_][\\p{L}\\p{N}_]*',                                  // 名前（日本語の名前も）
+  '\\*\\*=|//=|[-+*/%]=|\\*\\*|//|==|!=|<=|>=|->',                // 複合代入と 2 文字の記号
+  '[-+*/%<>=(),\\[\\]{}.:@~&|^]',                               // 1 文字の記号
+].join('|'), 'gu');
 
 /**
- * 式を字句に分解する
+ * 式を字句に分ける
  * @param {string} text
- * @returns {string[]|null} 解析できない文字が混ざっていたら null
+ * @returns {{text: string, start: number, end: number}[]|null} 読めない文字があれば null
  */
 function tokenize(text) {
   const tokens = [];
   let pos = 0;
   TOKEN_RE.lastIndex = 0;
-
   let match;
   while ((match = TOKEN_RE.exec(text)) !== null) {
-    if (match.index !== pos) return null; // 未知の文字があった
+    if (match.index !== pos) return null;
     pos = match.index + match[0].length;
-    if (match[0].trim()) tokens.push(match[0]);
+    if (match[0].trim()) tokens.push({ text: match[0], start: match.index, end: pos });
   }
   return pos === text.length ? tokens : null;
 }
 
 /**
- * 式を解析して AST を返す
+ * 式を解析して木にする
  * @param {string} text
+ * @param {object} [options]
+ * @param {boolean} [options.tuple] かっこの無いタプル（a, b）も読むか（代入の右辺・return）
  * @returns {object|null} 解析できなければ null
  */
-export function parseExpression(text) {
-  const tokens = tokenize(text.trim());
+export function parseExpression(text, { tuple = false } = {}) {
+  const source = String(text).trim();
+  const tokens = tokenize(source);
   if (!tokens || !tokens.length) return null;
 
-  const state = { tokens, pos: 0 };
+  const state = { tokens, pos: 0, source };
   let node;
   try {
-    node = parseOr(state);
+    node = tuple ? parseTupleOrTest(state) : parseTest(state);
   } catch (e) {
     return null;
   }
   return state.pos === tokens.length ? node : null;
 }
 
-const peek = (s) => s.tokens[s.pos];
+const peek = (s, ahead = 0) => (s.tokens[s.pos + ahead] ? s.tokens[s.pos + ahead].text : undefined);
 const eat = (s, token) => (peek(s) === token ? (s.pos++, true) : false);
 function expect(s, token) {
   if (!eat(s, token)) throw new Error(`'${token}' が見つかりません`);
 }
+/** start 番目の字句から、いま読み終えたところまでの元の文字列を node に持たせる */
+function mark(s, start, node) {
+  node.src = s.source.slice(s.tokens[start].start, s.tokens[s.pos - 1].end);
+  return node;
+}
+const isName = (token) => token !== undefined && /^[\p{L}_][\p{L}\p{N}_]*$/u.test(token);
+const KEYWORDS = new Set(['and', 'or', 'not', 'in', 'is', 'if', 'else', 'for', 'lambda', 'None', 'True', 'False']);
+
+/** a, b, c（かっこの無いタプル）か、ふつうの式 */
+function parseTupleOrTest(s) {
+  const start = s.pos;
+  const first = parseTest(s);
+  if (peek(s) !== ',') return first;
+  const items = [first];
+  while (eat(s, ',')) {
+    if (s.pos >= s.tokens.length) break;
+    items.push(parseTest(s));
+  }
+  return mark(s, start, { type: 'tuple', items, bare: true });
+}
+
+/** lambda と、条件式 a if c else b */
+function parseTest(s) {
+  const start = s.pos;
+  if (peek(s) === 'lambda') {
+    s.pos++;
+    const paramStart = s.pos;
+    while (peek(s) !== ':' && s.pos < s.tokens.length) s.pos++;
+    const params = s.pos > paramStart
+      ? s.source.slice(s.tokens[paramStart].start, s.tokens[s.pos - 1].end) : '';
+    expect(s, ':');
+    const body = parseTest(s);
+    return mark(s, start, { type: 'lambda', params, body });
+  }
+  const value = parseOr(s);
+  if (peek(s) === 'if') {
+    s.pos++;
+    const cond = parseOr(s);
+    expect(s, 'else');
+    const other = parseTest(s);
+    return mark(s, start, { type: 'ternary', a: value, cond, b: other });
+  }
+  return value;
+}
 
 function parseOr(s) {
+  const start = s.pos;
   let left = parseAnd(s);
-  while (peek(s) === 'or') { s.pos++; left = { type: 'logic', op: 'OR', a: left, b: parseAnd(s) }; }
+  while (peek(s) === 'or') { s.pos++; left = mark(s, start, { type: 'logic', op: 'OR', a: left, b: parseAnd(s) }); }
   return left;
 }
 
 function parseAnd(s) {
+  const start = s.pos;
   let left = parseNot(s);
-  while (peek(s) === 'and') { s.pos++; left = { type: 'logic', op: 'AND', a: left, b: parseNot(s) }; }
+  while (peek(s) === 'and') { s.pos++; left = mark(s, start, { type: 'logic', op: 'AND', a: left, b: parseNot(s) }); }
   return left;
 }
 
 function parseNot(s) {
-  if (peek(s) === 'not') { s.pos++; return { type: 'not', value: parseNot(s) }; }
+  const start = s.pos;
+  if (peek(s) === 'not') { s.pos++; return mark(s, start, { type: 'not', value: parseNot(s) }); }
   return parseComparison(s);
 }
 
 const COMPARE_OPS = { '==': 'EQ', '!=': 'NEQ', '<': 'LT', '<=': 'LTE', '>': 'GT', '>=': 'GTE' };
 
-function parseComparison(s) {
-  let left = parseAdditive(s);
-  while (COMPARE_OPS[peek(s)]) {
-    const op = COMPARE_OPS[s.tokens[s.pos++]];
-    left = { type: 'compare', op, a: left, b: parseAdditive(s) };
+/** 比べる記号を 1 つ読む（in / not in / is / is not もふくむ）。無ければ null */
+function readCompareOp(s) {
+  const token = peek(s);
+  if (COMPARE_OPS[token]) { s.pos++; return token; }
+  if (token === 'in') { s.pos++; return 'in'; }
+  if (token === 'not' && peek(s, 1) === 'in') { s.pos += 2; return 'not in'; }
+  if (token === 'is') {
+    s.pos++;
+    if (eat(s, 'not')) return 'is not';
+    return 'is';
   }
-  return left;
+  return null;
+}
+
+/**
+ * 比較。a < b < c のようにつなげた比較は、Python では (a < b) and (b < c) の意味なので、
+ * 入れ子の比較にせず、まとめて 1 つ（chain）にする。
+ */
+function parseComparison(s) {
+  const start = s.pos;
+  const first = parseAdditive(s);
+  const ops = [];
+  const items = [first];
+  let op;
+  while ((op = readCompareOp(s)) !== null) {
+    ops.push(op);
+    items.push(parseAdditive(s));
+  }
+  if (!ops.length) return first;
+  if (ops.length > 1) return mark(s, start, { type: 'chain', ops, items });
+  const [a, b] = items;
+  if (COMPARE_OPS[ops[0]]) return mark(s, start, { type: 'compare', op: COMPARE_OPS[ops[0]], a, b });
+  if (ops[0] === 'in' || ops[0] === 'not in') return mark(s, start, { type: 'membership', op: ops[0], a, b });
+  return mark(s, start, { type: 'identity', op: ops[0], a, b });
 }
 
 function parseAdditive(s) {
+  const start = s.pos;
   let left = parseMultiplicative(s);
   while (peek(s) === '+' || peek(s) === '-') {
-    const op = s.tokens[s.pos++] === '+' ? 'ADD' : 'MINUS';
-    left = { type: 'arith', op, a: left, b: parseMultiplicative(s) };
+    const op = s.tokens[s.pos++].text === '+' ? 'ADD' : 'MINUS';
+    left = mark(s, start, { type: 'arith', op, a: left, b: parseMultiplicative(s) });
   }
   return left;
 }
 
 function parseMultiplicative(s) {
+  const start = s.pos;
   let left = parseUnary(s);
   while (['*', '/', '%', '//'].includes(peek(s))) {
-    const token = s.tokens[s.pos++];
+    const token = s.tokens[s.pos++].text;
     const right = parseUnary(s);
-    if (token === '%') left = { type: 'modulo', a: left, b: right };
-    else if (token === '//') left = { type: 'floordiv', a: left, b: right };
-    else left = { type: 'arith', op: token === '*' ? 'MULTIPLY' : 'DIVIDE', a: left, b: right };
+    if (token === '%') left = mark(s, start, { type: 'modulo', a: left, b: right });
+    else if (token === '//') left = mark(s, start, { type: 'floordiv', a: left, b: right });
+    else left = mark(s, start, { type: 'arith', op: token === '*' ? 'MULTIPLY' : 'DIVIDE', a: left, b: right });
   }
   return left;
 }
 
 function parseUnary(s) {
-  if (peek(s) === '-') { s.pos++; return { type: 'negate', value: parseUnary(s) }; }
+  const start = s.pos;
+  if (peek(s) === '-') { s.pos++; return mark(s, start, { type: 'negate', value: parseUnary(s) }); }
+  if (peek(s) === '+') { s.pos++; return mark(s, start, { type: 'positive', value: parseUnary(s) }); }
   return parsePower(s);
 }
 
 function parsePower(s) {
-  const base = parseAtom(s);
-  if (peek(s) === '**') { s.pos++; return { type: 'arith', op: 'POWER', a: base, b: parseUnary(s) }; }
+  const start = s.pos;
+  const base = parsePostfix(s);
+  if (peek(s) === '**') { s.pos++; return mark(s, start, { type: 'arith', op: 'POWER', a: base, b: parseUnary(s) }); }
   return base;
 }
 
+/**
+ * 値のうしろに続く .名前 (呼び出し) [添字] を読む
+ * Data.append(x) や math.sqrt(2) のように、名前だけでつながる呼び出しは今までどおり
+ * name に「Data.append」を持つ call にする（ブロックの表と照らし合わせるため）。
+ * "a".join(x) や input().split() のように、値に続くメソッドは method にする。
+ */
+function parsePostfix(s) {
+  const start = s.pos;
+  let node = parseAtom(s);
+  for (;;) {
+    if (peek(s) === '.' && isName(peek(s, 1))) {
+      s.pos++;
+      const name = s.tokens[s.pos++].text;
+      node = node.type === 'name'
+        ? mark(s, start, { type: 'name', name: `${node.name}.${name}` })
+        : mark(s, start, { type: 'attr', obj: node, name });
+      continue;
+    }
+    if (peek(s) === '(') {
+      s.pos++;
+      const args = parseArguments(s);
+      expect(s, ')');
+      if (node.type === 'name') node = mark(s, start, { type: 'call', name: node.name, args });
+      else if (node.type === 'attr') node = mark(s, start, { type: 'method', obj: node.obj, name: node.name, args });
+      else node = mark(s, start, { type: 'callexpr', callee: node, args });
+      continue;
+    }
+    if (peek(s) === '[') {
+      s.pos++;
+      node = mark(s, start, readSubscript(s, node));
+      continue;
+    }
+    return node;
+  }
+}
+
+/** 呼び出しの引数。key=値 と *値 もふくむ */
+function parseArguments(s) {
+  const args = [];
+  while (peek(s) !== ')') {
+    const start = s.pos;
+    if (peek(s) === '*' || peek(s) === '**') {
+      const stars = s.tokens[s.pos++].text;
+      args.push(mark(s, start, { type: 'star', stars, value: parseTest(s) }));
+    } else if (isName(peek(s)) && !KEYWORDS.has(peek(s)) && peek(s, 1) === '=') {
+      const name = s.tokens[s.pos].text;
+      s.pos += 2;
+      args.push(mark(s, start, { type: 'kwarg', name, value: parseTest(s) }));
+    } else {
+      const value = parseTest(s);
+      // f(x for x in Data) のような書き方は読まない
+      if (peek(s) === 'for') throw new Error('引数の中の for は読みません');
+      args.push(value);
+    }
+    if (!eat(s, ',')) break;
+  }
+  return args;
+}
+
+/** [ ] の中。添字（Data[i]）か、切り出し（s[1:3]、s[::-1]） */
+function readSubscript(s, target) {
+  const part = () => (peek(s) === ':' || peek(s) === ']' ? null : parseTest(s));
+  const first = part();
+  if (peek(s) !== ':') {
+    if (first === null) throw new Error('添字がありません');
+    expect(s, ']');
+    return { type: 'index', target, index: first };
+  }
+  s.pos++;
+  const stop = part();
+  let step = null;
+  let hasStep = false;
+  if (eat(s, ':')) { hasStep = true; step = part(); }
+  expect(s, ']');
+  return { type: 'slice', target, start: first, stop, step, hasStep };
+}
+
 function parseAtom(s) {
+  const start = s.pos;
   const token = peek(s);
   if (token === undefined) throw new Error('式が途中で終わっています');
 
-  // 括弧
+  // かっこ（中が 1 つならただのかっこ、カンマがあればタプル）
   if (token === '(') {
     s.pos++;
-    const inner = parseOr(s);
+    if (eat(s, ')')) return mark(s, start, { type: 'tuple', items: [] });
+    const first = parseTest(s);
+    if (peek(s) === 'for') throw new Error('ジェネレーター式は読みません');
+    if (eat(s, ')')) return mark(s, start, { type: 'paren', value: first });
+    const items = [first];
+    while (eat(s, ',')) {
+      if (peek(s) === ')') break;
+      items.push(parseTest(s));
+    }
     expect(s, ')');
-    return inner;
+    return mark(s, start, { type: 'tuple', items });
   }
 
-  // リスト
+  // リスト・リスト内包
   if (token === '[') {
     s.pos++;
-    const items = [];
-    if (peek(s) !== ']') {
-      do { items.push(parseOr(s)); } while (eat(s, ','));
+    if (eat(s, ']')) return mark(s, start, { type: 'list', items: [] });
+    const first = parseTest(s);
+    if (peek(s) === 'for') {
+      s.pos++;
+      const varStart = s.pos;
+      while (peek(s) !== 'in' && s.pos < s.tokens.length) s.pos++;
+      const vars = s.source.slice(s.tokens[varStart].start, s.tokens[s.pos - 1].end);
+      expect(s, 'in');
+      const iter = parseOr(s);
+      const cond = eat(s, 'if') ? parseOr(s) : null;
+      if (peek(s) === 'for' || peek(s) === 'if') throw new Error('入れ子の内包は読みません');
+      expect(s, ']');
+      return mark(s, start, { type: 'comp', value: first, vars, iter, cond });
+    }
+    const items = [first];
+    while (eat(s, ',')) {
+      if (peek(s) === ']') break;
+      items.push(parseTest(s));
     }
     expect(s, ']');
-    return { type: 'list', items };
+    return mark(s, start, { type: 'list', items });
   }
 
-  // 数値
-  if (/^\d|^\.\d/.test(token)) { s.pos++; return { type: 'number', value: Number(token) }; }
-
-  // 文字列
-  if (/^['"]/.test(token)) { s.pos++; return { type: 'string', value: unquote(token) }; }
-
-  // 名前・関数呼び出し
-  if (/^[A-Za-z_]/.test(token)) {
+  // 辞書 {キー: 値, …}（集合 {1, 2} は読まない）
+  if (token === '{') {
     s.pos++;
-    let name = token;
-    while (peek(s) === '.' && /^[A-Za-z_]/.test(s.tokens[s.pos + 1] || '')) {
-      s.pos++;
-      name += '.' + s.tokens[s.pos++];
+    const pairs = [];
+    while (peek(s) !== '}') {
+      const key = parseTest(s);
+      expect(s, ':');
+      pairs.push([key, parseTest(s)]);
+      if (!eat(s, ',')) break;
     }
-    if (name === 'True' || name === 'False') return { type: 'boolean', value: name === 'True' };
-    if (name === 'None') return { type: 'none' };
+    expect(s, '}');
+    return mark(s, start, { type: 'dict', pairs });
+  }
 
-    if (peek(s) === '(') {
-      s.pos++;
-      const args = [];
-      if (peek(s) !== ')') {
-        do { args.push(parseOr(s)); } while (eat(s, ','));
-      }
-      expect(s, ')');
-      return withIndex(s, { type: 'call', name, args });
+  // 数。ふつうの整数と小数は数のブロックに、0x10 や 1e3 は書いたままにする
+  if (/^\d|^\.\d/.test(token)) {
+    s.pos++;
+    // 3.0 や 007 のように、数のブロックにすると書き方が変わるものは書いたまま持つ（3.0 が 3 になると int になる）
+    if (/^(\d+|\d+\.\d+)$/.test(token) && String(Number(token)) === token) {
+      return mark(s, start, { type: 'number', value: Number(token) });
     }
-    return withIndex(s, { type: 'name', name });
+    return mark(s, start, { type: 'literal' });
+  }
+
+  // 文字列。f"…" は値を埋めこむ文字列、"a" "b" と並べた書き方や、\n 以外の \ をふくむものは書いたまま
+  if (/^[rRbBfFuU]{0,2}['"]/.test(token)) {
+    s.pos++;
+    if (/^['"]/.test(peek(s) || '')) throw new Error('並べた文字列は読みません');
+    const prefix = token.match(/^[rRbBfFuU]*/)[0];
+    if (/^[fF]$/.test(prefix)) return mark(s, start, { type: 'fstring' });
+    // \n などをふくむ文字列は、Blockly の文字ブロックだと書き戻すときに崩れるので、書いたまま持つ
+    if (prefix || token.includes('\\')) return mark(s, start, { type: 'literal' });
+    return mark(s, start, { type: 'string', value: unquote(token) });
+  }
+
+  if (isName(token) && !['and', 'or', 'not', 'in', 'is', 'if', 'else', 'for', 'lambda'].includes(token)) {
+    s.pos++;
+    if (token === 'True' || token === 'False') return mark(s, start, { type: 'boolean', value: token === 'True' });
+    if (token === 'None') return mark(s, start, { type: 'none' });
+    return mark(s, start, { type: 'name', name: token });
   }
 
   throw new Error(`予期しない字句: ${token}`);
-}
-
-/**
- * うしろに続く [ ] を読み取る（a[i] や Data[i][j]）
- *
- * 共通テストの表記でも配列の添字は 0 から数えるので、そのまま持つ。
- * @param {object} s 読み取りの状態
- * @param {object} node ここまでの式
- * @returns {object}
- */
-function withIndex(s, node) {
-  let current = node;
-  while (peek(s) === '[') {
-    s.pos++;
-    const index = parseOr(s);
-    expect(s, ']');
-    current = { type: 'index', target: current, index };
-  }
-  return current;
 }
 
 /** クオートを外して中身を取り出す */
@@ -438,14 +632,23 @@ function valueBlock(node, ctx) {
           INDEX: input(valueBlock(node.index, ctx)),
         },
       };
+    case 'paren':
+      return valueBlock(node.value, ctx);
     case 'name': {
+      // int や list のような Python の名前を値として使うとき（map(int, …)）は、変数にすると
+      // Blockly が int2 と名前を変えてしまうので、名前のブロックにする
+      if (isReservedName(node.name) && known('py_dotted') && !lookup(NAME_BLOCK_INDEX, node.name)) {
+        return { type: 'py_dotted', fields: { NAME: node.name } };
+      }
       const named = lookup(NAME_BLOCK_INDEX, node.name);
       if (named) return { type: named.type };
       if (CONSTANT_NAMES.has(node.name) && known('p5_constant')) {
         return { type: 'p5_constant', fields: { NAME: node.name } };
       }
-      // p5.width のようなドット付きの名前は変数にできないのでコードのまま
-      if (node.name.includes('.')) return { type: 'py_raw_value', fields: { CODE: node.name } };
+      // math.pi のようなドット付きの名前は変数にできないので、名前のブロックにする
+      if (node.name.includes('.')) {
+        return known('py_dotted') ? { type: 'py_dotted', fields: { NAME: node.name } } : rawValue(node);
+      }
       return { type: 'variables_get', fields: { VAR: ctx.variable(node.name) } };
     }
     case 'logic':
@@ -463,6 +666,19 @@ function valueBlock(node, ctx) {
         inputs: { A: input(valueBlock(node.a, ctx)), B: input(valueBlock(node.b, ctx)) },
       };
     case 'arith':
+      // [0] * 10 はリストのくり返し、"*" * 5 は文字のくり返し
+      if (node.op === 'MULTIPLY' && (isStringy(node.a) || isCollection(node.a))) {
+        if (node.a.type === 'list' && node.a.items.length === 1 && known('lists_repeat')) {
+          return { type: 'lists_repeat', inputs: { ITEM: input(valueBlock(node.a.items[0], ctx)), NUM: input(valueBlock(node.b, ctx)) } };
+        }
+        if (!known('py_repeat')) return rawValue(node);
+        return { type: 'py_repeat', inputs: { VALUE: input(valueBlock(node.a, ctx)), TIMES: input(valueBlock(node.b, ctx)) } };
+      }
+      // リストどうしの + も「つなぐ」
+      if (node.op === 'ADD' && (isCollection(node.a) || isCollection(node.b))) {
+        return { type: 'py_join', inputs: { A: input(valueBlock(node.a, ctx)), B: input(valueBlock(node.b, ctx)) } };
+      }
+      if (isCollection(node.a) || isCollection(node.b)) return rawValue(node);
       // 文字列の連結は計算ブロックに入れられないので、「つなぐ」ブロックにする
       if (isStringy(node)) {
         if (node.op !== 'ADD') return rawValue(node);
@@ -505,8 +721,92 @@ function valueBlock(node, ctx) {
     case 'call':
       return callBlock(node, ctx);
     default:
-      return rawValue(node);
+      return extraValueBlock(node, ctx) || rawValue(node);
   }
+}
+
+/**
+ * 新しく読めるようになった式のブロック（in・is・つなげた比較・条件式・切り出し・メソッド など）
+ * @returns {object|null} ブロックにできなければ null
+ */
+function extraValueBlock(node, ctx) {
+  const v = (child) => input(valueBlock(child, ctx));
+  const ok = (type) => known(type);
+  switch (node.type) {
+    case 'attr':
+      return ok('py_attr') ? { type: 'py_attr', fields: { NAME: node.name }, inputs: { OBJ: v(node.obj) } } : null;
+    case 'method':
+      return ok(`py_method_${node.args.length}`) ? methodBlock(node, ctx, 'py_method') : null;
+    case 'callexpr':
+      return node.args.length === 1 && ok('py_callexpr')
+        ? { type: 'py_callexpr', inputs: { CALLEE: v(node.callee), ARG0: v(node.args[0]) } } : null;
+    case 'kwarg':
+      return ok('py_kwarg') ? { type: 'py_kwarg', fields: { NAME: node.name }, inputs: { VALUE: v(node.value) } } : null;
+    case 'star':
+      return ok('py_star') ? { type: 'py_star', fields: { STARS: node.stars }, inputs: { VALUE: v(node.value) } } : null;
+    case 'slice': {
+      const type = node.hasStep ? 'py_slice' : 'py_slice2';
+      if (!ok(type)) return null;
+      const inputs = { LIST: v(node.target) };
+      if (node.start) inputs.START = v(node.start);
+      if (node.stop) inputs.STOP = v(node.stop);
+      if (node.step) inputs.STEP = v(node.step);
+      return { type, inputs };
+    }
+    case 'membership':
+      return ok('py_membership') ? { type: 'py_membership', fields: { OP: node.op }, inputs: { A: v(node.a), B: v(node.b) } } : null;
+    case 'identity':
+      return ok('py_identity') ? { type: 'py_identity', fields: { OP: node.op }, inputs: { A: v(node.a), B: v(node.b) } } : null;
+    case 'chain': {
+      const relational = ['<', '<=', '>', '>=', '==', '!='];
+      if (node.ops.length !== 2 || !node.ops.every(op => relational.includes(op)) || !ok('py_chain')) return null;
+      return {
+        type: 'py_chain', fields: { OP1: node.ops[0], OP2: node.ops[1] },
+        inputs: { A: v(node.items[0]), B: v(node.items[1]), C: v(node.items[2]) },
+      };
+    }
+    case 'ternary':
+      return ok('logic_ternary') ? { type: 'logic_ternary', inputs: { IF: v(node.cond), THEN: v(node.a), ELSE: v(node.b) } } : null;
+    case 'tuple': {
+      const type = `py_tuple_${node.items.length}`;
+      if (!ok(type)) return null;
+      const inputs = {};
+      node.items.forEach((item, i) => { inputs[`I${i}`] = v(item); });
+      return { type, inputs };
+    }
+    case 'dict': {
+      const type = `py_dict_${node.pairs.length}`;
+      if (!ok(type)) return null;
+      const inputs = {};
+      node.pairs.forEach(([key, value], i) => { inputs[`K${i}`] = v(key); inputs[`V${i}`] = v(value); });
+      return { type, inputs };
+    }
+    case 'comp': {
+      const type = node.cond ? 'py_comp_if' : 'py_comp';
+      if (!ok(type)) return null;
+      const inputs = { VALUE: v(node.value), ITER: v(node.iter) };
+      if (node.cond) inputs.COND = v(node.cond);
+      return { type, fields: { VARS: node.vars }, inputs };
+    }
+    case 'lambda':
+      return ok('py_lambda') ? { type: 'py_lambda', fields: { PARAMS: node.params }, inputs: { VALUE: v(node.body) } } : null;
+    case 'literal':
+      return ok('py_literal') ? { type: 'py_literal', fields: { TEXT: node.src } } : null;
+    case 'fstring': {
+      const body = node.src.replace(/^[fF]/, '');
+      const quote = body[0];
+      // 中の書き方（\ や引用符）がそのまま戻せるときだけブロックにする
+      if (body.includes('\\') || body.slice(1, -1).includes(quote === '"' ? "'" : '"')) return null;
+      return ok('py_fstring') ? { type: 'py_fstring', fields: { TEXT: body.slice(1, -1) } } : null;
+    }
+    default:
+      return null;
+  }
+}
+
+/** リスト・タプル・辞書・内包 */
+function isCollection(node) {
+  return Boolean(node) && ['list', 'tuple', 'dict', 'comp'].includes(node.type);
 }
 
 /** 関数呼び出しを対応するブロックに変換する */
@@ -520,7 +820,8 @@ function callBlock(node, ctx) {
 
   switch (`${node.name}/${node.args.length}`) {
     case 'input/0':
-      return { type: 'py_input', inputs: { PROMPT: input({ type: 'text', fields: { TEXT: '' } }) } };
+      // 何も聞かない input() は、穴を空けたままにする（input('') にならないように）
+      return { type: 'py_input' };
     case 'input/1':
       return { type: 'py_input', inputs: { PROMPT: one() } };
     case 'int/1':
@@ -538,11 +839,12 @@ function callBlock(node, ctx) {
     case 'min/1':
       return { type: 'math_on_list', fields: { OP: 'MIN' }, inputs: { LIST: one() } };
     case 'round/2':
-      return { type: 'py_raw_value', fields: { CODE: unparse(node) } };
+      return userCall(node, ctx, 'py_callv') || rawValue(node);
+    // abs と round は、Blockly の計算ブロックにすると math.fabs や import math に変わってしまうので、
+    // 書いたままの呼び出しにする
     case 'abs/1':
-      return { type: 'math_single', fields: { OP: 'ABS' }, inputs: { NUM: one() } };
     case 'round/1':
-      return { type: 'math_round', fields: { OP: 'ROUND' }, inputs: { NUM: one() } };
+      return userCall(node, ctx, 'py_callv') || rawValue(node);
     case 'math.sqrt/1':
       return { type: 'math_single', fields: { OP: 'ROOT' }, inputs: { NUM: one() } };
     case 'random.randint/2':
@@ -586,7 +888,8 @@ function fromCallDef(def, node, ctx) {
 
 /** ブロックにできない式は、コードをそのまま持つブロックにする */
 function rawValue(node) {
-  return { type: 'py_raw_value', fields: { CODE: unparse(node) } };
+  // 元のコードの文字列があれば、それをそのまま使う（引用符やかっこが変わらない）
+  return { type: 'py_raw_value', fields: { CODE: node.src || unparse(node) } };
 }
 
 /**
@@ -630,7 +933,9 @@ function unparse(node, nested = false) {
  */
 function isStringy(node) {
   if (!node) return false;
-  if (node.type === 'string') return true;
+  if (node.type === 'string' || node.type === 'fstring') return true;
+  if (node.type === 'literal' && /^[rRbBuU]*['"]/.test(node.src || '')) return true;
+  if (node.type === 'paren') return isStringy(node.value);
   if (node.type === 'call') return node.name === 'str' || node.name === 'input';
   if (node.type === 'arith') return isStringy(node.a) || isStringy(node.b);
   return false;
@@ -681,19 +986,59 @@ function statementBlock(stmt, ctx) {
   // 中に、字下げより左に書いた文字列の行があるときは、まるごとコードのまま持つ（中身を変えないため）
   if (ctx.hasUnderIndented(stmt.startIndex, stmt.endIndex)) return rawRange(stmt.startIndex, stmt.endIndex, ctx);
 
+  // ほかの節（else: など）の見出しにコメントがあるときは、コメントが消えないようコードのまま持つ
+  if (stmt.clauses.slice(1).some(c => c.comment)) return rawRange(stmt.startIndex, stmt.endIndex, ctx);
+
+  let block;
   switch (stmt.keyword) {
-    case 'if':    return ifBlock(stmt.clauses, ctx);
-    case 'while': return whileBlock(stmt.clauses[0], ctx);
-    case 'for':   return forBlock(stmt.clauses[0], ctx);
-    case 'def':   return defBlock(stmt, ctx);
+    case 'if':    block = ifBlock(stmt.clauses, ctx); break;
+    // for … else / while … else の else は、ブロックでは表せないのでコードのまま持つ
+    case 'while':
+    case 'for':
+      if (stmt.clauses.length > 1) return rawRange(stmt.startIndex, stmt.endIndex, ctx);
+      block = stmt.keyword === 'for' ? forBlock(stmt.clauses[0], ctx) : whileBlock(stmt.clauses[0], ctx);
+      break;
+    case 'def':   block = defBlock(stmt, ctx); break;
+    case 'try':   block = tryBlock(stmt, ctx); break;
     default:      return rawRange(stmt.startIndex, stmt.endIndex, ctx);
   }
+  const comment = stmt.clauses[0].comment;
+  if (!comment || !block) return block;
+  // コードのままのブロックになったときは、コメントも元の行に残っているので付けない
+  return block.type === 'py_raw' ? block : withComment(block, comment);
+}
+
+/**
+ * try / except（except が 1 つで、else / finally の無いもの）
+ * @param {object} stmt
+ * @param {object} ctx
+ */
+function tryBlock(stmt, ctx) {
+  const [tryClause, ...rest] = stmt.clauses;
+  if (rest.length !== 1 || rest[0].keyword !== 'except' || !known('py_try')) {
+    return rawRange(stmt.startIndex, stmt.endIndex, ctx);
+  }
+  const body = statementChain(tryClause.body, ctx);
+  const handler = statementChain(rest[0].body, ctx);
+  const inputs = {};
+  if (body) inputs.BODY = { block: body };
+  if (handler) inputs.HANDLER = { block: handler };
+  return { type: 'py_try', fields: { EXC: rest[0].head }, inputs };
 }
 
 /** 単純文 */
 function simpleBlock(text, ctx) {
   // 行をまたぐ三重引用符の文字列をふくむ文は、元のコードのまま持つ
   if (text.includes('\n')) return rawStatement(text);
+
+  // 行末のコメント（x = 1  # 説明）は、ブロックに付けて持つ。コードに戻すときは同じ行の末尾に書く
+  if (!text.startsWith('#')) {
+    const { code, comment } = splitComment(text);
+    if (comment !== null) {
+      const block = simpleBlock(code, ctx);
+      return block ? withComment(block, comment) : null;
+    }
+  }
 
   // コメント
   if (text.startsWith('#')) {
@@ -708,12 +1053,28 @@ function simpleBlock(text, ctx) {
   if (text === 'return' && known('py_return_none')) return { type: 'py_return_none' };
   const returnMatch = text.match(/^return\s+(.+)$/s);
   if (returnMatch && known('py_return')) {
-    const node = parseExpression(returnMatch[1]);
+    const node = parseExpression(returnMatch[1], { tuple: true });
     if (node) return { type: 'py_return', inputs: { VALUE: input(valueBlock(node, ctx)) } };
   }
 
+  // import / from … import / assert / del
+  const importMatch = text.match(/^import\s+(.+)$/s);
+  if (importMatch && known('py_import')) return { type: 'py_import', fields: { NAME: importMatch[1].trim() } };
+  const fromMatch = text.match(/^from\s+(\S+)\s+import\s+(.+)$/s);
+  if (fromMatch && known('py_from')) return { type: 'py_from', fields: { MODULE: fromMatch[1], NAMES: fromMatch[2].trim() } };
+  const assertMatch = text.match(/^assert\s+(.+)$/s);
+  if (assertMatch && known('py_assert')) {
+    const node = parseExpression(assertMatch[1]);
+    if (node) return { type: 'py_assert', inputs: { VALUE: input(valueBlock(node, ctx)) } };
+  }
+  const delMatch = text.match(/^del\s+(.+)$/s);
+  if (delMatch && known('py_del')) {
+    const node = parseExpression(delMatch[1]);
+    if (node) return { type: 'py_del', inputs: { VALUE: input(valueBlock(node, ctx)) } };
+  }
+
   // global x, y（関数の中から外の変数を書きかえる）
-  const globalMatch = text.match(/^global\s+([A-Za-z_]\w*(?:\s*,\s*[A-Za-z_]\w*)*)$/);
+  const globalMatch = text.match(/^global\s+([\p{L}_][\p{L}\p{N}_]*(?:\s*,\s*[\p{L}_][\p{L}\p{N}_]*)*)$/u);
   if (globalMatch) {
     return { type: 'py_global', fields: { NAMES: globalMatch[1].split(',').map(n => n.trim()).join(', ') } };
   }
@@ -740,7 +1101,8 @@ function simpleBlock(text, ctx) {
     if (endMatch && parts.length === 2) {
       const value = parseExpression(parts[0]);
       const tail = parseExpression(endMatch[1]);
-      if (value && tail && tail.type === 'string') {
+      // end="\n" のように \ をふくむ書き方は、文字の欄では書き戻せないので、呼び出しのブロックにまかせる
+      if (value && tail && tail.type === 'string' && !(tail.src || '').includes('\\')) {
         return {
           type: 'py_print_end',
           fields: { END: tail.value },
@@ -769,35 +1131,6 @@ function simpleBlock(text, ctx) {
     }
   }
 
-  // 変数 += 式（授業では「x += 1 は x = x + 1 と同じ」と教える形）
-  const augMatch = text.match(/^([A-Za-z_][A-Za-z0-9_]*)\s*(\*\*|\/\/|[-+*/%])=\s*(.+)$/s);
-  if (augMatch) {
-    const [, name, op, rest] = augMatch;
-    const node = parseExpression(rest);
-    const OPS = { '+': 'ADD', '-': 'MINUS', '*': 'MULTIPLY', '/': 'DIVIDE', '**': 'POWER' };
-    if (node && (OPS[op] || op === '%' || op === '//')) {
-      const left = { type: 'variables_get', fields: { VAR: ctx.variable(name) } };
-      const right = valueBlock(node, ctx);
-      let value;
-      if (op === '%') {
-        value = { type: 'math_modulo', inputs: { DIVIDEND: input(left), DIVISOR: input(right) } };
-      } else if (op === '//') {
-        value = { type: 'py_floor_div', inputs: { A: input(left), B: input(right) } };
-      } else {
-        value = {
-          type: 'math_arithmetic',
-          fields: { OP: OPS[op] },
-          inputs: { A: input(left), B: input(right) },
-        };
-      }
-      return {
-        type: 'variables_set',
-        fields: { VAR: ctx.variable(name) },
-        inputs: { VALUE: input(value) },
-      };
-    }
-  }
-
   // リスト.append(式)
   const appendMatch = text.match(/^([A-Za-z_][A-Za-z0-9_]*)\s*\.append\s*\((.*)\)$/s);
   if (appendMatch) {
@@ -806,33 +1139,157 @@ function simpleBlock(text, ctx) {
       return {
         type: 'py_append',
         inputs: {
-          LIST: input({ type: 'variables_get', fields: { VAR: ctx.variable(appendMatch[1]) } }),
+          LIST: input(valueBlock({ type: 'name', name: appendMatch[1] }, ctx)),
           ITEM: input(valueBlock(node, ctx)),
         },
       };
     }
   }
 
-  // 変数 = 式
-  const assignMatch = text.match(/^([A-Za-z_][A-Za-z0-9_]*)\s*=(?!=)\s*(.+)$/s);
-  if (assignMatch) {
-    const node = parseExpression(assignMatch[2]);
-    if (node) {
-      return {
-        type: 'variables_set',
-        fields: { VAR: ctx.variable(assignMatch[1]) },
-        inputs: { VALUE: input(valueBlock(node, ctx)) },
-      };
-    }
-  }
+  // 代入（x = 式、Data[i] = 式、a, b = b, a、x = y = 0、x += 1 など）
+  const assigned = assignmentBlock(text, ctx);
+  if (assigned) return assigned;
 
   // ブロックの無い関数の呼び出し（自分で作った関数 move(1, 2) や、items.sort() など）
   if (callNode && callNode.type === 'call') {
     const called = userCall(callNode, ctx, 'py_call');
     if (called) return called;
   }
+  // 値に続けて呼ぶメソッド（input().strip() など）と、そのほかの式だけの文
+  if (callNode && callNode.type === 'method' && known(`py_methods_${callNode.args.length}`)) {
+    return methodBlock(callNode, ctx, 'py_methods');
+  }
+  if (callNode && known('py_expr') && callNode.type !== 'call') {
+    return { type: 'py_expr', inputs: { VALUE: input(valueBlock(callNode, ctx)) } };
+  }
 
   return rawStatement(text);
+}
+
+/** 複合代入の記号 */
+const AUG_OPS = new Set(['+=', '-=', '*=', '/=', '//=', '%=', '**=']);
+
+/**
+ * 代入の文をブロックにする。代入でなければ null
+ * 字句に分けて、かっこの外にある = と += などを探す（f(x=1) の = や == は数えない）。
+ * @param {string} text
+ * @param {object} ctx
+ */
+function assignmentBlock(text, ctx) {
+  const tokens = tokenize(text);
+  if (!tokens) return null;
+  const cuts = [];
+  let depth = 0;
+  tokens.forEach((token, i) => {
+    if ('([{'.includes(token.text)) depth++;
+    else if (')]}'.includes(token.text)) depth--;
+    else if (depth === 0 && (token.text === '=' || AUG_OPS.has(token.text))) cuts.push(i);
+  });
+  if (!cuts.length) return null;
+  const slice = (from, to) => text.slice(tokens[from].start, tokens[to].end);
+  const last = cuts[cuts.length - 1];
+  if (last === tokens.length - 1) return null;
+  const rightText = slice(last + 1, tokens.length - 1);
+  const op = tokens[last].text;
+
+  // x = y = 0（同じ値をいくつかの変数に入れる）
+  if (cuts.length > 1) {
+    if (cuts.some(i => tokens[i].text !== '=')) return null;
+    const names = [0, ...cuts.slice(0, -1).map(i => i + 1)].map((from, k) => slice(from, cuts[k] - 1).trim());
+    if (!names.every(name => /^[\p{L}_][\p{L}\p{N}_]*$/u.test(name)) || !known('py_chain_assign')) return null;
+    const value = parseExpression(rightText, { tuple: true });
+    if (!value) return null;
+    return { type: 'py_chain_assign', fields: { TARGETS: names.join(' = ') }, inputs: { VALUE: input(valueBlock(value, ctx)) } };
+  }
+
+  const leftText = slice(0, last - 1).trim();
+  const target = parseExpression(leftText, { tuple: true });
+  const value = parseExpression(rightText, { tuple: true });
+  if (!target || !value) return null;
+
+  // x = 式 / x += 式
+  if (target.type === 'name' && !target.name.includes('.')) {
+    // list = … のように Python の名前に入れるときも、Blockly に名前を変えられないようにする
+    if (op === '=' && isReservedName(target.name) && known('py_chain_assign')) {
+      return { type: 'py_chain_assign', fields: { TARGETS: target.name }, inputs: { VALUE: input(valueBlock(value, ctx)) } };
+    }
+    if (op === '=') {
+      return { type: 'variables_set', fields: { VAR: ctx.variable(target.name) }, inputs: { VALUE: input(valueBlock(value, ctx)) } };
+    }
+    if (!known('py_aug')) return null;
+    return { type: 'py_aug', fields: { TARGET: target.name, OP: op }, inputs: { VALUE: input(valueBlock(value, ctx)) } };
+  }
+
+  // Data[i] = 式 / Data[i] += 式 / d["a"] = 式
+  if (target.type === 'index' && known('py_set_index')) {
+    return {
+      type: 'py_set_index',
+      fields: { OP: op },
+      inputs: {
+        LIST: input(valueBlock(target.target, ctx)),
+        INDEX: input(valueBlock(target.index, ctx)),
+        VALUE: input(valueBlock(value, ctx)),
+      },
+    };
+  }
+
+  // obj.x = 式（self.name = name など）
+  if ((target.type === 'attr' || (target.type === 'name' && target.name.includes('.'))) && known('py_set_attr')) {
+    const obj = target.type === 'attr' ? valueBlock(target.obj, ctx)
+      : valueBlock(parseExpression(target.name.slice(0, target.name.lastIndexOf('.'))), ctx);
+    const name = target.type === 'attr' ? target.name : target.name.slice(target.name.lastIndexOf('.') + 1);
+    return { type: 'py_set_attr', fields: { NAME: name, OP: op }, inputs: { OBJ: input(obj), VALUE: input(valueBlock(value, ctx)) } };
+  }
+
+  // a, b = b, a / Data[0], Data[2] = Data[2], Data[0]（まとめて代入）
+  const assignable = (t) => ['index', 'attr'].includes(t.type) || (t.type === 'name' && !isReservedName(t.name));
+  if (target.type === 'tuple' && target.bare && op === '=' && target.items.every(assignable)) {
+    const values = value.type === 'tuple' && value.bare ? value.items : [value];
+    const type = `py_multi_${values.length}`;
+    if (!known(type)) return null;
+    const inputs = {};
+    values.forEach((v, i) => { inputs[`V${i}`] = input(valueBlock(v, ctx)); });
+    return { type, fields: { TARGETS: leftText }, inputs };
+  }
+  return null;
+}
+
+/**
+ * 値に続けて呼ぶメソッドのブロック
+ * @param {object} node method の木
+ * @param {object} ctx
+ * @param {'py_method'|'py_methods'} kind 値として使うか、文として置くか
+ */
+function methodBlock(node, ctx, kind) {
+  const inputs = { OBJ: input(valueBlock(node.obj, ctx)) };
+  node.args.forEach((arg, i) => { inputs[`ARG${i}`] = input(valueBlock(arg, ctx)); });
+  return { type: `${kind}_${node.args.length}`, fields: { NAME: node.name }, inputs };
+}
+
+/**
+ * 行末のコメントを切り分ける（文字列の中の # は数えない）
+ * @param {string} text
+ * @returns {{code: string, comment: string|null}}
+ */
+function splitComment(text) {
+  let quote = null;
+  for (let i = 0; i < text.length; i++) {
+    const ch = text[i];
+    if (quote) {
+      if (ch === '\\') i++;
+      else if (ch === quote) quote = null;
+      continue;
+    }
+    if (ch === '"' || ch === "'") quote = ch;
+    else if (ch === '#') return { code: text.slice(0, i).trimEnd(), comment: text.slice(i + 1).trim() };
+  }
+  return { code: text, comment: null };
+}
+
+/** ブロックにコメントを付ける（コードに戻すとき、その行の末尾に # で書かれる） */
+function withComment(block, comment) {
+  if (!comment) return block;
+  return { ...block, icons: { ...(block.icons || {}), comment: { text: comment, pinned: false } } };
 }
 
 /** if / elif / else */
@@ -877,10 +1334,27 @@ function whileBlock(clause, ctx) {
 
 /** for（回数繰り返し / カウンター / リストの要素ごと） */
 function forBlock(clause, ctx) {
-  const match = clause.head.match(/^([A-Za-z_][A-Za-z0-9_]*)\s+in\s+(.+)$/s);
-  if (!match) return rawRange(clause.headIndex, clause.endIndex, ctx);
+  const match = clause.head.match(/^([\p{L}_][\p{L}\p{N}_]*)\s+in\s+(.+)$/su);
+  if (!match) {
+    // for i, x in enumerate(Data): のように、変数がいくつかあるとき
+    const multi = clause.head.match(/^(\(?\s*[\p{L}_][\p{L}\p{N}_]*(?:\s*,\s*[\p{L}_][\p{L}\p{N}_]*)+\s*\)?)\s+in\s+(.+)$/su);
+    const iter = multi && parseExpression(multi[2]);
+    if (!iter || !known('py_for_vars')) return rawRange(clause.headIndex, clause.endIndex, ctx);
+    const body = statementChain(clause.body, ctx);
+    const inputs = { ITER: input(valueBlock(iter, ctx)) };
+    if (body) inputs.DO = { block: body };
+    return { type: 'py_for_vars', fields: { VARS: multi[1].trim() }, inputs };
+  }
 
   const [, varName, iterableText] = match;
+  if (isReservedName(varName) && known('py_for_vars')) {
+    const iter = parseExpression(iterableText);
+    if (!iter) return rawRange(clause.headIndex, clause.endIndex, ctx);
+    const body = statementChain(clause.body, ctx);
+    const inputs = { ITER: input(valueBlock(iter, ctx)) };
+    if (body) inputs.DO = { block: body };
+    return { type: 'py_for_vars', fields: { VARS: varName }, inputs };
+  }
   const body = statementChain(clause.body, ctx);
   const withBody = (inputs) => {
     if (body) inputs.DO = { block: body };
@@ -901,7 +1375,13 @@ function forBlock(clause, ctx) {
     }
     // range(n) / range(a, b) / range(a, b, c) は「a から b まで」ブロックに戻す。
     // 終わりの値は range が「含まない」ので、1 引いた形にする。
-    if (args.length >= 1 && args.every(Boolean)) {
+    // Blockly の「a から b まで」は、数がすべて決まっていて 1 ずつ以上増えるときしか
+    // range(…) のままのコードにならない（変数が入ると upRange などの長いコードになり、
+    // 減らしながらのときは終わりがずれる）。それ以外は「range(…) の中を順に」にする。
+    const plainNumbers = args.length >= 1 && numbers.every(n => n !== null && Number.isInteger(n))
+      && (args.length < 3 || numbers[2] > 0)
+      && (args.length === 1 ? numbers[0] > 0 : numbers[0] < numbers[1]);
+    if (plainNumbers) {
       const endNode = args.length === 1 ? args[0] : args[1];
       const to = endNode.type === 'number'
         ? { type: 'math_number', fields: { NUM: endNode.value - 1 } }
@@ -962,9 +1442,9 @@ function defBlock(stmt, ctx) {
 
   // 自分で作る関数。受け取るものは、そのままの書き方（a, b=1）で持つ。
   // *args や型の注釈（a: int）、-> のような書き方は、コードのまま残す
-  const own = clause.head.match(/^([A-Za-z_]\w*)\s*\(([^()]*)\)$/);
+  const own = clause.head.match(/^([\p{L}_][\p{L}\p{N}_]*)\s*\(([^()]*)\)$/u);
   const params = own ? own[2].split(',').map(p => p.trim()).filter(Boolean) : null;
-  const simple = params && params.every(p => /^[A-Za-z_]\w*(\s*=\s*[^,:*]+)?$/.test(p));
+  const simple = params && params.every(p => /^[\p{L}_][\p{L}\p{N}_]*(\s*=\s*[^,:*]+)?$/u.test(p));
   // 受け取るものの名前が list や sum のような Python の名前だと、Blockly は中身の側だけ
   // list2 と名前を変えてしまう（見出しはそのままなので動かなくなる）。
   // Data と data のように大文字小文字だけちがう名前も、Blockly は同じ変数とみなす。

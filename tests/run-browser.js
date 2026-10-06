@@ -784,6 +784,51 @@ async function testRunner() {
  * 3.7 描画は p5.js のリファレンスどおりに書ける
  * ========================================================== */
 
+/**
+ * いろいろな書き方が、Python ブロックにならずにブロックになること。
+ * そして、ブロックから作り直したコードが、もとのコードと同じ意味（ast が同じ）になること。
+ * Blockly が先頭に足す import と、コメントは比べない。
+ */
+async function testBlockCorpus(workspace) {
+  const corpus = await fetch('blocks-corpus.json').then(r => r.json());
+  // ブロックでは表せないので、わざとコードのまま持つもの（意味が変わらないことだけ確かめる）
+  const keepRaw = new Set([
+    'Data = [\n    1,  # a\n    2,\n]',
+    'for x in a:\n    pass\nelse:\n    print(1)',
+  ]);
+  const sameMeaning = (a, b) => {
+    pyodide.globals.set('_ast_a', a);
+    pyodide.globals.set('_ast_b', b);
+    return pyodide.runPython(`
+import ast
+def _strip(src):
+    tree = ast.parse(src)
+    tree.body = [n for n in tree.body if not isinstance(n, (ast.Import, ast.ImportFrom))]
+    return ast.dump(tree)
+try:
+    _same = _strip(_ast_a) == _strip(_ast_b)
+except SyntaxError:
+    _same = False
+_same
+`);
+  };
+  for (const code of corpus) {
+    await wait();
+    const name = JSON.stringify(code.split('\n')[0]);
+    const result = pythonToBlocks(code, workspace);
+    const raw = workspace.getAllBlocks(false).filter(b => b.type === 'py_raw' || b.type === 'py_raw_value')
+      .map(b => b.getFieldValue('CODE'));
+    if (!keepRaw.has(code)) {
+      check(`書き方: ${name} が Python ブロックにならない`, result.ok && raw.length === 0, `\n  ${JSON.stringify(raw)}`);
+    }
+    const generated = Blockly.Python.workspaceToCode(workspace);
+    check(`書き方: ${name} は作り直しても同じ意味`, sameMeaning(code, generated), `\n  作り直したコード:\n${generated}`);
+    pythonToBlocks(generated, workspace);
+    equal(`書き方: ${name} は 2 回目も同じコード`, Blockly.Python.workspaceToCode(workspace), generated);
+  }
+  workspace.clear();
+}
+
 /** ブロックから作り直したスケッチが、そのまま動くこと（setup と draw を 1 回ずつ） */
 async function testSketchesRun(workspace) {
   // 「つなぐ」のかっこ: 左に続くときは付けず、右に入れたときは付ける（もとの形を変えない）
@@ -1080,6 +1125,9 @@ async function main() {
     group('Python ⇄ ブロック の往復（描画のコード）');
     await pyodide.runPythonAsync(P5_PYTHON_LIBRARY);
     await testRoundTrip(workspace, DRAWING_PROGRAMS, { behaviour: false });
+
+    group('いろいろな書き方がブロックになる');
+    await testBlockCorpus(workspace);
 
     group('ツールボックスの全ブロック');
     await testEveryBlock(workspace);

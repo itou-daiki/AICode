@@ -229,6 +229,12 @@ function valueBody(expr) {
       case 'round': return args.length >= 2
         ? `${args[0]} を小数第 ${args[1]} 位までに丸めた数`
         : `${args[0]} を整数に丸めた数`;
+      case 'enumerate': return args.length >= 2 ? `${args[0]} の番号（${args[1]} から）と値` : `${args[0]} の番号と値`;
+      case 'sorted':
+        if (args.length === 1) return `${args[0]} を小さい順に並べたもの`;
+        break;
+      case 'reversed': return `${args[0]} を逆の順にしたもの`;
+      case 'zip': return `${args.join(' と ')} を組にしたもの`;
       case 'range': {
         if (args.length === 1) return `0 から ${args[0]} の手前まで`;
         const range = `${args[0]} から ${args[1]} の手前まで`;
