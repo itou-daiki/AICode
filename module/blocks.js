@@ -4,12 +4,13 @@
 // このファイルは「実行」「ステップ実行」「画面の切り替え」を担当する。
 
 import { createWorkbench } from './workbench.js';
-import { recordTrace, changedVariables, changedItems, namesInLine } from './stepper.js';
+import { recordTrace, namesInLine } from './stepper.js';
+import { describeStep, renderStepCaption, renderStepOutput, markStepLines, renderVariables } from './stepview.js';
 import {
   confirmDialog, toast, initSidebar, initTabs, initMaximize,
-  takeCodeFromUrl, makeShareUrl, showShareDialog, showFix,
+  takeCodeFromUrl, makeShareUrl, showShareDialog, showFix, safeStorage, bootPython,
+  makeEditorFriendly, bindRunShortcut, addTextSizeControl,
 } from './ui.js';
-import { PYODIDE_CONFIG } from './config.js';
 import { runUserCode, explainError, suggestFix } from './pyrun.js';
 import { toKtph } from './ktph.js';
 import { setIconLabel } from './icons.js';
@@ -17,6 +18,7 @@ import { setIconLabel } from './icons.js';
 import './ai.js';
 
 const STORAGE_KEY = 'easycode_blocks_workspace_v2';
+const FIRST_VISIT_KEY = 'easycode_blocks_seen';
 const LAYOUT_KEY = 'easycode_layout';
 
 const STARTER_CODE = `print("こんにちは、easyCode!")
@@ -268,7 +270,8 @@ function exitStepMode() {
 
   $('step-panel').hidden = true;
   $('step-vars').replaceChildren();
-  bench.highlightLine(null);
+  $('step-caption').replaceChildren();
+  markStepLines(bench.editor, {}, { scroll: false });
   bench.highlightFlowLine(null);
   bench.highlightBlockLine(null);
   bench.refreshLayout();
@@ -288,125 +291,30 @@ function showStep(index) {
   $('step-prev').disabled = step.index === 0;
   $('step-next').disabled = isLast;
 
-  let text = current.output || '（まだ出力はありません）';
+  const info = describeStep(step.list, step.index, { error: step.error, truncated: step.truncated });
   // 値が足りないと、input() は空文字のまま進む。
   // 「なぜか変数がからっぽ」に見えるので、理由を出力といっしょに見せる。
-  if (step.missingInput) {
-    text = '入力の値が足りませんでした。足りない分は空文字で進んでいます。\n'
-      + '   左下の欄に値を書き足して、もう一度ステップ実行してください。\n\n' + text;
-  }
+  const before = step.missingInput
+    ? '入力の値が足りませんでした。足りない分は空文字で進んでいます。\n'
+      + '   左下の欄に値を書き足して、もう一度ステップ実行してください。\n\n'
+    : '';
+  let after = '';
   if (isLast) {
-    if (step.error) text += `\nエラー: ${step.error}`;
-    if (step.truncated) text += '\n（ステップ数が上限に達したため、記録を途中で止めました）';
+    if (step.error) after += `\nエラー: ${step.error}`;
+    if (step.truncated) after += '\n（ステップ数が上限に達したため、記録を途中で止めました）';
   }
-  $('output').textContent = text;
+  renderStepOutput($('output'), current.output || '', info.newOutput, { before, after });
+  renderStepCaption($('step-caption'), info, (n) => bench.editor.getLine(n - 1) || '');
 
-  const line = current.event === 'end' ? null : current.line;
+  const line = info.next;
   const lineText = line ? bench.editor.getLine(line - 1) : '';
-  renderVariables(current.vars, previous && previous.vars, namesInLine(lineText));
+  renderVariables($('step-vars'), current.vars, info.baseVars, namesInLine(lineText));
 
-  // コード・フローチャート・ブロックの3つを同時に光らせる
-  bench.highlightLine(line);
+  // コードには「いま実行した行」と「次に実行する行」を、フローチャートとブロックには次の行を光らせる。
+  // 関数を呼び出したところでは、呼び出した行はまだ終わっていないので「実行した行」の印はつけない
+  markStepLines(bench.editor, { done: info.doneKind === 'call' ? null : info.done, next: line });
   bench.highlightFlowLine(line);
   bench.highlightBlockLine(line);
-}
-
-/** 変数一覧を表示する（型と中身の要素まで見せる） */
-function renderVariables(variables, previousVariables, focusNames) {
-  const container = $('step-vars');
-  const names = Object.keys(variables).sort();
-
-  if (!names.length) {
-    const empty = document.createElement('div');
-    empty.className = 'empty-state';
-    empty.textContent = 'まだ変数はありません';
-    container.replaceChildren(empty);
-    return;
-  }
-
-  const changed = changedVariables(previousVariables, variables);
-  const list = document.createElement('div');
-  list.className = 'var-list';
-
-  for (const name of names) {
-    const info = variables[name];
-    const before = previousVariables && previousVariables[name];
-    list.appendChild(renderVariable(name, info, before, {
-      changed: changed.has(name),
-      focused: focusNames.has(name),
-    }));
-  }
-
-  container.replaceChildren(list);
-}
-
-/** 変数1つ分の表示 */
-function renderVariable(name, info, before, { changed, focused }) {
-  const card = document.createElement('div');
-  card.className = 'var-card';
-  if (changed) card.classList.add('is-changed');
-  if (focused) card.classList.add('is-focus');
-
-  const head = document.createElement('div');
-  head.className = 'var-head';
-
-  const label = document.createElement('span');
-  label.className = 'var-name';
-  label.textContent = name;
-
-  const type = document.createElement('span');
-  type.className = `var-type is-${info.type}`;
-  type.textContent = info.size === undefined ? info.label : `${info.label}（${info.size}）`;
-
-  head.append(label, type);
-  card.appendChild(head);
-
-  if (info.items && info.items.length) {
-    card.appendChild(renderItems(info, before));
-  } else {
-    const value = document.createElement('div');
-    value.className = 'var-value';
-    value.textContent = info.repr;
-    card.appendChild(value);
-  }
-
-  return card;
-}
-
-/** リスト・辞書・集合の中身をならべる */
-function renderItems(info, before) {
-  const changed = changedItems(before, info);
-  const table = document.createElement('div');
-  table.className = 'var-items';
-
-  for (const [key, value] of info.items) {
-    const cell = document.createElement('div');
-    cell.className = 'var-item';
-    if (changed.has(key)) cell.classList.add('is-changed');
-
-    if (key !== '') {
-      const keyEl = document.createElement('span');
-      keyEl.className = 'var-key';
-      keyEl.textContent = key;
-      cell.appendChild(keyEl);
-    }
-
-    const valueEl = document.createElement('span');
-    valueEl.className = 'var-item-value';
-    valueEl.textContent = value;
-    cell.appendChild(valueEl);
-
-    table.appendChild(cell);
-  }
-
-  if (info.size !== undefined && info.items.length < info.size) {
-    const more = document.createElement('div');
-    more.className = 'var-item is-more';
-    more.textContent = `… 残り ${info.size - info.items.length} 個`;
-    table.appendChild(more);
-  }
-
-  return table;
 }
 
 /* ============================================================
@@ -425,7 +333,7 @@ function setLayout(next, remember = true) {
   layout = next;
   document.body.classList.remove('layout-2', 'layout-3', 'layout-4');
   document.body.classList.add(`layout-${next}`);
-  if (remember) localStorage.setItem(LAYOUT_KEY, next);
+  if (remember) safeStorage.set(LAYOUT_KEY, next);
 
   for (const button of document.querySelectorAll('#layout-switch button')) {
     button.setAttribute('aria-selected', String(button.dataset.layout === next));
@@ -566,15 +474,20 @@ $('flow-zoom-in').addEventListener('click', () => bench.zoomFlowchart(1.25));
 
   document.addEventListener('keydown', (e) => {
     if (!step.active) return;
+    // ダイアログを開いているときは、ダイアログに任せる
+    if (document.querySelector('dialog[open]')) return;
     // 拡大表示を戻す Esc とぶつからないように、拡大していないときだけ終了する
-    if (e.key === 'Escape' && !document.body.classList.contains('has-max')) {
+    // エディタの中の Esc は「Tab で外へ出る」準備に使うので、ステップ実行は終えない
+    if (e.key === 'Escape' && !document.body.classList.contains('has-max') && !e.target.closest?.('.CodeMirror')) {
       exitStepMode();
       return;
     }
     const tag = (e.target.tagName || '').toLowerCase();
-    if (tag === 'input' || tag === 'textarea' || e.target.closest?.('.CodeMirror')) return;
+    if (tag === 'input' || tag === 'textarea' || tag === 'select' || e.target.closest?.('.CodeMirror')) return;
     if (e.key === 'ArrowRight') { showStep(step.index + 1); e.preventDefault(); }
     if (e.key === 'ArrowLeft') { showStep(step.index - 1); e.preventDefault(); }
+    if (e.key === 'Home') { showStep(0); e.preventDefault(); }
+    if (e.key === 'End') { showStep(step.list.length - 1); e.preventDefault(); }
   });
 
   window.addEventListener('resize', () => bench.refreshLayout());
@@ -612,11 +525,22 @@ async function init() {
       starterCode: STARTER_CODE,
       onStatus: showSyncState,
     });
+    makeEditorFriendly(bench.editor, 'Python のコード');
+    bindRunShortcut($('run-btn'));
+
+    // はじめて開いた人には、何から始めればよいかを出力欄で一言だけ伝える
+    if (!safeStorage.get(FIRST_VISIT_KEY)) {
+      $('output').textContent =
+        'ようこそ。ブロックの区画の道具箱からブロックを置くと、Python のコードが同時にできあがります。\n'
+        + '①「実行」で動かす　②「ステップ実行」で 1 行ずつ確かめる　③ 図の区画で流れを見る\n'
+        + '書いたものは、このブラウザに自動で保存されます。';
+      safeStorage.set(FIRST_VISIT_KEY, '1');
+    }
 
     // ガイドの「試す」や共有リンクから渡ってきたコードがあれば、それを開く
     const shared = await takeCodeFromUrl();
+    // 共有リンクで開いたときは、前のプログラムを控えてから上書きする（知らせも restore が出す）
     bench.restore(shared);
-    if (shared) toast('共有されたコードを読み込みました');
 
     // すでにこのページを開いたまま共有リンクを開くと、
     // ブラウザはページを読み直さない（# から後ろが変わるだけ）。
@@ -624,11 +548,11 @@ async function init() {
     window.addEventListener('hashchange', async () => {
       const late = await takeCodeFromUrl();
       if (!late) return;
-      bench.setCode(late);
-      toast('共有されたコードを読み込みました');
+      bench.loadShared(late);
     });
     bench.editor.on('change', updateStepInputs);
 
+    addTextSizeControl($('display-settings'));
     initSidebar({
       sidebarId: 'sidebar',
       toggleId: 'toggle-sidebar',
@@ -659,23 +583,27 @@ async function init() {
     flowButton.classList.toggle('is-on', bench.isFlowJapanese());
     setupRuntimeInput();
 
-    setLayout(localStorage.getItem(LAYOUT_KEY) || '4', false);
+    setLayout(safeStorage.get(LAYOUT_KEY) || '4', false);
 
     updateStepInputs();
     bench.fitBlocks();
     bench.refreshLayout();
     await bench.renderFlowchart(true);
-
-    pyodide = await loadPyodide({ indexURL: PYODIDE_CONFIG.INDEX_URL });
-    pyodide.globals.set('js', window);
-
-    $('run-btn').disabled = false;
-    $('step-btn').disabled = false;
-    loader.style.display = 'none';
   } catch (error) {
     console.error('01 コーディングの初期化に失敗:', error);
     loader.innerHTML =
       `<p style="color:var(--c-bad);">読み込みに失敗しました: ${error.message}<br>ページを再読み込みしてください。</p>`;
+    return;
+  }
+
+  // 画面は先に使えるようにして、Python は後ろで読みこむ（そのあいだもブロックやコードは書ける）
+  loader.style.display = 'none';
+  try {
+    pyodide = await bootPython({ statusEl: $('output') });
+    $('run-btn').disabled = false;
+    $('step-btn').disabled = false;
+  } catch (error) {
+    console.error('Python を読みこめませんでした:', error);
   }
 }
 

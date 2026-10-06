@@ -778,6 +778,48 @@ async function testRunner() {
   check('実行: 終わらないコードが止まる', stuck.error && stuck.error.type === 'TimeoutError',
     `\n  実際: ${JSON.stringify(stuck.error)}`);
   check('実行: 決めた時間のあたりで止まる', seconds < 8, `\n  ${seconds.toFixed(1)} 秒`);
+
+  // except Exception: では止められない（BaseException で打ち切る）。友好的な日本語の文言のまま
+  const swallow = await runUserCode(pyodide,
+    'while True:\n    try:\n        x = 1\n    except Exception:\n        pass', { seconds: 1 });
+  check('実行: except Exception で握りつぶせない時間切れ',
+    swallow.error && swallow.error.type === 'TimeoutError' && swallow.error.message.includes('時間がかかりすぎた'),
+    `\n  実際: ${JSON.stringify(swallow.error)}`);
+
+  // input() で待っている時間は、制限時間に数えない
+  const slowInput = () => new Promise((resolve) => setTimeout(() => resolve('3'), 700));
+  pyodide.globals.set('custom_input', slowInput);
+  const waited = await runUserCode(pyodide,
+    'a = await custom_input()\nb = await custom_input()\nc = await custom_input()\nprint(a + b + c)',
+    { seconds: 1 });
+  check('実行: input の待ち時間（合計 2 秒超）は制限時間に入らない',
+    !waited.error && waited.output.trim() === '333', `\n  実際: ${JSON.stringify(waited)}`);
+  // 待ったあとで終わらないコードは、やはり止まる
+  const waitedThenLoop = await runUserCode(pyodide,
+    'a = await custom_input()\nwhile True:\n    pass', { seconds: 1 });
+  check('実行: input のあとの無限ループも止まる',
+    waitedThenLoop.error && waitedThenLoop.error.type === 'TimeoutError',
+    `\n  実際: ${JSON.stringify(waitedThenLoop.error)}`);
+  pyodide.globals.set('custom_input', () => Promise.resolve(''));
+
+  // 学習者が time / json / sys / io という名前を使っても、次の実行は壊れない（描画モードは globals を共有する）
+  const clash = await runUserCode(pyodide, 'time = 5\njson = 1\nsys = 2\nio = 3\nprint(time)', { useGlobals: true, seconds: 3 });
+  const afterClash = await runUserCode(pyodide, 'print("ok")\nn = 0\nwhile n < 1000:\n    n += 1', { useGlobals: true, seconds: 3 });
+  check('実行: time などの名前を使っても次の実行が壊れない',
+    !clash.error && clash.output.trim() === '5' && !afterClash.error && afterClash.output.trim() === 'ok',
+    `\n  実際: ${JSON.stringify(clash)} / ${JSON.stringify(afterClash)}`);
+
+  // 大量出力は、実行結果としては切らずに、画面側は省略の案内を付けて切る
+  const fakeEl = { textContent: '' };
+  const big = await runUserCode(pyodide, 'for i in range(60000):\n    print("x" * 10)', { element: fakeEl, seconds: 8 });
+  check('実行: 大量出力でも結果は欠けない', !big.error && big.output.length === 60000 * 11,
+    `\n  実際: ${big.output.length} 文字 / ${JSON.stringify(big.error)}`);
+  check('実行: 大量出力の画面表示は省略される',
+    fakeEl.textContent.includes('省略しました') && fakeEl.textContent.length < 210000,
+    `\n  実際: ${fakeEl.textContent.length} 文字`);
+  const smallEl = { textContent: '' };
+  await runUserCode(pyodide, 'print("a")\nprint("b")', { element: smallEl, seconds: 3 });
+  check('実行: 少ない出力は全部そのまま画面に出る', smallEl.textContent === 'a\nb\n', `\n  実際: ${JSON.stringify(smallEl.textContent)}`);
 }
 
 /* ============================================================

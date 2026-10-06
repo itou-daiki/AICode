@@ -70,6 +70,12 @@
       letter-spacing: 0.06em;
       color: var(--c-ink-2);
     }
+    .lesson-title .lesson-count { font-weight: 600; letter-spacing: 0; color: var(--c-ink-3); }
+    .nav-filter {
+      display: flex; align-items: center; gap: var(--sp-1);
+      margin: 0 0 var(--sp-2); font-size: var(--text-xs); color: var(--c-ink-2); cursor: pointer;
+    }
+    .nav-filter input { accent-color: var(--c-mark); width: 1rem; height: 1rem; margin: 0; }
     .lesson-list { display: flex; flex-direction: column; gap: 2px; margin-bottom: var(--sp-2); }
     .lesson-item {
       display: flex;
@@ -344,13 +350,18 @@
       #work-col { min-height: 70vh; }
       /* 並べる幅が無いので、タブごと隠す */
       #program-tabs button[data-stage='pair'] { display: none; }
+      /* 狭い画面では見出しのタブやボタンが何段にもなる。区画の高さを決めうちにすると、
+         残りのエディタが数十 px に潰れるので、エディタの高さを確保して区画のほうを伸ばす */
+      #panel-program { flex: 0 0 auto; }
+      #program-body { flex: 0 0 auto; height: max(280px, 45vh); }
+      #panel-output { flex: 0 0 auto; }
     }
   </style>
 </head>
 <body>
   <div id="loader" class="loader">
     <div class="spinner"></div>
-    <p>Python の実行環境を準備しています…</p>
+    <p>読みこんでいます…</p>
   </div>
 
   <header class="topbar">
@@ -406,6 +417,18 @@
             <button id="save-api-key" class="btn btn-sm">保存</button>
             <p class="muted" id="api-key-status"></p>
             <p class="muted">キーが無くても、実行・答え合わせ・フローチャート・補完はすべて使えます。</p>
+          </div>
+
+          <div id="display-settings"></div>
+
+          <div class="field">
+            <label>記録の持ち運び</label>
+            <p class="muted" style="margin:0;">別の端末で続けるときに、解けた印と書きかけをファイルにして移せます。</p>
+            <div style="display:flex; gap:var(--sp-2); flex-wrap:wrap;">
+              <button id="export-progress" class="btn btn-sm">ファイルに書き出す</button>
+              <button id="import-progress" class="btn btn-sm">ファイルから読みこむ</button>
+              <input type="file" id="import-progress-file" accept="application/json,.json" hidden>
+            </div>
           </div>
 
           <button id="reset-progress" class="btn btn-sm btn-quiet"><svg viewBox="0 0 20 20" class="icon" aria-hidden="true"><path d="M4 6h12"/><path d="M7 6V4h6v2"/><path d="M6 6l1 11h6l1-11"/></svg>記録の消去</button>
@@ -472,6 +495,7 @@
           <span class="panel-tools">
             <button class="tool-btn" id="code-undo" title="元に戻す（Ctrl+Z）" aria-label="コードを元に戻す"><svg viewBox="0 0 20 20" class="icon" aria-hidden="true"><path d="M4 9h8a4 4 0 1 1 0 8H8"/><path d="M7 6 4 9l3 3"/></svg></button>
             <button class="tool-btn" id="code-redo" title="やり直す（Ctrl+Shift+Z）" aria-label="コードをやり直す"><svg viewBox="0 0 20 20" class="icon" aria-hidden="true"><path d="M16 9H8a4 4 0 1 0 0 8h4"/><path d="m13 6 3 3-3 3"/></svg></button>
+            <button class="tool-btn" id="code-restore" title="この問題の最初のコードに戻します"><svg viewBox="0 0 20 20" class="icon" aria-hidden="true"><path d="M4 10a6 6 0 1 0 2-4.5"/><path d="M4 3v4h4"/></svg>最初のコード</button>
             <button class="tool-btn" id="code-indent" title="字下げをそろえます"><svg viewBox="0 0 20 20" class="icon" aria-hidden="true"><path d="M3 5h14M7 10h10M7 15h10"/><path d="M3 8l2 2-2 2"/></svg>字下げ</button>
             <button class="tool-btn" id="code-format" title="記号まわりの空白も整えます"><svg viewBox="0 0 20 20" class="icon" aria-hidden="true"><path d="M3 5h14M3 10h9M3 15h12"/></svg>整形</button>
             <button class="tool-btn panel-max" data-panel="panel-program" title="このパネルを大きく表示"><svg viewBox="0 0 20 20" class="icon" aria-hidden="true"><path d="M4 8V4h4M16 12v4h-4"/></svg></button>
@@ -510,17 +534,18 @@
         <div class="panel-body" id="output-body">
           <div id="step-panel" style="display:none;">
             <div class="step-bar">
-              <button id="step-first" class="btn btn-sm"><svg viewBox="0 0 20 20" class="icon" aria-hidden="true"><path d="M15 4l-7 6 7 6z"/><path d="M5 4v12"/></svg></button>
-              <button id="step-prev" class="btn btn-sm"><svg viewBox="0 0 20 20" class="icon" aria-hidden="true"><path d="M13 4l-7 6 7 6z"/></svg></button>
-              <button id="step-next" class="btn btn-sm"><svg viewBox="0 0 20 20" class="icon" aria-hidden="true"><path d="M6 4l10 6-10 6z"/></svg></button>
+              <button id="step-first" class="btn btn-sm" title="最初へ（Home）"><svg viewBox="0 0 20 20" class="icon" aria-hidden="true"><path d="M15 4l-7 6 7 6z"/><path d="M5 4v12"/></svg>最初</button>
+              <button id="step-prev" class="btn btn-sm" title="1つ戻る（←）"><svg viewBox="0 0 20 20" class="icon" aria-hidden="true"><path d="M13 4l-7 6 7 6z"/></svg>戻る</button>
+              <button id="step-next" class="btn btn-mark btn-sm" title="1つ進む（→）">進む<svg viewBox="0 0 20 20" class="icon" aria-hidden="true"><path d="M6 4l10 6-10 6z"/></svg></button>
               <input type="range" id="step-slider" min="0" max="0" value="0">
               <span class="chip" id="step-label">0 / 0</span>
               <button id="step-exit" class="btn btn-sm btn-quiet"><svg viewBox="0 0 20 20" class="icon" aria-hidden="true"><path d="M5 5h10v10H5z"/></svg>終了</button>
             </div>
+            <div id="step-caption" class="step-caption" aria-live="polite" aria-atomic="true"></div>
             <div id="step-vars"></div>
           </div>
 
-          <pre id="output" class="console">「実行」で動かせます</pre>
+          <pre id="output" class="console" role="log" aria-live="polite" aria-label="実行結果">「実行」で動かせます</pre>
 
           <div id="runtime-input-container">
             <label for="runtime-input" id="runtime-input-label">値を入力</label>
@@ -536,7 +561,6 @@
   <script src="https://cdn.jsdelivr.net/npm/codemirror@5.65.16/mode/python/python.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/codemirror@5.65.16/addon/comment/comment.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/codemirror@5.65.16/addon/display/rulers.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/mermaid@10.9.1/dist/mermaid.min.js"></script>
   <script src="https://cdn.jsdelivr.net/pyodide/v0.23.4/full/pyodide.js"></script>
   <script type="module" src="module/lessons.js"></script>
 </body>

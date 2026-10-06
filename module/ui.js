@@ -1,4 +1,5 @@
 import { iconHtml, setIconLabel } from './icons.js';
+import { PYODIDE_CONFIG } from './config.js';
 // module/ui.js
 // 画面まわりの共通部品。全モードで同じ操作感になるようにまとめている。
 //
@@ -8,6 +9,54 @@ import { iconHtml, setIconLabel } from './icons.js';
 //   initSidebar()   … 開閉できるサイドバー（既定は閉じた状態）
 //   initTabs()      … ステージの切り替えタブ
 //   initMaximize()  … パネルの拡大表示
+//   bootPython()    … Python（Pyodide）を、時間切れと再挑戦つきで読みこむ
+//   makeEditorFriendly() … コードエディタを、キーボードと読み上げでも使いやすくする
+//   bindRunShortcut() … Ctrl/⌘+Enter で「実行」
+//   initTextSize()  … 字の大きさ（後ろの席・投影向けに大きくできる）。読みこむと自動で戻す
+//   safeStorage     … localStorage の代わり。保存が使えない端末（学校の設定・プライベート閲覧）でも止まらない
+
+/* ============================================================
+ * 0. 保存（localStorage が使えなくても止まらない）
+ * ========================================================== */
+
+// 使えないときは、ページを開いているあいだだけメモリに覚えておく。
+const memoryStore = new Map();
+let storageWarned = false;
+
+function warnStorage() {
+  if (storageWarned || typeof document === 'undefined') return;
+  storageWarned = true;
+  // toast はこのファイルの下で定義している（呼ばれるのは読みこみ後なので使える）
+  setTimeout(() => toast('この端末では保存ができません。ページを閉じると、作ったものは消えます。', 5000), 0);
+}
+
+export const safeStorage = {
+  get(key) {
+    // 書けなかった新しい値はメモリにある。端末に残った古い値より先に見る
+    if (memoryStore.has(key)) return memoryStore.get(key);
+    try {
+      return localStorage.getItem(key);
+    } catch {
+      return null;
+    }
+  },
+  /** @returns {boolean} 端末に保存できたか */
+  set(key, value) {
+    memoryStore.set(key, String(value));
+    try {
+      localStorage.setItem(key, String(value));
+      memoryStore.delete(key);
+      return true;
+    } catch {
+      warnStorage();
+      return false;
+    }
+  },
+  remove(key) {
+    memoryStore.delete(key);
+    try { localStorage.removeItem(key); } catch { /* 使えないときは何もしない */ }
+  },
+};
 
 /* ============================================================
  * 1. ダイアログ
@@ -58,7 +107,20 @@ export function confirmDialog({ title, message = '', okLabel = '実行', tone = 
   ok.focus();
 
   return new Promise((resolve) => {
-    dialog.addEventListener('close', () => resolve(dialog.returnValue === 'ok'), { once: true });
+    // close イベントは、裏に回ったタブなどで遅れて届くことがある。押したボタンでもすぐ決める
+    let settled = false;
+    const finish = (value) => {
+      if (settled) return;
+      settled = true;
+      dialog.removeEventListener('click', onClick);
+      resolve(value);
+    };
+    const onClick = (e) => {
+      const button = e.target.closest('button[value]');
+      if (button) finish(button.value === 'ok');
+    };
+    dialog.addEventListener('click', onClick);
+    dialog.addEventListener('close', () => finish(dialog.returnValue === 'ok'), { once: true });
   });
 }
 
@@ -74,7 +136,16 @@ let toastTimer = null;
  * @param {string} message
  * @param {number} [duration] 表示時間（ミリ秒）
  */
-export function toast(message, duration = 2200) {
+let pendingToast = null;
+
+export function toast(message, duration = 2200, action = null) {
+  if (typeof document === 'undefined') return;
+  // ボタンつきのお知らせが出ているあいだは、ふつうのお知らせで消さずに後に回す
+  if (!action && toastElement && toastElement.classList.contains('has-action')
+      && toastElement.classList.contains('is-visible')) {
+    pendingToast = [message, duration];
+    return;
+  }
   if (!toastElement) {
     toastElement = document.createElement('div');
     toastElement.className = 'toast';
@@ -83,10 +154,35 @@ export function toast(message, duration = 2200) {
   }
 
   toastElement.textContent = message;
+  // 押せるボタンを 1 つだけ添えられる（例: 「前のプログラムに戻す」）
+  toastElement.classList.toggle('has-action', Boolean(action));
+  if (action) {
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.className = 'btn btn-sm toast-action';
+    button.textContent = action.label;
+    button.addEventListener('click', () => {
+      hideToast();
+      action.onClick();
+    });
+    toastElement.appendChild(button);
+    // ボタンを押すまでの時間をとる
+    duration = Math.max(duration, 8000);
+  }
   toastElement.classList.add('is-visible');
 
   clearTimeout(toastTimer);
-  toastTimer = setTimeout(() => toastElement.classList.remove('is-visible'), duration);
+  toastTimer = setTimeout(hideToast, duration);
+}
+
+function hideToast() {
+  clearTimeout(toastTimer);
+  toastElement.classList.remove('is-visible', 'has-action');
+  if (pendingToast) {
+    const [message, duration] = pendingToast;
+    pendingToast = null;
+    setTimeout(() => toast(message, duration), 300);
+  }
 }
 
 /* ============================================================
@@ -168,7 +264,7 @@ export function initSidebar({ sidebarId, toggleId, storageKey, onToggle, default
   const labelEl = button.querySelector('.sidebar-toggle-label');
 
   // 前に開いていたかを覚えておく。はじめて開いたときは defaultOpen にしたがう。
-  const saved = storageKey ? localStorage.getItem(storageKey) : null;
+  const saved = storageKey ? safeStorage.get(storageKey) : null;
   const remembered = saved === null ? defaultOpen : saved === '1';
 
   const apply = (open) => {
@@ -179,7 +275,7 @@ export function initSidebar({ sidebarId, toggleId, storageKey, onToggle, default
     const text = `${label}を${open ? '閉じる' : '開く'}`;
     if (labelEl) labelEl.textContent = text;
     button.title = text;
-    if (storageKey) localStorage.setItem(storageKey, open ? '1' : '0');
+    if (storageKey) safeStorage.set(storageKey, open ? '1' : '0');
     if (onToggle) onToggle(open);
   };
 
@@ -398,6 +494,8 @@ export async function takeCodeFromUrl() {
     if (packed) return await unpackCode(decodeURIComponent(packed[1]));
     return decodeURIComponent(plain[1]);
   } catch {
+    // 黙って無視すると「リンクを開いたのに何も起きない」になる
+    toast('共有リンクが途中で切れているため、コードを開けませんでした。リンクをもう一度コピーしてもらいましょう。', 5200);
     return null;
   }
 }
@@ -455,4 +553,183 @@ export function showShareDialog(url) {
   field.value = url;
   shareElement.showModal();
   field.select();
+}
+
+/* ============================================================
+ * 9. Python の読みこみ
+ * ========================================================== */
+
+/** 学校の回線では、はじめの読みこみに時間がかかることがある */
+const PYTHON_TIMEOUT_MS = 120000;
+
+export const PYTHON_LOAD_FAILED =
+  'Python の実行環境を読みこめませんでした。インターネットにつながっているか、'
+  + '学校のネットワークで cdn.jsdelivr.net への接続が止められていないかを確かめてください。';
+
+/**
+ * Pyodide を読みこむ。画面はこれを待たずに使えるようにしておき、終わったら実行ボタンを開ける。
+ * @param {object} [options]
+ * @param {(pyodide: object) => Promise<void>} [options.prepare] 読みこんだあとの下ごしらえ
+ * @param {HTMLElement} [options.statusEl] 準備中・失敗を書く場所（ふつうは出力欄）
+ * @returns {Promise<object>} pyodide
+ */
+export async function bootPython({ prepare, statusEl } = {}) {
+  const waiting = 'Python を準備しています…（はじめは 10〜30 秒ほどかかります。そのあいだもコードは書けます）';
+  // 出力欄にもとの案内があれば、読みこめたあとに戻す
+  const before = statusEl ? statusEl.textContent : '';
+  if (statusEl) statusEl.textContent = waiting;
+
+  const wait = (promise, ms) => {
+    let timer;
+    const timeout = new Promise((_, reject) => {
+      timer = setTimeout(() => reject(Object.assign(new Error('時間切れ'), { timeout: true })), ms);
+    });
+    return Promise.race([promise, timeout]).finally(() => clearTimeout(timer));
+  };
+  const start = () => {
+    if (typeof loadPyodide !== 'function') return Promise.reject(new Error('pyodide.js を読みこめていません'));
+    return loadPyodide({ indexURL: PYODIDE_CONFIG.INDEX_URL });
+  };
+
+  let lastError = null;
+  let pyodide = null;
+  let loading = start();
+  for (let attempt = 0; attempt < 2 && !pyodide; attempt++) {
+    try {
+      pyodide = await wait(loading, PYTHON_TIMEOUT_MS);
+    } catch (e) {
+      lastError = e;
+      console.warn(`Python の読みこみに失敗（${attempt + 1} 回目）:`, e);
+      if (typeof loadPyodide !== 'function') break;
+      if (e.timeout) {
+        // 遅いだけなら、同じ読みこみをもう少し待つ（二重に読みこむと、回線がもっと詰まる）
+        if (statusEl && statusEl.textContent === waiting) {
+          statusEl.textContent = 'Python の読みこみに時間がかかっています。もう少し待ちます…';
+        }
+      } else {
+        // 途中で切れたときだけ、読みこみをやり直す
+        loading = start();
+      }
+    }
+  }
+
+  if (pyodide) {
+    try {
+      pyodide.globals.set('js', window);
+      if (prepare) await prepare(pyodide);
+      if (statusEl && statusEl.textContent !== before
+          && /^Python (を準備|の読みこみに時間)/.test(statusEl.textContent)) statusEl.textContent = before;
+      return pyodide;
+    } catch (e) {
+      lastError = e;
+      console.warn('Python の下ごしらえに失敗:', e);
+    }
+  }
+
+  if (statusEl) {
+    statusEl.textContent = `${PYTHON_LOAD_FAILED}\n（${lastError ? lastError.message : '原因不明'}）\n`;
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.className = 'btn btn-sm';
+    button.textContent = 'ページを読み直す';
+    button.addEventListener('click', () => location.reload());
+    statusEl.appendChild(button);
+  }
+  throw new Error(PYTHON_LOAD_FAILED);
+}
+
+/* ============================================================
+ * 10. キーボードで使いやすく
+ * ========================================================== */
+
+/**
+ * コードエディタを、キーボードと読み上げでも使いやすくする
+ *
+ * Tab は字下げに使うので、そのままではエディタから出られない。
+ * Esc を押してから Tab を押すと、次の部品へ移れるようにする。
+ * @param {object} cm CodeMirror
+ * @param {string} label 読み上げで伝える名前
+ */
+export function makeEditorFriendly(cm, label) {
+  if (label) cm.setOption('screenReaderLabel', label);
+  let escaped = false;
+  cm.on('keydown', (_, e) => {
+    if (e.key === 'Escape') { escaped = true; return; }
+    if (e.key === 'Tab' && escaped && !e.shiftKey) {
+      // CodeMirror に字下げさせず、ブラウザの「次の部品へ」に任せる
+      e.codemirrorIgnore = true;
+    }
+    escaped = false;
+  });
+}
+
+/**
+ * Ctrl+Enter（Mac は ⌘+Enter）で、実行ボタンを押す
+ * @param {HTMLButtonElement} button
+ */
+export function bindRunShortcut(button) {
+  if (!button) return;
+  const mac = /Mac|iPhone|iPad/.test(navigator.platform || navigator.userAgent);
+  const hint = mac ? '⌘+Enter' : 'Ctrl+Enter';
+  button.title = button.title ? `${button.title}（${hint}）` : `実行（${hint}）`;
+  // 状態に合わせて title を書きかえる画面が、もとの説明に戻せるように
+  button.dataset.hint = button.title;
+  button.setAttribute('aria-keyshortcuts', mac ? 'Meta+Enter' : 'Control+Enter');
+  document.addEventListener('keydown', (e) => {
+    if (e.key !== 'Enter' || !(e.ctrlKey || e.metaKey) || e.repeat || e.defaultPrevented) return;
+    if (document.querySelector('dialog[open]')) return;
+    // 答えやチャットの欄では、その欄の Enter に任せる（コードエディタの中は対象にする）
+    const target = e.target;
+    if (target && target.closest && target.closest('input, textarea, select')
+        && !target.closest('.CodeMirror')) return;
+    e.preventDefault();
+    if (!button.disabled) button.click();
+  });
+}
+
+/* ============================================================
+ * 11. 字の大きさ
+ * ========================================================== */
+
+const TEXT_SIZE_KEY = 'easycode_text_size';
+const TEXT_SIZES = [
+  ['normal', 'ふつう'],
+  ['large', '大きめ'],
+  ['xlarge', 'とても大きい（投影向け）'],
+];
+
+function applyTextSize(size) {
+  const value = TEXT_SIZES.some(([key]) => key === size) ? size : 'normal';
+  if (value === 'normal') delete document.documentElement.dataset.textSize;
+  else document.documentElement.dataset.textSize = value;
+  // エディタやブロックの大きさを測り直してもらう
+  window.dispatchEvent(new Event('resize'));
+  return value;
+}
+
+/**
+ * 字の大きさを選ぶ欄を作る（全ページで同じ設定を使う）
+ * @param {HTMLElement} container ここに足す
+ */
+export function addTextSizeControl(container) {
+  if (!container) return;
+  const field = document.createElement('div');
+  field.className = 'field';
+  const label = document.createElement('label');
+  label.htmlFor = 'text-size-select';
+  label.textContent = '字の大きさ';
+  const select = document.createElement('select');
+  select.id = 'text-size-select';
+  for (const [key, name] of TEXT_SIZES) select.add(new Option(name, key));
+  select.value = document.documentElement.dataset.textSize || 'normal';
+  select.addEventListener('change', () => {
+    safeStorage.set(TEXT_SIZE_KEY, applyTextSize(select.value));
+  });
+  field.append(label, select);
+  container.appendChild(field);
+}
+
+if (typeof document !== 'undefined') {
+  const saved = safeStorage.get(TEXT_SIZE_KEY);
+  if (saved && saved !== 'normal') applyTextSize(saved);
 }

@@ -14,12 +14,16 @@ import { explainError } from '../module/pyrun.js';
 import { jsToPython, toHalfWidth, hasFullWidth, suggestSyntaxFix, noticeSilentMistakes } from '../module/pyfix.js';
 import { sameOutput } from '../module/grade.js';
 import { toKtph } from '../module/ktph.js';
+import { describeStep } from '../module/stepview.js';
 import {
   normalizeAnswer, sameAnswer, gradeTrace, gradeBlanks, gradeTests, scoreMock,
 } from '../module/grade.js';
 import {
   normalizeProblem, findBlankKeys, fillBlanks, correctPicks, problemRef,
 } from '../module/lessons-data.js';
+import {
+  loadProgress, saveDraft, getDraft, isDraftStale, clearDraft, markSolved, exportProgress, importProgress, clearProgress,
+} from '../module/lessons-progress.js';
 
 /* ============================================================
  * 小さな検査の道具
@@ -569,6 +573,21 @@ section('pyrun（エラーの言いかえ）');
   const timeout = explainError({ type: 'TimeoutError', message: '時間がかかりすぎたので止めました。', line: null, name: null });
   check('エラー: 時間切れはそのまま伝える', timeout.includes('時間がかかりすぎた'), `\n  実際: ${timeout}`);
 
+  const many = explainError(
+    { type: 'TypeError', message: 'f() takes 1 positional argument but 2 were given', line: 1, name: null },
+    'f(1, 2)');
+  check('エラー: 引数が多すぎるとき（"but 2 were given"）', many.includes('多すぎ') && !many.includes('足りて'), `\n  実際: ${many}`);
+
+  for (const op of ['<', '>', '<=', '>=']) {
+    const cmp = explainError(
+      { type: 'TypeError', message: `'${op}' not supported between instances of 'str' and 'int'`, line: 1, name: null },
+      'x = input()');
+    check(`エラー: 文字列と数の比べ（${op}）には int(input()) を案内`, cmp.includes('int(input())'), `\n  実際: ${cmp}`);
+  }
+  const cmpRev = explainError(
+    { type: 'TypeError', message: "'<' not supported between instances of 'int' and 'str'", line: 1, name: null }, '');
+  check('エラー: int と str の順でも int(input()) を案内', cmpRev.includes('int(input())'), `\n  実際: ${cmpRev}`);
+
   // 行番号が無くても、コードが無くても落ちない
   for (const info of [
     { type: 'ValueError', message: '', line: null, name: null },
@@ -983,6 +1002,14 @@ section('レッスン（答え合わせとデータ）');
   equal('答え: 全角の空白', normalizeAnswer('a　b'), 'a b');
   check('答え: 7 と ７ は同じ', sameAnswer('7', '７'));
   check('答え: 7 と 8 はちがう', !sameAnswer('7', '8'));
+  check('答え: リストの空白の有無は問わない', sameAnswer('[1,2, 3]', '[1, 2, 3]'));
+  check('答え: 読点で区切っても同じ', sameAnswer('[1、2、3]', '[1, 2, 3]'));
+  check('答え: 全角のマイナス', sameAnswer('−3', '-3'));
+  check('答え: 長音記号のマイナス', sameAnswer('ー3', '-3'));
+  check('答え: 見えない字は無視', sameAnswer('12\u200B', '12'));
+  check('答え: 改行と空白は同じ', sameAnswer('2\n15', '2 15'));
+  check('答え: 数のあいだの空白は残す', !sameAnswer('215', '2 15'));
+  check('答え: 大文字小文字は区別する', !sameAnswer('fizzbuzz', 'FizzBuzz'));
 
   // トレース（記述）
   {
@@ -1081,6 +1108,69 @@ section('レッスン（答え合わせとデータ）');
     equal('穴埋め: 埋めたあと表記にできる',
       toKtph(filled).text, 'もし Data[naka] == atai ならば:\n⎿ owari = 1');
   }
+}
+
+/* ============================================================
+ * 5.9 ステップ実行の「何が起きたか」
+ * ========================================================== */
+
+section('ステップ実行の説明');
+{
+  const S = (line, event, func, vars, output = '') => ({
+    line, event, func, output,
+    vars: Object.fromEntries(Object.entries(vars).map(([k, v]) => [k, { repr: String(v) }])),
+  });
+  // 1: def f(n):  2: return n * 2  3: x = f(3)  4: print(x)
+  const steps = [
+    S(1, 'line', '<module>', {}), S(3, 'line', '<module>', { f: 'fn' }),
+    S(2, 'line', 'f', { n: 3 }), S(2, 'return', 'f', { n: 3 }),
+    S(4, 'line', '<module>', { f: 'fn', x: 6 }), S(4, 'return', '<module>', { f: 'fn', x: 6 }, '6\n'),
+    S(4, 'end', '<module>', { f: 'fn', x: 6 }, '6\n'),
+  ];
+  const at = (i, status) => describeStep(steps, i, status);
+  equal('ステップ: はじめは「次」だけ', [at(0).doneKind, at(0).next].join(','), ',1');
+  equal('ステップ: 関数に入ったら「呼び出しました」', [at(2).doneKind, at(2).done, at(2).callee].join(','), 'call,3,f');
+  equal('ステップ: return の記録では次の行が無い', [at(3).nextKind, at(3).next].join(','), 'return,');
+  equal('ステップ: 戻ったら、呼び出した行が終わった', [at(4).doneKind, at(4).done].join(','), 'back,3');
+  check('ステップ: 戻ったときの変化は x', at(4).changes.map(c => c.name).join(',') === 'x');
+  equal('ステップ: 最後の行のあとは「最後まで」', at(5).nextKind, 'module-end');
+  equal('ステップ: end では同じ行をくり返さない', [at(6).doneKind, at(6).nextKind].join(','), ',end');
+  const err = [S(1, 'line', '<module>', {}), S(2, 'line', '<module>', { a: 1 }), S(2, 'return', '<module>', { a: 1 }), S(2, 'end', '<module>', { a: 1 })];
+  const e = (i) => describeStep(err, i, { error: 'ZeroDivisionError: division by zero' });
+  equal('ステップ: エラーの行は「エラーになった」', [e(2).doneKind, e(2).done, e(2).nextKind].join(','), 'error,2,error');
+  equal('ステップ: 上限で止めたときは、そう言う', describeStep(err.slice(0, 2).concat([S(2, 'end', '<module>', {})]), 2, { truncated: true }).nextKind, 'truncated');
+}
+
+section('レッスンの記録（書きかけ・持ち運び）');
+{
+  // node には localStorage が無いので、ページを開いているあいだだけの記録で確かめる
+  clearProgress();
+  saveDraft('c#a', 'print(2)\n', 'print(1)\n');
+  equal('記録: 書きかけを残す', getDraft('c#a'), 'print(2)\n');
+  check('記録: 同じ最初のコードなら古くない', !isDraftStale('c#a', 'print(1)\n'));
+  check('記録: 問題が作り直されたら古い', isDraftStale('c#a', 'print(9)\n'));
+  saveDraft('c#a', 'print(1)\n', 'print(1)\n');
+  equal('記録: 最初のコードと同じなら書きかけは消す', getDraft('c#a'), null);
+  saveDraft('c#b', 'x', 'y');
+  clearDraft('c#b');
+  equal('記録: 書きかけを消す', getDraft('c#b'), null);
+
+  markSolved('c#s');
+  saveDraft('c#d', 'mine', 'orig');
+  const file = exportProgress();
+  clearProgress();
+  saveDraft('c#d', 'here', 'orig');
+  const added = importProgress(file);
+  check('記録: 読みこむと解けた印が戻る', Boolean(loadProgress().solved['c#s']));
+  equal('記録: この端末の書きかけは上書きしない', getDraft('c#d'), 'here');
+  equal('記録: 増えた数を返す', added.solved, 1);
+  let threw = '';
+  try { importProgress('{"app":"other"}'); } catch (e) { threw = e.message; }
+  check('記録: 別のファイルは断る', threw.includes('書き出した記録'));
+  try { importProgress('not json'); } catch (e) { threw = e.message; }
+  check('記録: 壊れたファイルは断る', threw.includes('読めませんでした'));
+  clearProgress();
+  equal('記録: 消すと空になる', Object.keys(loadProgress().solved).length, 0);
 }
 
 /* ============================================================

@@ -47,10 +47,20 @@ function tidy(text) {
  */
 export function normalizeAnswer(text) {
   return String(text ?? '')
+    // 見えない字（コピーで紛れこむ）を取る
+    .replace(/[\u200B-\u200D\u2060\uFEFF]/g, '')
     // 全角の英数字と記号を半角にする
     .replace(/[！-～]/g, ch => String.fromCharCode(ch.charCodeAt(0) - 0xFEE0))
     .replace(/　/g, ' ')
+    // 日本語の読点・まちがえやすいマイナスや引用符も、同じ記号とみなす
+    .replace(/[、､]/g, ',')
+    .replace(/[\u2212\u2010-\u2015\uFF70](?=\s*\d)/g, '-')
+    .replace(/ー(?=\s*\d)/g, '-')
+    .replace(/[‘’]/g, "'")
+    .replace(/[“”]/g, '"')
     .replace(/\s+/g, ' ')
+    // [1, 2] と [1,2] のように、区切りまわりの空白の有無は問わない
+    .replace(/\s*([,\[\](){}:])\s*/g, '$1')
     .trim();
 }
 

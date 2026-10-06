@@ -6,7 +6,8 @@
  */
 export const API_CONFIG = {
   // Gemini APIのエンドポイント
-  GEMINI_API_URL: 'https://generativelanguage.googleapis.com/v1/models/gemini-2.0-flash:generateContent',
+  // gemini-2.0-flash は 2026-06 に提供が終わったので、後継の安定版に替えた
+  GEMINI_API_URL: 'https://generativelanguage.googleapis.com/v1beta/models/gemini-3.6-flash:generateContent',
 
   // APIリクエストのタイムアウト（ミリ秒）
   REQUEST_TIMEOUT: 30000,

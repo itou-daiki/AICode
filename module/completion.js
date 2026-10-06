@@ -6,7 +6,14 @@
 // APIキーがあるときだけ、行の続きを提案する「AIの一言先読み」が上乗せされる。
 
 import { getCompletions } from './pycomplete.js';
-import { COMPLETION_CONFIG, STORAGE_KEYS } from './config.js';
+import { COMPLETION_CONFIG } from './config.js';
+import { callGemini, hasApiKey } from './ai.js';
+
+// AI の先読みが失敗したら、この時間は AI に問い合わせない。
+// 回数制限・オフライン・学校のネットワークの遮断のときに、打つたびに失敗を重ねないため。
+// 補完エンジンは画面ごとに作られるが、失敗の理由は共通なので、時刻はモジュールで共有する。
+const AI_BACKOFF_MS = 5 * 60 * 1000;
+let aiBlockedUntil = 0;
 
 /** モード名と説明（サイドバーの表示に使う） */
 const MODE_TEXT = {
@@ -303,7 +310,8 @@ export class CodeCompletionEngine {
    */
   scheduleAiHint(beforeCursor, cursor) {
     clearTimeout(this.aiTimer);
-    if (!localStorage.getItem(STORAGE_KEYS.API_KEY)) return;
+    if (Date.now() < aiBlockedUntil) return;
+    if (!hasApiKey()) return;
     if (this.completionMode === 'popup-only' || this.completionMode === 'none') return;
     if (beforeCursor.trim().length < 3) return;
 
@@ -312,7 +320,6 @@ export class CodeCompletionEngine {
         // ローカル候補を表示できているなら、AIで上書きしない
         if (this.inlineText || this.popup.style.display === 'block') return;
 
-        const { callGemini } = await import('./ai.js');
         const code = this.editor.getValue();
         const prompt = `次のPythonコードで、カーソル位置（|）に続く1行を提案してください。
 説明やコードブロック記号は書かず、続きの文字列だけを1行で出力してください。
@@ -320,6 +327,8 @@ export class CodeCompletionEngine {
 ${code.split('\n').slice(Math.max(0, cursor.line - 12), cursor.line).join('\n')}
 ${beforeCursor}|`;
 
+        // 失敗すると callGemini は例外を投げる。その文章を候補として出さないよう、
+        // 成功した返事だけを使う（失敗は下の catch で休み時間に入る）。
         const response = await callGemini(prompt, 80);
         const suggestion = (response || '')
           .replace(/```[a-z]*\n?/g, '')
@@ -333,7 +342,8 @@ ${beforeCursor}|`;
 
         this.showInline({ label: suggestion, insert: beforeCursor + suggestion }, beforeCursor.length, now);
       } catch (error) {
-        // AI が使えなくてもローカル補完だけで動くので、静かに諦める
+        // AI が使えなくてもローカル補完だけで動くので、候補は出さず、しばらく休む
+        aiBlockedUntil = Date.now() + AI_BACKOFF_MS;
         console.debug('AI補完は利用できませんでした:', error.message);
       }
     }, COMPLETION_CONFIG.DEBOUNCE_DELAY);

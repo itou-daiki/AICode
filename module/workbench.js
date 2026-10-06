@@ -14,7 +14,7 @@ import { pythonToBlocks } from './py2blocks.js';
 import { defineBlocks, buildToolbox } from './blockdefs.js';
 import { autoIndent, formatCode } from './pyformat.js';
 import { CodeCompletionEngine } from './completion.js';
-import { debounce, throttle, toast } from './ui.js';
+import { debounce, throttle, toast, safeStorage } from './ui.js';
 
 const BLOCKS_TO_CODE_MS = 80;
 const CODE_TO_BLOCKS_MS = 900;
@@ -48,9 +48,9 @@ export function createWorkbench(options) {
   let renderCount = 0;
   let stepLineHandle = null;
   // フローチャートの書き方（やさしい日本語 / コードのまま）
-  let flowJapanese = localStorage.getItem('easycode_flow_japanese') !== '0';
+  let flowJapanese = safeStorage.get('easycode_flow_japanese') !== '0';
   // フローチャートを「全体が入る大きさ」にするか、「実物大」にするか
-  let flowFit = localStorage.getItem('easycode_flow_fit') !== '0';
+  let flowFit = safeStorage.get('easycode_flow_fit') !== '0';
   // ＋ − で決めた倍率。0 は「おまかせ（パネルに合わせる）」
   let flowZoom = 0;
   // 直近に使われた倍率。＋ を押したとき、ここから増やす
@@ -127,6 +127,8 @@ export function createWorkbench(options) {
     grid: { spacing: 8, length: 1, colour: '#E9EAE5', snap: true },
     zoom: { controls: true, wheel: true, startScale: 0.8, minScale: 0.3, maxScale: 2 },
     trashcan: true,
+    // 教室で一斉に鳴らないように、音は出さない
+    sounds: false,
     move: { scrollbars: true, drag: true, wheel: true },
   });
 
@@ -138,18 +140,101 @@ export function createWorkbench(options) {
   // 学習者は「保存されている」と思ったまま書いたものを失ってしまう。
   // だから一度だけ、はっきり知らせる。
   let warnedAboutSaving = false;
+  // ブロックの形に加えて、コードの字そのものも残す。
+  // ブロックが読めなくなっても（版が変わったなど）、字から作り直せるように。
+  const codeKey = `${storageKey}_code`;
+  const backupKey = `${storageKey}_backup`;
+  // 共有リンクで開いて、まだ手を入れていないコード。これは控えに回さない
+  const sharedKey = `${storageKey}_shared`;
+  // 保存したものを戻し終えるまでは、空の画面で上書きしない
+  let restored = false;
 
-  const save = throttle(() => {
+  function saveNow() {
+    if (!restored) return;
+    // 小さくて大事なコードの字を先に、ブロックの形とは別々に保存する
+    let ok = safeStorage.set(codeKey, editor.getValue());
     try {
-      localStorage.setItem(storageKey, JSON.stringify(Blockly.serialization.workspaces.save(workspace)));
+      ok = safeStorage.set(storageKey, JSON.stringify(Blockly.serialization.workspaces.save(workspace))) && ok;
     } catch (e) {
+      ok = false;
       console.warn('ブロックの保存に失敗:', e);
-      if (!warnedAboutSaving) {
-        warnedAboutSaving = true;
-        toast('このブラウザに保存できません。書いたものは、閉じると消えてしまいます。「共有」でリンクにして控えておきましょう。');
-      }
     }
-  }, SAVE_MS);
+    if (!ok && !warnedAboutSaving) {
+      warnedAboutSaving = true;
+      toast('このブラウザに保存できません。書いたものは、閉じると消えてしまいます。「共有」でリンクにして控えておきましょう。', 6000);
+    }
+  }
+  const save = throttle(saveNow, SAVE_MS);
+  // 閉じる・別のタブへ移る直前に、待っている保存を済ませる
+  window.addEventListener('pagehide', saveNow);
+  document.addEventListener('visibilitychange', () => { if (document.hidden) saveNow(); });
+
+  /** いま保存されているコード（無ければ空） */
+  function savedCode() {
+    const text = safeStorage.get(codeKey);
+    if (text) return text;
+    // 字を残すようになる前の保存は、ブロックの形からコードを作る
+    const saved = safeStorage.get(storageKey);
+    if (!saved) return '';
+    let scratch = null;
+    Blockly.Events.disable();
+    try {
+      scratch = new Blockly.Workspace();
+      Blockly.serialization.workspaces.load(JSON.parse(saved), scratch);
+      return Blockly.Python.workspaceToCode(scratch);
+    } catch (e) {
+      console.warn('前の保存からコードを作れませんでした:', e);
+      return '';
+    } finally {
+      Blockly.Events.enable();
+      if (scratch) scratch.dispose();
+    }
+  }
+
+  /**
+   * 共有リンクなどで上書きする前に、いまのプログラムを控える
+   * @param {string} incoming これから開くコード
+   * @returns {boolean} 控えたか
+   */
+  function backupBefore(incoming) {
+    const before = editor.getValue().trim() ? editor.getValue() : savedCode();
+    const lastShared = safeStorage.get(sharedKey);
+    safeStorage.set(sharedKey, incoming);
+    if (!before.trim() || before === incoming || before === starterCode) return false;
+    // 前の共有コードに手を入れずに次のリンクを開いたときは、控え（自分のプログラム）を残す
+    if (before === lastShared) return Boolean(safeStorage.get(backupKey));
+    safeStorage.set(backupKey, before);
+    return true;
+  }
+
+  /** 控えたプログラムに戻す */
+  function restoreBackup() {
+    const code = safeStorage.get(backupKey);
+    if (!code) { toast('戻せるプログラムがありません'); return; }
+    const current = editor.getValue();
+    setCode(code);
+    // もう一度押せば、共有されたコードとも行き来できる
+    if (current.trim()) safeStorage.set(backupKey, current);
+    safeStorage.remove(sharedKey);
+    toast('前のプログラムに戻しました');
+  }
+
+  /** 共有されたコードを開いたと知らせる（控えがあれば戻すボタンも出す） */
+  function announceShared(backedUp) {
+    if (backedUp) {
+      toast('共有されたコードを開きました。前のプログラムは控えてあります。', 9000,
+        { label: '前のプログラムに戻す', onClick: restoreBackup });
+    } else {
+      toast('共有されたコードを読み込みました');
+    }
+  }
+
+  /** 開いたまま受け取った共有リンクのコードを開く */
+  function loadShared(code) {
+    const backedUp = backupBefore(code);
+    setCode(code);
+    announceShared(backedUp);
+  }
 
   /* ---------- 同期 ---------- */
 
@@ -313,19 +398,33 @@ export function createWorkbench(options) {
 
   /** レイアウトが変わったときに呼ぶ */
   function refreshLayout() {
-    requestAnimationFrame(() => {
+    // 見えていないタブでは requestAnimationFrame が動かないので、短い時間待ちにする
+    setTimeout(() => {
       editor.refresh();
       Blockly.svgResize(workspace);
       fitFlowchart();
       // 隠れていて整えられなかったブロックを、見えた今のタイミングで整える
       if (blocksFitPending) fitBlocks();
-    });
+    }, 0);
   }
 
-  // パネルの大きさが変わったら（拡大・画面の分けかた・窓の大きさ）合わせ直す
+  // パネルの大きさが変わったら（拡大・画面の分けかた・サイドバー・窓の大きさ）合わせ直す。
+  // Blockly とエディタは、知らせないと大きさを変えない。ボタンごとに知らせると取りこぼすので、
+  // 入れ物そのものの大きさを見張る。
   const flowHost = document.getElementById(flowchartId)?.parentElement;
-  if (flowHost && typeof ResizeObserver !== 'undefined') {
-    new ResizeObserver(debounce(() => fitFlowchart(), 120)).observe(flowHost);
+  if (typeof ResizeObserver !== 'undefined') {
+    if (flowHost) new ResizeObserver(debounce(() => fitFlowchart(), 120)).observe(flowHost);
+    const blocklyHost = document.getElementById(blocklyId);
+    // ResizeObserver の知らせは、大きさが決まったあとに来るので、その場で合わせ直してよい
+    // （入れ物の大きさは CSS で決まっていて、中を変えても入れ物は変わらないので、くり返しにならない）
+    const resizeBlocks = () => {
+      if (!blocklyHost || !blocklyHost.offsetWidth || !blocklyHost.offsetHeight) return;
+      Blockly.svgResize(workspace);
+      if (blocksFitPending) fitBlocks();
+    };
+    if (blocklyHost) new ResizeObserver(resizeBlocks).observe(blocklyHost);
+    const editorHost = editor.getWrapperElement().parentElement;
+    if (editorHost) new ResizeObserver(() => { if (editorHost.offsetHeight) editor.refresh(); }).observe(editorHost);
   }
 
   /* ---------- 整形 ---------- */
@@ -443,29 +542,50 @@ export function createWorkbench(options) {
     syncing = true;
     try {
       if (initialCode) {
+        const backedUp = backupBefore(initialCode);
         pythonToBlocks(initialCode, workspace);
         editor.setValue(initialCode);
         syncedCode = initialCode;
+        // 上書きしたことを、控えのありなしと合わせて知らせる
+        announceShared(backedUp);
         return;
       }
-      const saved = localStorage.getItem(storageKey);
+      const saved = safeStorage.get(storageKey);
+      const text = savedCode();
       if (saved) {
-        Blockly.serialization.workspaces.load(JSON.parse(saved), workspace);
+        // 読みこみの出来事が後から届くと、コードがブロックから作り直されてしまう。止めておく
+        Blockly.Events.disable();
+        try {
+          Blockly.serialization.workspaces.load(JSON.parse(saved), workspace);
+        } finally {
+          Blockly.Events.enable();
+        }
+      } else if (text) {
+        pythonToBlocks(text, workspace);
       } else if (starterCode) {
         pythonToBlocks(starterCode, workspace);
       }
       const code = generateCode();
-      editor.setValue(code);
-      syncedCode = code;
+      // 書いた字（打ちかけ・ブロックにならない行も含む）を優先して見せる
+      if (text && text !== code) {
+        if (saved) pythonToBlocks(text, workspace);
+        editor.setValue(text);
+        syncedCode = text;
+      } else {
+        editor.setValue(code);
+        syncedCode = code;
+      }
     } catch (e) {
-      console.warn('復元に失敗したので、はじめの状態にします:', e);
-      workspace.clear();
-      if (starterCode) pythonToBlocks(starterCode, workspace);
-      const code = generateCode();
-      editor.setValue(code);
-      syncedCode = code;
+      console.warn('ブロックを戻せなかったので、保存したコードの字から作り直します:', e);
+      Blockly.Events.disable();
+      try { workspace.clear(); } finally { Blockly.Events.enable(); }
+      const text = savedCode() || starterCode;
+      if (text) pythonToBlocks(text, workspace);
+      editor.setValue(text || generateCode());
+      syncedCode = editor.getValue();
     } finally {
       syncing = false;
+      restored = true;
       // 開いた直後に「元に戻す」を押すと、コードが空になってしまう。読みこみは履歴に残さない
       editor.clearHistory();
       workspace.clearUndo();
@@ -507,6 +627,8 @@ export function createWorkbench(options) {
     completion,
     getCode: () => editor.getValue(),
     setCode,
+    loadShared,
+    restoreBackup,
     clearAll,
     restore,
     generateCode,
@@ -522,7 +644,7 @@ export function createWorkbench(options) {
     setFlowFit(on) {
       flowFit = on;
       flowZoom = 0;
-      localStorage.setItem('easycode_flow_fit', on ? '1' : '0');
+      safeStorage.set('easycode_flow_fit', on ? '1' : '0');
       fitFlowchart();
     },
     fitBlocks,
@@ -535,7 +657,7 @@ export function createWorkbench(options) {
     /** フローチャートの書き方を切り替える */
     setFlowJapanese(on) {
       flowJapanese = on;
-      localStorage.setItem('easycode_flow_japanese', on ? '1' : '0');
+      safeStorage.set('easycode_flow_japanese', on ? '1' : '0');
       renderFlowchart(true);
     },
   };

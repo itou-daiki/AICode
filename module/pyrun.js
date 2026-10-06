@@ -21,20 +21,49 @@ export const TIMEOUT_MESSAGE =
 /** エラーの中でこの名前が出たら、学習者のコードの行だとわかる */
 export const USER_FILE = '<あなたのコード>';
 
+/** 画面に出す出力の上限（文字数）。これを超えたぶんは画面に出さない */
+const DISPLAY_LIMIT = 200000;
+
+/** 画面に出す出力が上限を超えたときの案内 */
+const OUTPUT_OMITTED_NOTE = '\n（出力が多すぎるので、ここから先は省略しました）\n';
+
+/** 答え合わせ用に残す出力の上限（文字数）。ふつうの量では切れない */
+const OUTPUT_KEEP_LIMIT = 2000000;
+
+/** 画面への書きこみをまとめる間隔（秒） */
+const FLUSH_INTERVAL_SECONDS = 0.05;
+
 /** Pyodide に一度だけ流し込む実行係 */
+// 学習者のコードは、描画モードでは この実行係と同じ globals で動く。
+// 学習者が time / json / sys / io という名前の変数を作っても壊れないよう、
+// 実行係が使うモジュールは _ec_ から始まる別名で取りこむ。
 const RUNNER_SOURCE = `
-import ast, io, json, sys, time
+import ast as _ec_ast, io as _ec_io, json as _ec_json, sys as _ec_sys, time as _ec_time
 
 _EASYCODE_FILE = ${JSON.stringify(USER_FILE)}
 _EASYCODE_TIMEOUT_MESSAGE = ${JSON.stringify(TIMEOUT_MESSAGE)}
-_easycode_state = {'deadline': 0.0, 'ticks': 0}
+_EASYCODE_DISPLAY_LIMIT = ${DISPLAY_LIMIT}
+_EASYCODE_OMITTED_NOTE = ${JSON.stringify(OUTPUT_OMITTED_NOTE)}
+_EASYCODE_KEEP_LIMIT = ${OUTPUT_KEEP_LIMIT}
+_EASYCODE_FLUSH_INTERVAL = ${FLUSH_INTERVAL_SECONDS}
+_easycode_state = {'deadline': 0.0, 'ticks': 0, 'expired': False}
+
+
+class _EasycodeTimeout(BaseException):
+    """時間切れ。BaseException にしてあるのは、学習者の except Exception: で
+    握りつぶされて、終わらないコードが止まらなくなるのを防ぐため"""
 
 
 def _easycode_watchdog(frame, event, arg):
     """終わらないコードを打ち切るための見張り"""
-    _easycode_state['ticks'] += 1
-    if _easycode_state['ticks'] % 200 == 0 and time.time() > _easycode_state['deadline']:
-        raise TimeoutError(_EASYCODE_TIMEOUT_MESSAGE)
+    state = _easycode_state
+    # 期限を過ぎたあとは、200 回に 1 回ではなく毎回しらべずに投げる
+    if state['expired']:
+        raise _EasycodeTimeout(_EASYCODE_TIMEOUT_MESSAGE)
+    state['ticks'] += 1
+    if state['ticks'] % 200 == 0 and _ec_time.time() > state['deadline']:
+        state['expired'] = True
+        raise _EasycodeTimeout(_EASYCODE_TIMEOUT_MESSAGE)
     return _easycode_watchdog
 
 
@@ -42,22 +71,46 @@ class _EasycodeOut:
     """print() の行き先。画面にも出しつつ、あとで使えるようにためておく"""
 
     def __init__(self, element=None):
-        self.buffer = io.StringIO()
+        self.buffer = _ec_io.StringIO()
+        self.kept = 0
         self.element = element
+        # 1 回ずつ textContent に足すと、出力が増えるほど遅くなる（全文の作りなおし）。
+        # ためておいて、短い間隔でまとめて書く
+        self.pending = []
+        self.shown = 0
+        self.last_flush = 0.0
 
     def write(self, text):
-        self.buffer.write(text)
-        if self.element is not None:
-            self.element.textContent += text
+        if self.kept < _EASYCODE_KEEP_LIMIT:
+            self.buffer.write(text[:_EASYCODE_KEEP_LIMIT - self.kept])
+            self.kept += len(text)
+        if self.element is not None and self.shown <= _EASYCODE_DISPLAY_LIMIT:
+            self.pending.append(text)
+            self.shown += len(text)
+            if _ec_time.time() - self.last_flush >= _EASYCODE_FLUSH_INTERVAL:
+                self.flush()
         return len(text)
 
     def flush(self):
-        pass
+        if self.element is None or not self.pending:
+            return
+        text = ''.join(self.pending)
+        self.pending = []
+        if self.shown > _EASYCODE_DISPLAY_LIMIT:
+            over = self.shown - _EASYCODE_DISPLAY_LIMIT
+            text = text[:max(0, len(text) - over)] + _EASYCODE_OMITTED_NOTE
+            self.shown = _EASYCODE_DISPLAY_LIMIT + 1  # もう書かない
+        self.element.textContent += text
+        self.last_flush = _ec_time.time()
 
 
 def _easycode_error_info(exc):
     """例外から「種類・メッセージ・何行目か」を取り出す"""
     info = {'type': type(exc).__name__, 'message': str(exc), 'line': None, 'name': None}
+    # 時間切れは、これまでどおり TimeoutError として知らせる（画面側の判定を変えないため）
+    if isinstance(exc, _EasycodeTimeout):
+        info['type'] = 'TimeoutError'
+        info['message'] = _EASYCODE_TIMEOUT_MESSAGE
 
     if isinstance(exc, SyntaxError):
         info['message'] = exc.msg or str(exc)
@@ -85,16 +138,30 @@ def _easycode_describe(value):
     return text if len(text) <= 200 else text[:200] + '…'
 
 
+def _easycode_timed_input(helper, out):
+    """input() で人が考えている時間は、制限時間に数えない。
+    待った長さだけ期限をのばすので、入力のあるプログラムが
+    「終わらないくり返し」と間違われて止められることがない"""
+    async def timed_input(*args):
+        out.flush()  # 問いかけが画面に出るより先に、これまでの出力を出しておく
+        started = _ec_time.time()
+        try:
+            return await helper(*args)
+        finally:
+            _easycode_state['deadline'] += _ec_time.time() - started
+    return timed_input
+
+
 async def _easycode_run(code, element=None, seconds=10.0, use_globals=False,
                         prelude=None, capture=None):
     out = _EasycodeOut(element)
     info = None
-    orig_out, orig_err = sys.stdout, sys.stderr
+    orig_out, orig_err = _ec_sys.stdout, _ec_sys.stderr
 
     try:
-        compiled = compile(code, _EASYCODE_FILE, 'exec', flags=ast.PyCF_ALLOW_TOP_LEVEL_AWAIT)
+        compiled = compile(code, _EASYCODE_FILE, 'exec', flags=_ec_ast.PyCF_ALLOW_TOP_LEVEL_AWAIT)
     except SyntaxError as exc:
-        return json.dumps({'output': '', 'error': _easycode_error_info(exc)})
+        return _ec_json.dumps({'output': '', 'error': _easycode_error_info(exc)})
 
     # 描画モードは p5 の関数や setup() / draw() を残したいので、
     # そのときだけ共通の globals をそのまま使う。
@@ -104,7 +171,7 @@ async def _easycode_run(code, element=None, seconds=10.0, use_globals=False,
         namespace = {'__name__': '__main__'}
         helper = globals().get('custom_input')
         if helper is not None:
-            namespace['custom_input'] = helper
+            namespace['custom_input'] = _easycode_timed_input(helper, out)
 
     # 前置き（乱数の種を固定する、問題文で説明される関数を用意する など）。
     # 学習者のコードとは別のファイル名で読みこむので、
@@ -113,16 +180,17 @@ async def _easycode_run(code, element=None, seconds=10.0, use_globals=False,
         try:
             exec(compile(prelude, '<easycode-prelude>', 'exec'), namespace)
         except BaseException as exc:
-            return json.dumps({
+            return _ec_json.dumps({
                 'output': '',
                 'error': {'type': 'PreludeError', 'message': str(exc), 'line': None, 'name': None},
             })
 
-    _easycode_state['deadline'] = time.time() + seconds
+    _easycode_state['deadline'] = _ec_time.time() + seconds
     _easycode_state['ticks'] = 0
+    _easycode_state['expired'] = False
 
-    sys.stdout = sys.stderr = out
-    sys.settrace(_easycode_watchdog)
+    _ec_sys.stdout = _ec_sys.stderr = out
+    _ec_sys.settrace(_easycode_watchdog)
     try:
         # eval なのは、input() を await に置きかえたコードを動かすため。
         # PyCF_ALLOW_TOP_LEVEL_AWAIT でコンパイルすると、
@@ -135,17 +203,18 @@ async def _easycode_run(code, element=None, seconds=10.0, use_globals=False,
     except BaseException as exc:
         info = _easycode_error_info(exc)
     finally:
-        sys.settrace(None)
-        sys.stdout, sys.stderr = orig_out, orig_err
+        _ec_sys.settrace(None)
+        _ec_sys.stdout, _ec_sys.stderr = orig_out, orig_err
+        out.flush()
 
     # 「変数の最終値」を問う問題のために、名指しされた変数だけ取り出す
     variables = {}
     if capture:
-        for name in json.loads(capture):
+        for name in _ec_json.loads(capture):
             if name in namespace:
                 variables[name] = _easycode_describe(namespace[name])
 
-    return json.dumps({
+    return _ec_json.dumps({
         'output': out.buffer.getvalue(),
         'error': info,
         'variables': variables,
@@ -364,11 +433,17 @@ function detailedHint(info) {
   const message = info.message || '';
 
   if (info.type === 'TypeError') {
+    // 「多すぎる」を先に調べる。"takes 1 positional argument but 2 were given" は
+    // "takes \d+ positional" にも当てはまるので、後ろに回すと「足りない」と誤って案内してしまう
+    if (/but \d+ (were|was) given|takes from \d+ to \d+ positional|positional arguments? but/.test(message)) {
+      return 'かっこの中に書いた値が多すぎます。いくつ必要か確かめましょう。';
+    }
     if (/missing \d+ required|takes \d+ positional|expected \d+ argument/.test(message)) {
       return 'かっこの中に書く値の数が足りていません。circle(x, y, 大きさ) のように、いくつ必要か確かめましょう。';
     }
-    if (/takes from|but \d+ were given|positional arguments? but/.test(message)) {
-      return 'かっこの中に書いた値が多すぎます。いくつ必要か確かめましょう。';
+    // input() は文字列を返すので、数と比べるには int() が要る
+    if (/'(<|>|<=|>=)' not supported between instances of '(str' and '(int|float)|(int|float)' and 'str)'/.test(message)) {
+      return 'input() で受け取った値は文字列です。数と比べるときは int(input()) のように、数に直してから比べましょう。';
     }
     if (/not callable/.test(message)) {
       return 'これは呼び出せるものではありません。変数の名前と関数の名前が同じになっていませんか？';

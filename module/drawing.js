@@ -8,10 +8,10 @@ import { createWorkbench } from './workbench.js';
 import { P5_CALL_BLOCKS, P5_NAME_BLOCKS } from './blockdefs.js';
 import {
   confirmDialog, toast, initSidebar, initTabs, initMaximize,
-  takeCodeFromUrl, makeShareUrl, showShareDialog, showFix,
+  takeCodeFromUrl, makeShareUrl, showShareDialog, showFix, bootPython,
+  makeEditorFriendly, bindRunShortcut, addTextSizeControl,
 } from './ui.js';
 import { callGemini, chatWithAI } from './ai.js';
-import { PYODIDE_CONFIG } from './config.js';
 import { runUserCode, explainError, suggestFix } from './pyrun.js';
 import { noticeSilentMistakes } from './pyfix.js';
 import { toKtph } from './ktph.js';
@@ -34,6 +34,9 @@ let pyodide = null;
 let stageTabs = null;
 let animating = false;
 let animationId = null;
+/** 実行（停止）のたびに増える番号。古いループが await から戻ってきたときに、
+ * 自分がもう古いと気づいて抜けるために使う（二重に動いて倍速になるのを防ぐ） */
+let runGeneration = 0;
 
 /**
  * マウスとキーの今の値。
@@ -246,6 +249,7 @@ function clearCanvas() {
 
 /** アニメーションを止める */
 function stopAnimation(message = '停止しました') {
+  runGeneration++;
   if (animationId) cancelAnimationFrame(animationId);
   animationId = null;
   animating = false;
@@ -296,20 +300,23 @@ async function runCode() {
  */
 async function runAnimation(code) {
   const output = $('output');
+  const generation = runGeneration;
+  const isStale = () => generation !== runGeneration;
 
   await pyodide.runPythonAsync(`
-import time
+import time as _ec_time
 frameCount = 0
 deltaTime = 0
 p5.frame_count = 0
-p5.start_time = time.time()
-p5._last_time = time.time()
+p5.start_time = _ec_time.time()
+p5._last_time = _ec_time.time()
 # 前に動かしたプログラムの frameRate() が残らないよう、p5.js の既定にもどす
 p5._target_fps = 60
 p5._recent_fps = 0
 # noLoop() で止めたままにならないように、毎回もどす
 p5._looping = True
 `);
+  if (isStale()) return;
 
   // 学習者のコードを読みこんで、setup() があれば一度だけ呼ぶ。
   // 末尾に足しているだけなので、エラーの行番号はずれない。
@@ -318,6 +325,7 @@ p5._looping = True
     code + "\nif 'setup' in globals():\n    setup()\n",
     { useGlobals: true, p5Globals: true },
   );
+  if (isStale()) return;
 
   if (setupRun.error) {
     output.textContent = explainError(setupRun.error, code);
@@ -328,6 +336,7 @@ p5._looping = True
   output.textContent = setupRun.output || '';
 
   const hasDraw = await pyodide.runPythonAsync(`'draw' in globals()`);
+  if (isStale()) return;
   if (!hasDraw) {
     output.textContent += 'setup() だけ実行しました。\n';
     setCanvasState('描画ずみ', false);
@@ -354,7 +363,7 @@ p5._looping = True
   const TOLERANCE_MS = 4;
 
   const loop = async () => {
-    if (!animating) return;
+    if (!animating || isStale()) return;
     try {
       const now = performance.now();
       if (targetFps > 0 && now < nextFrameAt - TOLERANCE_MS) {
@@ -371,20 +380,20 @@ p5._looping = True
       // マウスとキーの今の値も、この 1 回のやりとりで一緒に渡す
       pyodide.globals.set('_ec_pointer', JSON.stringify(pointer));
       const reported = await pyodide.runPythonAsync(`
-import time, json as _json
+import time as _ec_time, json as _ec_json
 
 # p5.js と同じく、毎フレーム座標系をもどしてから draw() を呼ぶ
 begin_frame()
 
 frameCount = frameCount + 1
 p5.frame_count = frameCount
-_now = time.time()
+_now = _ec_time.time()
 deltaTime = (_now - p5._last_time) * 1000 if p5._last_time else 0
 p5._last_time = _now
 p5._recent_fps = (1000 / deltaTime) if deltaTime > 0 else 0
 
 # p5.js と同じ名前で、マウスとキーの今の値を使えるようにする
-_ec = _json.loads(_ec_pointer)
+_ec = _ec_json.loads(_ec_pointer)
 pmouseX = mouseX
 pmouseY = mouseY
 mouseX = mouse_x = _ec['x']
@@ -398,6 +407,7 @@ height = p5.height
 
 f"{p5._target_fps},{1 if p5._looping else 0}"
 `);
+      if (isStale()) return;
       const [fpsText, loopingText] = String(reported).split(',');
       targetFps = Number(fpsText) || 0;
       let looping = loopingText === '1';
@@ -409,6 +419,7 @@ f"{p5._target_fps},{1 if p5._looping else 0}"
         const names = EVENT_NAMES[events.shift()] || [];
         const call = names.map(n => `if '${n}' in globals(): ${n}()`).join('\n');
         const handled = await runUserCode(pyodide, call, { useGlobals: true, seconds: 3 });
+        if (isStale()) return;
         // 関数の中の print() も見えるようにする（次のコマの表示で消えないよう、とっておく）
         if (handled.output) {
           eventLog = (eventLog + handled.output).slice(-2000);
@@ -424,7 +435,10 @@ f"{p5._target_fps},{1 if p5._looping else 0}"
 
       // noLoop() で止めているあいだは draw() を呼ばない（p5.js と同じ）。
       // 関数の中で loop() / noLoop() が呼ばれたかもしれないので、関数を呼んだコマだけ聞き直す
-      if (hadEvents) looping = Boolean(await pyodide.runPythonAsync('p5._looping'));
+      if (hadEvents) {
+        looping = Boolean(await pyodide.runPythonAsync('p5._looping'));
+        if (isStale()) return;
+      }
       const paused = !looping;
       if (paused !== wasPaused) {
         wasPaused = paused;
@@ -436,6 +450,7 @@ f"{p5._target_fps},{1 if p5._looping else 0}"
       }
 
       const frame = await runUserCode(pyodide, 'draw()', { useGlobals: true, seconds: 3 });
+      if (isStale()) return;
 
       if (frame.error) {
         output.textContent = 'アニメーションでエラーが起きました\n' + explainError(frame.error, code);
@@ -446,6 +461,7 @@ f"{p5._target_fps},{1 if p5._looping else 0}"
       if (frame.output) output.textContent = eventLog + frame.output;
       animationId = requestAnimationFrame(loop);
     } catch (e) {
+      if (isStale()) return;
       console.error('アニメーションエラー:', e);
       output.textContent = 'エラー: ' + e.message;
       stopAnimation(null);
@@ -508,9 +524,11 @@ async function improveDrawing() {
       + '説明は不要で、コードだけを出力してください。\n\n```python\n' + code + '\n```',
       700
     );
-    const match = response.match(/```(?:python)?\n([\s\S]*?)```/);
-    bench.setCode((match ? match[1] : response).trim() + '\n');
-    toast('AIがコードを書き直しました');
+    const match = response.match(/```[\w+-]*[ \t]*\r?\n([\s\S]*?)```/);
+    // コードの形で返ってこなかったら、説明の文をエディタに流しこまない
+    if (!match || !match[1].trim()) { toast('AI の返事からコードを取り出せませんでした。もう一度ためしてください。'); return; }
+    bench.setCode(match[1].trim() + '\n');
+    toast('AI がコードを書き直しました。「元に戻す」で前のコードに戻せます', 3600);
   } catch (error) {
     toast('改善できませんでした: ' + error.message);
   } finally {
@@ -754,9 +772,11 @@ async function init() {
       extraApi: completionApi(),
       onStatus: showSyncState,
     });
+    makeEditorFriendly(bench.editor, 'Python のスケッチのコード');
+    bindRunShortcut($('run-btn'));
     const shared = await takeCodeFromUrl();
+    // 共有リンクで開いたときは、前のプログラムを控えてから上書きする（知らせも restore が出す）
     bench.restore(shared);
-    if (shared) toast('共有されたコードを読み込みました');
 
     // すでにこのページを開いたまま共有リンクを開くと、
     // ブラウザはページを読み直さない（# から後ろが変わるだけ）。
@@ -764,10 +784,10 @@ async function init() {
     window.addEventListener('hashchange', async () => {
       const late = await takeCodeFromUrl();
       if (!late) return;
-      bench.setCode(late);
-      toast('共有されたコードを読み込みました');
+      bench.loadShared(late);
     });
 
+    addTextSizeControl($('display-settings'));
     initSidebar({
       sidebarId: 'sidebar',
       toggleId: 'toggle-sidebar',
@@ -801,19 +821,25 @@ async function init() {
     bench.fitBlocks();
     bench.refreshLayout();
     await bench.renderFlowchart(true);
-
-    pyodide = await loadPyodide({ indexURL: PYODIDE_CONFIG.INDEX_URL });
-    pyodide.globals.set('js', window);
-    await pyodide.runPythonAsync(P5_PYTHON_LIBRARY);
-    // p5.js と同じく、マウスとキーの今の値を draw() から使えるようにする
-    watchPointer();
-
-    $('run-btn').disabled = false;
-    loader.style.display = 'none';
   } catch (error) {
     console.error('03 スケッチの初期化に失敗:', error);
     loader.innerHTML =
       `<p style="color:var(--c-bad);">読み込みに失敗しました: ${error.message}<br>ページを再読み込みしてください。</p>`;
+    return;
+  }
+
+  // 画面は先に使えるようにして、Python は後ろで読みこむ
+  loader.style.display = 'none';
+  try {
+    pyodide = await bootPython({
+      statusEl: $('output'),
+      prepare: (py) => py.runPythonAsync(P5_PYTHON_LIBRARY),
+    });
+    // p5.js と同じく、マウスとキーの今の値を draw() から使えるようにする
+    watchPointer();
+    $('run-btn').disabled = false;
+  } catch (error) {
+    console.error('Python を読みこめませんでした:', error);
   }
 }
 

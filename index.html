@@ -172,7 +172,7 @@
 <body>
   <div id="loader" class="loader">
     <div class="spinner"></div>
-    <p>Python の実行環境を準備しています…</p>
+    <p>読みこんでいます…</p>
   </div>
 
   <header class="topbar">
@@ -233,6 +233,10 @@
           <p>プログラムを1行ずつたどって、そのときの変数の値と出力を確かめられます。</p>
           <p>実行中は画面が2つに分かれ、左側でコード・フローチャート・ブロックを切り替えられます。</p>
         </div>
+      </details>
+      <details class="expander">
+        <summary><svg viewBox="0 0 20 20" class="icon" aria-hidden="true"><path d="M4 16 8.5 4h1L14 16"/><path d="M6 11.5h6"/></svg>表示</summary>
+        <div class="expander-body stack" id="display-settings"></div>
       </details>
     </aside>
 
@@ -309,17 +313,18 @@
         <div class="panel-body" id="output-body">
           <div id="step-panel" hidden>
             <div class="step-bar">
-              <button id="step-first" class="btn btn-quiet btn-sm" title="最初へ"><svg viewBox="0 0 20 20" class="icon" aria-hidden="true"><path d="M15 4l-7 6 7 6z"/><path d="M5 4v12"/></svg></button>
-              <button id="step-prev" class="btn btn-quiet btn-sm" title="1つ戻る"><svg viewBox="0 0 20 20" class="icon" aria-hidden="true"><path d="M13 4l-7 6 7 6z"/></svg></button>
-              <button id="step-next" class="btn btn-mark btn-sm" title="1つ進む"><svg viewBox="0 0 20 20" class="icon" aria-hidden="true"><path d="M6 4l10 6-10 6z"/></svg></button>
+              <button id="step-first" class="btn btn-quiet btn-sm" title="最初へ（Home）"><svg viewBox="0 0 20 20" class="icon" aria-hidden="true"><path d="M15 4l-7 6 7 6z"/><path d="M5 4v12"/></svg>最初</button>
+              <button id="step-prev" class="btn btn-quiet btn-sm" title="1つ戻る（←）"><svg viewBox="0 0 20 20" class="icon" aria-hidden="true"><path d="M13 4l-7 6 7 6z"/></svg>戻る</button>
+              <button id="step-next" class="btn btn-mark btn-sm" title="1つ進む（→）">進む<svg viewBox="0 0 20 20" class="icon" aria-hidden="true"><path d="M6 4l10 6-10 6z"/></svg></button>
               <input type="range" id="step-slider" min="0" max="0" value="0" aria-label="ステップ位置">
               <span class="chip" id="step-label">0 / 0</span>
               <button id="step-exit" class="btn btn-danger btn-sm" title="ふだんの画面に戻ります"><svg viewBox="0 0 20 20" class="icon" aria-hidden="true"><path d="M5 5h10v10H5z"/></svg>終了</button>
             </div>
+            <div id="step-caption" class="step-caption" aria-live="polite" aria-atomic="true"></div>
             <div id="step-vars"></div>
           </div>
 
-          <pre id="output" class="console">「実行」で動かし、「ステップ実行」で1行ずつ確かめられます</pre>
+          <pre id="output" class="console" role="log" aria-live="polite" aria-label="実行結果">「実行」で動かし、「ステップ実行」で1行ずつ確かめられます</pre>
 
           <div id="step-inputs">
             <label for="step-input-values" style="display:block;margin-bottom:var(--sp-1);font-size:var(--text-xs);font-weight:600;">
@@ -346,7 +351,6 @@
   <script src="https://cdn.jsdelivr.net/npm/blockly@11.2.1/blocks_compressed.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/blockly@11.2.1/python_compressed.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/blockly@11.2.1/msg/ja.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/mermaid@10.9.1/dist/mermaid.min.js"></script>
   <script src="https://cdn.jsdelivr.net/pyodide/v0.23.4/full/pyodide.js"></script>
   <script type="module" src="module/blocks.js"></script>
 </body>

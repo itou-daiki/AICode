@@ -247,6 +247,10 @@
           </div>
         </div>
       </details>
+      <details class="expander">
+        <summary><svg viewBox="0 0 20 20" class="icon" aria-hidden="true"><path d="M4 16 8.5 4h1L14 16"/><path d="M6 11.5h6"/></svg>表示</summary>
+        <div class="expander-body stack" id="display-settings"></div>
+      </details>
     </aside>
 
     <div id="workbench">
@@ -343,7 +347,7 @@
             </span>
           </div>
           <div class="panel-body" style="display:flex;flex-direction:column;">
-            <pre id="output" class="console">「実行」で描き始めます</pre>
+            <pre id="output" class="console" aria-label="実行結果">「実行」で描き始めます</pre>
           </div>
         </section>
       </div>
@@ -358,7 +362,6 @@
   <script src="https://cdn.jsdelivr.net/npm/blockly@11.2.1/blocks_compressed.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/blockly@11.2.1/python_compressed.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/blockly@11.2.1/msg/ja.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/mermaid@10.9.1/dist/mermaid.min.js"></script>
   <script src="https://cdn.jsdelivr.net/pyodide/v0.23.4/full/pyodide.js"></script>
   <script type="module" src="module/drawing.js"></script>
 </body>

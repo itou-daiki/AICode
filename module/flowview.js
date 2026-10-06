@@ -7,11 +7,29 @@
 import { pythonToMermaid } from './flowchart.js';
 import { icon } from './icons.js';
 
-let mermaidReady = false;
+const MERMAID_URL = 'https://cdn.jsdelivr.net/npm/mermaid@10.9.1/dist/mermaid.min.js';
+let mermaidLoading = null;
 
-/** Mermaid の初期設定（1回だけ） */
+/**
+ * Mermaid を読みこんで、初期設定する（1回だけ）
+ *
+ * はじめの画面を早く出すため、ページを開いたときには読まず、図が要るときに読む。
+ * @returns {Promise<void>}
+ */
 export function setupMermaid() {
-  if (mermaidReady) return;
+  if (!mermaidLoading) {
+    mermaidLoading = (window.mermaid ? Promise.resolve() : new Promise((resolve, reject) => {
+      const script = document.createElement('script');
+      script.src = MERMAID_URL;
+      script.onload = resolve;
+      script.onerror = () => reject(new Error('フローチャートを描く部品を読みこめませんでした（ネットワークを確かめてください）'));
+      document.head.appendChild(script);
+    })).then(configureMermaid).catch((e) => { mermaidLoading = null; throw e; });
+  }
+  return mermaidLoading;
+}
+
+function configureMermaid() {
   mermaid.initialize({
     startOnLoad: false,
     securityLevel: 'strict',
@@ -39,7 +57,6 @@ export function setupMermaid() {
       wrappingWidth: 110,
     },
   });
-  mermaidReady = true;
 }
 
 let renderCount = 0;
@@ -58,7 +75,6 @@ export async function renderFlowchart(container, python, options = {}) {
   const { japanese = true, fit = true, sketch = false } = options;
   if (!container) return { lineByNode: {}, message: null };
 
-  setupMermaid();
   const result = pythonToMermaid(python, { japanese, sketch });
 
   if (!result.definition) {
@@ -76,6 +92,7 @@ export async function renderFlowchart(container, python, options = {}) {
 
   const id = `lesson-flow-${++renderCount}`;
   try {
+    await setupMermaid();
     const { svg } = await mermaid.render(id, result.definition);
     container.innerHTML = svg;
     fitFlowchart(container, { fit });
@@ -98,7 +115,7 @@ export async function renderFlowchart(container, python, options = {}) {
     const mark = document.createElement('span');
     mark.className = 'big';
     mark.appendChild(icon('cross'));
-    failed.append(mark, document.createTextNode('このコードは図にできませんでした'));
+    failed.append(mark, document.createTextNode(window.mermaid ? 'このコードは図にできませんでした' : e.message));
     container.appendChild(failed);
     return { lineByNode: {}, message: null };
   }
