@@ -16,7 +16,10 @@ import { sameOutput } from '../module/grade.js';
 import { toKtph } from '../module/ktph.js';
 import { describeStep, explainLine, variableHistory } from '../module/stepview.js';
 import { findBlock } from '../module/blockscope.js';
-import { indentTrace } from '../module/indentguide.js';
+import { tipForError } from '../module/ui.js';
+import {
+  indentTrace, indentIfSteps, indentNestedSteps, indentDefSteps, swapSteps, inputSteps, resetSteps, returnSteps, loopSteps, equalSteps,
+} from '../module/tips-demos.js';
 import {
   normalizeAnswer, sameAnswer, gradeTrace, gradeBlanks, gradeTests, scoreMock,
 } from '../module/grade.js';
@@ -1252,6 +1255,41 @@ section('字下げのまとまりと、ステップの注釈');
   equal('字下げの例: 外なら最後に 1 回だけ表示', outside[outside.length - 1].out.join(','), '6');
   equal('字下げの例: 中ならくり返すたびに表示', inside[inside.length - 1].out.join(','), '1,3,6');
   equal('字下げの例: 外の print は最後の行', outside[outside.length - 1].line, 3);
+  // つまずき解説の例: 記録の最後の表示が、Python で動かしたときと同じか
+  const lastOut = (st) => st[st.length - 1].out.join(',');
+  equal('解説: if が成り立たなくても外は動く', lastOut(indentIfSteps(1)), 'おわり');
+  equal('解説: if が成り立てば中身も動く', lastOut(indentIfSteps(5)), '大きい,おわり');
+  equal('解説: --- が外側の中身なら 2 回', lastOut(indentNestedSteps(1)).split(',').filter(x => x === '---').length, 2);
+  equal('解説: --- が内側の中身なら 4 回', lastOut(indentNestedSteps(2)).split(',').filter(x => x === '---').length, 4);
+  equal('解説: --- が外なら 1 回', lastOut(indentNestedSteps(0)), '1 a,1 b,2 a,2 b,---');
+  equal('解説: 関数を 2 回呼ぶ', lastOut(indentDefSteps(true)), 'こんにちは,こんにちは');
+  equal('解説: そのまま入れかえると同じ値', lastOut(swapSteps('naive')), '5 5');
+  equal('解説: t にとっておけば入れかわる', lastOut(swapSteps('temp')), '5 3');
+  equal('解説: input() のままだとつながる', lastOut(inputSteps('str')), '53');
+  equal('解説: int() なら足し算', lastOut(inputSteps('int')), '8');
+  check('解説: 文字列に 1 を足すとエラー', inputSteps('plus1').at(-1).error.startsWith('TypeError'));
+  equal('解説: 中で 0 に戻すと最後の値だけ', lastOut(resetSteps(true)), '6');
+  equal('解説: 前で 0 にすれば合計', lastOut(resetSteps(false)), '12');
+  equal('解説: print だけの関数の値は None', lastOut(returnSteps('print')), '3,None');
+  equal('解説: return なら値が返る', lastOut(returnSteps('return')), '3');
+  equal('解説: 呼ばなければ何も表示しない', lastOut(returnSteps('forget')), '');
+  equal('解説: 中で i をふやせば 0,1,2', lastOut(loopSteps('ok')), '0,1,2');
+  check('解説: i をふやさないと止まらない', Boolean(loopSteps('none').at(-1).error));
+  check('解説: = のまちがいは 1 行も動かない', equalSteps(true).length === 1 && equalSteps(true)[0].error.startsWith('SyntaxError'));
+  // エラーから、つまずき解説のどの章へ案内するか
+  const tip = (type, message = '') => tipForError({ type, message }).id;
+  equal('案内: 字下げ', tip('IndentationError', 'expected an indented block'), 'indent');
+  equal('案内: 全角', tip('SyntaxError', "invalid character '（' (U+FF08)"), 'fullwidth');
+  equal('案内: 2x は全角ではない', tip('SyntaxError', 'invalid decimal literal'), 'errors');
+  equal('案内: = と ==', tip('SyntaxError', "invalid syntax. Maybe you meant '==' or ':=' instead of '='?"), 'assign');
+  equal('案内: : の書きわすれ', tip('SyntaxError', "expected ':'"), 'indent');
+  equal('案内: 名前', tip('NameError', "name 'totl' is not defined"), 'quote');
+  equal('案内: 文字列と数', tip('TypeError', 'can only concatenate str (not "int") to str'), 'input');
+  equal('案内: リストと文字列は input ではない', tip('TypeError', 'can only concatenate list (not "str") to list'), 'errors');
+  equal('案内: int() にできない', tip('ValueError', "invalid literal for int() with base 10: 'a'"), 'input');
+  equal('案内: return わすれ', tip('TypeError', "unsupported operand type(s) for +: 'NoneType' and 'int'"), 'return');
+  equal('案内: 番号', tip('IndexError', 'list index out of range'), 'range');
+  equal('案内: 止まらない', tip('TimeoutError'), 'loop');
   const h = variableHistory(steps, 7);
   equal('変数: 出てきた順', h.order.join(','), 'total,n');
   equal('変数: 値の移りかわり', h.history.total.join('→'), '0→3');

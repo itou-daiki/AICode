@@ -257,7 +257,7 @@ export async function runAll() {
       await click(document.querySelector('#program-tabs button'));
     }
 
-    if (page === 'python-guide.html') record(side);
+    if (page === 'python-guide.html' || page === 'tips.html') record(side);
   }
   return results;
 }

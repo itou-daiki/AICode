@@ -214,27 +214,61 @@ if (typeof document !== 'undefined') {
  * ========================================================== */
 
 /**
- * サイドバーの開閉を用意する（既定は閉じた状態）
- * @param {object} options
- * @param {string} options.sidebarId
- * @param {string} options.toggleId
- * @param {string} [options.storageKey] 開閉状態を覚えるキー
- * @param {() => void} [options.onToggle] 開閉のたびに呼ばれる
- * @returns {{ toggle: (open?: boolean) => void, isOpen: () => boolean }}
+ * エラーの種類から、くわしい説明（つまずき解説の章）を選ぶ
+ * @param {{type: string, message?: string}} error
+ * @returns {{id: string, label: string}}
  */
+export function tipForError(error) {
+  const type = error && error.type;
+  const message = (error && error.message) || '';
+  if (type === 'IndentationError' || type === 'TabError') return { id: 'indent', label: '字下げ（インデント）とまとまり' };
+  if (type === 'SyntaxError' && /invalid character|non-printable/.test(message)) return { id: 'fullwidth', label: '全角と半角' };
+  if (type === 'SyntaxError' && /Maybe you meant '=='/.test(message)) return { id: 'assign', label: '「=」と「==」のちがい' };
+  if (type === 'SyntaxError' && /expected ':'/.test(message)) return { id: 'indent', label: '字下げ（インデント）とまとまり' };
+  if (type === 'NameError') return { id: 'quote', label: '引用符の有無と、名前の打ちまちがい' };
+  if (type === 'TypeError' && /NoneType/.test(message)) return { id: 'return', label: 'print と return はちがう' };
+  if ((type === 'TypeError' && /concatenate str|'str' and '(int|float)'|'(int|float)' and 'str'/.test(message))
+    || (type === 'ValueError' && /invalid literal for int/.test(message))) {
+    return { id: 'input', label: 'input() で受け取った値は文字列' };
+  }
+  if (type === 'IndexError') return { id: 'range', label: 'range と番号' };
+  if (type === 'TimeoutError') return { id: 'loop', label: '止まらないくり返し' };
+  return { id: 'errors', label: 'エラーメッセージの読み方' };
+}
+
+/** エラーの下に「くわしく → つまずき解説」の案内を出す（null なら消す） */
+function showTip(error, output) {
+  const old = document.getElementById('tip-note');
+  if (old) old.remove();
+  if (!error || !output || !output.parentElement) return;
+  const tip = tipForError(error);
+  const note = document.createElement('p');
+  note.id = 'tip-note';
+  note.className = 'tip-note';
+  const link = document.createElement('a');
+  link.href = `tips.html#${tip.id}`;
+  link.target = '_blank';
+  link.rel = 'noopener';
+  link.textContent = `つまずき解説「${tip.label}」`;
+  note.append('くわしく → ', link, '（動く例で説明しています）');
+  const after = document.getElementById('fix-note') || output;
+  after.parentElement.insertBefore(note, after.nextSibling);
+}
+
 /**
- * 「1 行足せば直る」ときに、押せば直るボタンを出す
+ * 「1 行足せば直る」ときに押せば直るボタンを、エラーのときはくわしい説明への案内も出す
  *
  * 黙って直さない。押すと、学習者のコードにその 1 行が本当に入る。
  * @param {{label: string, code: string, line: number}|null} fix pyrun.js の suggestFix の返り値
- * @param {(code: string, line: number) => void} apply 押されたときに、直したコードを入れる
+ * @param {(code: string, line: number) => void} apply
+ * @param {object|null} [error] エラー（あれば、つまずき解説への案内も出す）
  */
-export function showFix(fix, apply) {
+export function showFix(fix, apply, error = null) {
   const old = document.getElementById('fix-note');
   if (old) old.remove();
-  if (!fix) return;
-
   const output = document.getElementById('output');
+  if (!fix) { showTip(error, output); return; }
+
   if (!output || !output.parentElement) return;
 
   const note = document.createElement('div');
@@ -248,14 +282,26 @@ export function showFix(fix, apply) {
   button.addEventListener('click', () => {
     apply(fix.code, fix.line);
     note.remove();
+    const tip = document.getElementById('tip-note');
+    if (tip) tip.remove();
   });
 
   const text = document.createElement('p');
   text.textContent = fix.why || 'この 1 行を入れると直ります。';
   note.append(text, button);
   output.parentElement.insertBefore(note, output.nextSibling);
+  showTip(error, output);
 }
 
+/**
+ * サイドバーの開閉を用意する（既定は閉じた状態）
+ * @param {object} options
+ * @param {string} options.sidebarId
+ * @param {string} options.toggleId
+ * @param {string} [options.storageKey] 開閉状態を覚えるキー
+ * @param {() => void} [options.onToggle] 開閉のたびに呼ばれる
+ * @returns {{ toggle: (open?: boolean) => void, isOpen: () => boolean }}
+ */
 export function initSidebar({ sidebarId, toggleId, storageKey, onToggle, defaultOpen = false }) {
   const sidebar = document.getElementById(sidebarId);
   const button = document.getElementById(toggleId);
@@ -656,8 +702,10 @@ export function makeEditorFriendly(cm, label) {
   // （読むだけの表記のように、プログラムが書きかえる setValue では消さない）
   cm.on('change', (_, change) => {
     if (change.origin === 'setValue') return;
-    const note = document.getElementById('fix-note');
-    if (note) note.remove();
+    for (const id of ['fix-note', 'tip-note']) {
+      const note = document.getElementById(id);
+      if (note) note.remove();
+    }
   });
   let escaped = false;
   cm.on('keydown', (_, e) => {

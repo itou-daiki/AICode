@@ -12,7 +12,7 @@ import {
   makeEditorFriendly, bindRunShortcut, addTextSizeControl,
 } from './ui.js';
 import { addHalfWidthControl } from './halfwidth.js';
-import { addIndentGuide } from './indentguide.js';
+import { addTipsLinks } from './tipslinks.js';
 import { callGemini, chatWithAI } from './ai.js';
 import { runUserCode, explainError, suggestFix } from './pyrun.js';
 import { noticeSilentMistakes } from './pyfix.js';
@@ -273,6 +273,7 @@ async function runCode() {
   }
 
   output.textContent = '実行中…\n';
+  showFix(null);
   // コードは Python の変数として渡す（""" を含むコードでも安全に実行できる）
   pyodide.globals.set('_user_code', code);
   // 前回の回転や拡大が残らないように、まっさらから始める
@@ -286,7 +287,7 @@ async function runCode() {
       output.textContent = result.error
         ? explainError(result.error, code)
         : (result.output || '描きました（出力はありません）');
-      showFix(suggestFix(code, result.error), applyFix);
+      showFix(suggestFix(code, result.error), applyFix, result.error);
       setCanvasState(result.error ? '停止中' : '描画ずみ', false);
     }
   } catch (error) {
@@ -331,7 +332,7 @@ p5._looping = True
 
   if (setupRun.error) {
     output.textContent = explainError(setupRun.error, code);
-    showFix(suggestFix(code, setupRun.error), applyFix);
+    showFix(suggestFix(code, setupRun.error), applyFix, setupRun.error);
     setCanvasState('停止中', false);
     return;
   }
@@ -429,7 +430,7 @@ f"{p5._target_fps},{1 if p5._looping else 0}"
         }
         if (handled.error) {
           output.textContent = 'マウスやキーの関数でエラーが起きました\n' + explainError(handled.error, code);
-          showFix(suggestFix(code, handled.error), applyFix);
+          showFix(suggestFix(code, handled.error), applyFix, handled.error);
           stopAnimation(null);
           return;
         }
@@ -456,7 +457,7 @@ f"{p5._target_fps},{1 if p5._looping else 0}"
 
       if (frame.error) {
         output.textContent = 'アニメーションでエラーが起きました\n' + explainError(frame.error, code);
-        showFix(suggestFix(code, frame.error), applyFix);
+        showFix(suggestFix(code, frame.error), applyFix, frame.error);
         stopAnimation(null);
         return;
       }
@@ -791,8 +792,8 @@ async function init() {
 
     addTextSizeControl($('display-settings'));
     addHalfWidthControl($('display-settings'));
-    // 字下げのしくみの説明（「表示」の前に入れる）
-    addIndentGuide($('sidebar'), $('display-settings').closest('details'));
+    // つまずき解説へのリンク（「表示」の前に入れる）
+    addTipsLinks($('sidebar'), $('display-settings').closest('details'));
     initSidebar({
       sidebarId: 'sidebar',
       toggleId: 'toggle-sidebar',

@@ -12,6 +12,7 @@ easyCodeは、プログラミング初学者がAIと共に学習を進めるこ�
 | 02 レッスン | `lessons.html` | 入門・基礎練習・共通テスト対策・二次試験対策・模試 |
 | 03 スケッチ | `drawing.html` | p5.js風のAPIでグラフィックを描く（ブロック・フローチャート対応） |
 | 04 早見表 | `python-guide.html` | Pythonの文法と共通テスト用プログラム表記のリファレンス |
+| つまずき解説 | `tips.html` | 初学者がつまずくところ（字下げ・= と ==・input() は文字列など）を、1 行ずつ動く例とまちがい探しで説明。サイドバーとエラーの下から開ける |
 
 ## 主な機能
 
@@ -274,6 +275,7 @@ NameError: name 'kazu' is not defined
 ├── problems.html         # 旧・問題モード（lessons.html へ送るだけ）
 ├── drawing.html          # 03 スケッチ
 ├── python-guide.html     # Pythonガイド
+├── tips.html             # つまずき解説（動く例で説明するページ）
 ├── drawing-samples.html  # 描画サンプル集
 ├── favicon.svg           # アイコン
 ├── css/
@@ -302,6 +304,14 @@ NameError: name 'kazu' is not defined
 │   ├── drawing.js        # 03 スケッチの画面（p5の実行）
 │   ├── p5lib.js          # p5.js に似た Python 描画ライブラリ
 │   ├── guide.js          # 早見表の目次と「試す」
+│   ├── tips.js           # つまずき解説のページ（目次・range の例・書いて確かめるエディタ）
+│   ├── tips-kit.js       # 1 行ずつ再生する部品と、まちがい探しの部品
+│   ├── tips-demos.js     # つまずき解説の例（動きの記録は手で書き、tests で確かめる）
+│   ├── tipslinks.js      # サイドバーの「つまずき解説」へのリンク
+│   ├── stepview.js       # ステップ実行の見せ方（行の注釈・変数の移りかわり）
+│   ├── blockscope.js     # 字下げの段の塗り分けと、まとまりの罫
+│   ├── halfwidth.js      # 全角を打ったそばから半角に直す・残った全角に印をつける
+│   ├── pyfix.js          # 書き方のまちがいを見つけて、押せば直る形にする
 │   ├── ai.js             # AI関連機能
 │   └── config.js         # 設定値
 ├── tests/

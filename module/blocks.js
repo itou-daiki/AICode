@@ -16,7 +16,7 @@ import {
   makeEditorFriendly, bindRunShortcut, addTextSizeControl,
 } from './ui.js';
 import { addHalfWidthControl } from './halfwidth.js';
-import { addIndentGuide } from './indentguide.js';
+import { addTipsLinks } from './tipslinks.js';
 import { runUserCode, explainError, suggestFix } from './pyrun.js';
 import { toKtph } from './ktph.js';
 import { setIconLabel } from './icons.js';
@@ -110,6 +110,8 @@ async function runCode() {
   }
 
   output.textContent = '';
+  // 前のエラーに向けた案内は、動かしなおしたら消す
+  showFix(null);
   $('runtime-input-container').style.display = 'none';
   isWaitingForInput = false;
   inputCallback = null;
@@ -128,7 +130,7 @@ async function runCode() {
     if (result.error) {
       if (output.textContent) output.textContent += '\n';
       output.textContent += explainError(result.error, code);
-      showFix(suggestFix(code, result.error), applyFix);
+      showFix(suggestFix(code, result.error), applyFix, result.error);
     } else if (!output.textContent) {
       output.textContent = '(出力なし)';
     }
@@ -569,8 +571,8 @@ async function init() {
 
     addTextSizeControl($('display-settings'));
     addHalfWidthControl($('display-settings'));
-    // 字下げのしくみの説明（「表示」の前に入れる）
-    addIndentGuide($('sidebar'), $('display-settings').closest('details'));
+    // つまずき解説へのリンク（「表示」の前に入れる）
+    addTipsLinks($('sidebar'), $('display-settings').closest('details'));
     initSidebar({
       sidebarId: 'sidebar',
       toggleId: 'toggle-sidebar',

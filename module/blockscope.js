@@ -72,6 +72,30 @@ export function findBlock(lines, line) {
 }
 
 /**
+ * その行を外から順にかこんでいる見出しの行を、外側から並べて返す
+ * （「for の中身 › if の中身」のように、いまどこにいるかを言うのに使う）
+ * @param {string[]} lines
+ * @param {number} line 0 から数えた行
+ * @returns {number[]} 見出しの行（0 から）。外側が先
+ */
+export function enclosingHeaders(lines, line) {
+  if (line < 0 || line >= lines.length) return [];
+  let probe = line;
+  while (probe < lines.length && isBlank(lines[probe])) probe++;
+  if (probe >= lines.length) return [];
+  let need = indentOf(lines[probe]);
+  const chain = [];
+  for (let i = line - 1; i >= 0 && need > 0; i--) {
+    if (isBlank(lines[i])) continue;
+    const d = indentOf(lines[i]);
+    if (d >= need) continue;
+    if (isHeader(lines[i])) chain.unshift(i);
+    need = d;
+  }
+  return chain;
+}
+
+/**
  * 字下げの段を塗る重ね書き。行頭の空白を 4 文字ずつに区切って、段ごとに濃さを変える
  * （CodeMirror の重ね書きは状態を持てないので、行頭からの位置だけで決める）
  */

@@ -17,7 +17,7 @@ import {
 } from './ui.js';
 import { EDITOR_CONFIG } from './config.js';
 import { attachHalfWidth, addHalfWidthControl } from './halfwidth.js';
-import { addIndentGuide } from './indentguide.js';
+import { addTipsLinks } from './tipslinks.js';
 import { toKtph, toKtphFragment } from './ktph.js';
 import { defineKtphMode } from './ktph-mode.js';
 import { renderFlowchart, fitFlowchart, highlightFlowLine } from './flowview.js';
@@ -689,6 +689,7 @@ async function runCurrent() {
   running = true;
   updateRunAvailability();
   $('output').textContent = '';
+  showFix(null);
 
   try {
     const handler = current.input
@@ -714,7 +715,7 @@ async function runCurrent() {
     if (result.error) {
       if ($('output').textContent) $('output').textContent += '\n';
       $('output').textContent += explainError(result.error, code);
-      showFix(suggestFix(code, result.error), applyFix);
+      showFix(suggestFix(code, result.error), applyFix, result.error);
     } else if (!$('output').textContent) {
       $('output').textContent = '(出力なし)';
     }
@@ -1441,8 +1442,8 @@ async function init() {
 
     addTextSizeControl($('display-settings'));
     addHalfWidthControl($('display-settings'));
-    // 字下げのしくみの説明（「設定」の前に入れる）
-    addIndentGuide($('course-nav'), $('display-settings').closest('details'));
+    // つまずき解説へのリンク（「設定」の前に入れる）
+    addTipsLinks($('course-nav'), $('display-settings').closest('details'));
     $('export-progress').addEventListener('click', () => {
       const blob = new Blob([exportProgress()], { type: 'application/json' });
       const link = document.createElement('a');

@@ -1386,11 +1386,9 @@ dialog.dialog::backdrop { background: rgba(22, 24, 26, 0.45); }
 }
 
 /* ------------------------------------------------------------
- * サイドバーの「字下げ（インデント）のしくみ」（indentguide.js）
- * エディタと同じ塗り分け（段の濃さ・朱の罫）で、例のコードを描く
+ * 例のコードの図（つまずき解説 tips-kit.js）
+ * エディタと同じ塗り分け（段の濃さ・朱の罫）で描く
  * ---------------------------------------------------------- */
-.indent-guide-head { margin: var(--sp-2) 0 0; font-size: var(--text-xs); font-weight: 700; color: var(--c-ink); }
-.indent-guide .expander-body > p:not(.indent-guide-head) { font-size: var(--text-xs); color: var(--c-ink-2); }
 .indent-demo {
   padding: var(--sp-1) 0;
   border: 1px solid var(--c-rule);
@@ -1401,7 +1399,6 @@ dialog.dialog::backdrop { background: rgba(22, 24, 26, 0.45); }
   overflow-x: auto;
 }
 .indent-demo-line {
-  --scope-x: 6px;
   display: flex;
   align-items: baseline;
   gap: 0.6em;
@@ -1414,19 +1411,20 @@ dialog.dialog::backdrop { background: rgba(22, 24, 26, 0.45); }
 .indent-demo-step.lv1 { background: rgba(22, 24, 26, 0.05); }
 .indent-demo-step.lv2 { background: rgba(22, 24, 26, 0.1); }
 .indent-demo-note { font-family: var(--font-sans); font-size: var(--text-2xs); font-weight: 700; color: var(--c-mark-deep); white-space: nowrap; }
-/* まとまりの罫（見出しの字の頭から、中身の最後まで） */
-.indent-demo-line.is-scope { background: linear-gradient(90deg, transparent var(--scope-x), rgba(192, 57, 43, 0.045) var(--scope-x)); }
-.indent-demo-line.is-head {
+/* まとまりの罫（見出しの字の頭から、中身の最後まで）。罫は <code> の中で、見出しの深さ（--scope-x）に引く */
+.indent-demo-line code { flex: 1 1 auto; --scope-x: 0ch; }
+.indent-demo-line.is-scope > code { background: linear-gradient(90deg, transparent var(--scope-x), rgba(192, 57, 43, 0.045) var(--scope-x)); }
+.indent-demo-line.is-head > code {
   background:
     linear-gradient(var(--c-mark), var(--c-mark)) no-repeat var(--scope-x) 100% / 2px 40%,
     linear-gradient(90deg, transparent var(--scope-x), rgba(192, 57, 43, 0.045) var(--scope-x));
 }
-.indent-demo-line.is-body {
+.indent-demo-line.is-body > code {
   background:
     linear-gradient(var(--c-mark), var(--c-mark)) no-repeat var(--scope-x) 0 / 2px 100%,
     linear-gradient(90deg, transparent var(--scope-x), rgba(192, 57, 43, 0.045) var(--scope-x));
 }
-.indent-demo-line.is-end {
+.indent-demo-line.is-end > code {
   background:
     linear-gradient(var(--c-mark), var(--c-mark)) no-repeat var(--scope-x) 100% / 2ch 2px,
     linear-gradient(var(--c-mark), var(--c-mark)) no-repeat var(--scope-x) 0 / 2px 100%,
@@ -1434,18 +1432,102 @@ dialog.dialog::backdrop { background: rgba(22, 24, 26, 0.45); }
 }
 /* 動かしているときの「いまの行」。ステップ実行の「次の行」と同じ朱の太い罫 */
 .indent-demo-line.is-current { box-shadow: inset 4px 0 0 var(--c-mark); background-color: rgba(192, 57, 43, 0.14); }
-.indent-compare { display: flex; flex-direction: column; gap: var(--sp-2); }
-.indent-compare-controls { display: flex; flex-wrap: wrap; gap: var(--sp-1); }
-.indent-compare-state { min-height: 2.6em; font-size: var(--text-2xs); font-weight: 700; color: var(--c-ink); }
-.indent-compare-result {
+
+/* ------------------------------------------------------------
+ * つまずき解説の部品（tips-kit.js）
+ * ---------------------------------------------------------- */
+.indent-demo-no {
+  flex: 0 0 1.6em;
+  color: var(--c-code-gutter);
+  font-size: var(--text-2xs);
+  text-align: right;
+  user-select: none;
+}
+.indent-demo-step.is-odd { background: rgba(192, 57, 43, 0.22); }
+button.indent-demo-line {
+  width: 100%;
+  border: none;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  background: transparent;
+}
+button.indent-demo-line:hover { background: var(--c-paper-3); }
+button.indent-demo-line:focus-visible { outline: 2px solid var(--c-mark); outline-offset: -2px; }
+.indent-demo-line.is-picked-ok { box-shadow: inset 4px 0 0 var(--c-ink); background: var(--c-paper-3); }
+.indent-demo-line.is-picked-ng { box-shadow: inset 4px 0 0 var(--c-ink-3); text-decoration: line-through; text-decoration-color: var(--c-ink-3); }
+
+.player { display: flex; flex-direction: column; gap: var(--sp-2); }
+.player-variants { display: flex; flex-wrap: wrap; gap: var(--sp-1); }
+.player-variants:empty { display: none; }
+.player-variant[aria-pressed='true'] { border-color: var(--c-ink); box-shadow: inset 0 -2px 0 var(--c-mark); font-weight: 700; }
+.player-controls { display: flex; flex-wrap: wrap; gap: var(--sp-1); }
+.player-note { margin: 0; min-height: 2.4em; font-size: var(--text-sm); font-weight: 700; color: var(--c-ink); }
+.player-note.is-error { color: var(--c-mark-deep); }
+.player-vars { display: flex; flex-wrap: wrap; gap: var(--sp-1); }
+.player-var {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0.5em;
+  padding: 0.15em 0.6em;
+  border: 1px solid var(--c-ink-3);
+  background: var(--c-paper);
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+}
+.player-var.is-empty { border-style: dashed; color: var(--c-ink-3); font-family: var(--font-sans); font-size: var(--text-xs); }
+.player-var.is-changed { border-color: var(--c-mark); background: var(--c-mark-faint); animation: var-pulse 0.6s var(--ease) 1; }
+.player-var-name { color: var(--c-ink-2); font-weight: 700; }
+.player-var-name::after { content: ' ='; color: var(--c-ink-3); font-weight: 400; }
+.player-var-value { font-weight: 700; }
+.player-output {
   margin: 0;
+  min-height: 4.5em;
   padding: var(--sp-1) var(--sp-2);
   border: 1px solid var(--c-rule);
   background: var(--c-paper);
   font-family: var(--font-mono);
   font-size: var(--text-xs);
   white-space: pre-wrap;
-  min-height: 5.5em;
 }
-.indent-guide-list { margin: 0; padding-left: 1.2em; font-size: var(--text-xs); color: var(--c-ink-2); }
-.indent-guide-list li + li { margin-top: 0.3em; }
+.player-output.is-error { border-color: var(--c-mark); }
+
+.quiz-list { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: var(--sp-3); }
+.quiz { display: flex; flex-direction: column; gap: var(--sp-1); padding: var(--sp-2); border: 1px solid var(--c-rule); }
+.quiz-question { margin: 0; font-size: var(--text-sm); font-weight: 700; }
+.quiz-how { margin: 0; font-size: var(--text-2xs); color: var(--c-ink-3); }
+.quiz-feedback p { margin: var(--sp-1) 0 0; font-size: var(--text-xs); }
+.quiz-ok { font-weight: 700; color: var(--c-ink); }
+.quiz-ok::before { content: '○ '; color: var(--c-mark); }
+.quiz-ng { color: var(--c-ink-2); }
+.quiz-fixed {
+  margin: var(--sp-1) 0 0;
+  padding: var(--sp-1) var(--sp-2);
+  border-left: 3px solid var(--c-ink);
+  background: var(--c-code-bg);
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  white-space: pre;
+  overflow-x: auto;
+}
+@media (prefers-reduced-motion: reduce) { .player-var.is-changed { animation: none; } }
+
+/* サイドバーの「つまずき解説」へのリンク */
+.tips-links { display: flex; flex-direction: column; gap: 2px; }
+.tips-links a {
+  display: flex;
+  align-items: baseline;
+  gap: var(--sp-1);
+  padding: 0.3em 0.4em;
+  color: var(--c-ink);
+  font-size: var(--text-xs);
+  text-decoration: none;
+  border-left: 2px solid transparent;
+}
+.tips-links a:hover { border-left-color: var(--c-mark); background: var(--c-paper-2); }
+.tips-links a::after { content: '↗'; margin-left: auto; color: var(--c-ink-3); }
+.tips-links .is-main { font-weight: 700; }
+
+/* エラーの下に出す「くわしく」の案内 */
+.tip-note { margin: 0 var(--sp-2) var(--sp-2); font-size: var(--text-xs); }
+.tip-note a { color: var(--c-ink); font-weight: 700; text-decoration-color: var(--c-mark); text-underline-offset: 3px; }
