@@ -70,6 +70,9 @@ export function codeView(rows, { current = -1, scope = true, onPick = null, pick
   const lines = rows.map(r => '    '.repeat(r.depth || 0) + ' '.repeat(r.odd || 0) + r.code);
   const widthOf = (row) => (row.depth || 0) * 4 + (row.odd || 0);
   const block = scope && current >= 0 ? findBlock(lines, current) : null;
+  // 中身の最初の行（見出しのすぐ下の、空でない行）
+  let firstBody = block ? block.head + 1 : -1;
+  while (block && firstBody < block.end && !lines[firstBody].trim()) firstBody++;
 
   rows.forEach((row, index) => {
     const line = document.createElement(onPick ? 'button' : 'div');
@@ -83,7 +86,9 @@ export function codeView(rows, { current = -1, scope = true, onPick = null, pick
     line.className = 'indent-demo-line';
     const inScope = block && block.end > block.head && index >= block.head && index <= block.end;
     if (inScope) {
-      line.classList.add('is-scope', index === block.head ? 'is-head' : index === block.end ? 'is-end' : 'is-body');
+      line.classList.add('is-scope', index === block.head ? 'is-head' : 'is-body');
+      if (index === firstBody) line.classList.add('is-first');
+      if (index === block.end) line.classList.add('is-last');
     }
     if (index === current) line.classList.add('is-current');
     if (index === picked) line.classList.add(verdict === 'ok' ? 'is-picked-ok' : 'is-picked-ng');
@@ -96,7 +101,11 @@ export function codeView(rows, { current = -1, scope = true, onPick = null, pick
 
     const code = document.createElement('code');
     // まとまりの罫は、見出しの字の頭（その深さ）に引く
-    if (inScope) code.style.setProperty('--scope-x', `${block.depth * 4}ch`);
+    // エディタと同じ見せ方：見出しは字の頭から塗り、中身は字下げの空白の中に [ の罫を引く
+    if (inScope) {
+      code.style.setProperty('--head-x', `${block.depth * 4}ch`);
+      code.style.setProperty('--scope-x', `${block.depth * 4 + 2}ch`);
+    }
     if (widthOf(row)) {
       const hidden = document.createElement('span');
       hidden.className = 'sr-only';
@@ -119,6 +128,12 @@ export function codeView(rows, { current = -1, scope = true, onPick = null, pick
     }
     code.appendChild(document.createTextNode(row.code));
     line.appendChild(code);
+    if (inScope && index === block.head) {
+      const label = document.createElement('span');
+      label.className = 'cm-scope-label';
+      label.textContent = firstBody === block.end ? `中身：${block.end + 1} 行目` : `中身：${firstBody + 1}〜${block.end + 1} 行目`;
+      code.appendChild(label);
+    }
     if (row.note) {
       const note = document.createElement('span');
       note.className = 'indent-demo-note';

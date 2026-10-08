@@ -325,7 +325,7 @@ function showStep(index) {
   renderVariables($('step-vars'), current.vars, info.baseVars, namesInLine(lineText), { order, history });
   // いま実行した行の後ろに、その行がしたことを書く。次に動く行のまとまりには罫を引く
   annotateStep(bench.editor, info.done, explainLine(step.list, step.index, info, (n) => bench.editor.getLine(n - 1) || ''));
-  showBlockAt(bench.editor, line || info.done);
+  showBlockAt(bench.editor, line || info.done, { busyLine: info.done });
 
   // コードには「いま実行した行」と「次に実行する行」を、フローチャートとブロックには次の行を光らせる。
   // 関数を呼び出したところでは、呼び出した行はまだ終わっていないので「実行した行」の印はつけない

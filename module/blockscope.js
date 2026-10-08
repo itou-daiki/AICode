@@ -121,40 +121,80 @@ const indentOverlay = {
 
 const scopes = new WeakMap();
 
-/** 範囲の罫を消す */
+/** 罫を引ける字下げの最大（文字数）。これより深い見出しは、この位置に引く */
+const MAX_COLUMN = 40;
+let positionStylesReady = false;
+
+/**
+ * 字下げの文字数ごとに、見出しの字の頭（--head-x）と罫の位置（--scope-x）を決める
+ * （0〜40 文字分の決まりを、1 度だけページに足す）
+ */
+function ensurePositionStyles() {
+  if (positionStylesReady || typeof document === 'undefined') return;
+  positionStylesReady = true;
+  const rules = [];
+  for (let c = 0; c <= MAX_COLUMN; c++) {
+    rules.push(`.cm-scope-c${c}{--head-x:calc(4px + ${c}ch);--scope-x:calc(4px + ${c + 1.5}ch)}`);
+  }
+  const style = document.createElement('style');
+  style.dataset.from = 'blockscope';
+  style.textContent = rules.join('\n');
+  document.head.appendChild(style);
+}
+
+/** 範囲の罫と、見出しの行の「中身：〜行目」を消す */
 function clearScope(cm) {
   const old = scopes.get(cm);
   if (!old) return;
-  for (const [handle, cls] of old) cm.removeLineClass(handle, 'wrap', cls);
+  for (const [handle, cls] of old.lines) cm.removeLineClass(handle, 'wrap', cls);
+  if (old.label) old.label.clear();
   scopes.delete(cm);
 }
 
 /**
- * 指定した行のまとまりに、朱の罫を引く
+ * 指定した行のまとまりを見せる
+ *
+ * ・見出しの行 … 見出しの字の頭から右を薄く塗り、行の後ろに「中身：4〜5 行目」と書く
+ * ・中身の行   … 見出しの字と中身の字のあいだ（字下げの空白）に、[ の形の罫を引き、中身を塗る
+ * 罫を空白の中に引くので、字には重ならない。
  * @param {object} cm CodeMirror
  * @param {number|null} line 1 から数えた行。null なら消す
+ * @param {object} [options]
+ * @param {number|null} [options.busyLine] 行の後ろに別の注釈を書く行（1 から）。そこには「中身：」を書かない
  */
-export function showBlockAt(cm, line) {
+export function showBlockAt(cm, line, { busyLine = null } = {}) {
   if (!cm) return;
   clearScope(cm);
   if (!line) return;
   const lines = cm.getValue().split('\n');
   const block = findBlock(lines, line - 1);
   if (!block || block.end === block.head) return;
+  ensurePositionStyles();
   const marks = [];
-  const depth = Math.min(block.depth, 7);
+  // 罫の位置は、見出しの実際の字下げ（文字数）から決める（4 の倍数でなくても字に重ならない）
+  const column = Math.min(indentOf(lines[block.head]), MAX_COLUMN);
   const add = (i, cls) => {
     const handle = cm.addLineClass(i, 'wrap', cls);
     marks.push([handle, cls]);
   };
   add(block.head, 'cm-scope-head');
-  add(block.head, `cm-scope-d${depth}`);
+  add(block.head, `cm-scope-c${column}`);
+  // 中身の最初の行（見出しのすぐ下の、空でない行）。[ の上の横線もここに引く
+  let first = block.head + 1;
+  while (first < block.end && isBlank(lines[first])) first++;
   for (let i = block.head + 1; i <= block.end; i++) {
     add(i, 'cm-scope-body');
-    add(i, `cm-scope-d${depth}`);
+    add(i, `cm-scope-c${column}`);
   }
-  add(block.end, 'cm-scope-end');
-  scopes.set(cm, marks);
+  add(first, 'cm-scope-first');
+  add(block.end, 'cm-scope-last');
+  if (busyLine === block.head + 1) { scopes.set(cm, { lines: marks, label: null }); return; }
+
+  const label = document.createElement('span');
+  label.className = 'cm-scope-label';
+  label.textContent = first === block.end ? `中身：${block.end + 1} 行目` : `中身：${first + 1}〜${block.end + 1} 行目`;
+  const bookmark = cm.setBookmark({ line: block.head, ch: lines[block.head].length }, { widget: label, insertLeft: true });
+  scopes.set(cm, { lines: marks, label: bookmark });
 }
 
 /**

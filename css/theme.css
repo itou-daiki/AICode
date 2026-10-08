@@ -956,32 +956,39 @@ input[type='range'] { accent-color: var(--c-accent); }
 .cm-s-default .cm-indent-2 { background: rgba(22, 24, 26, 0.1); }
 .cm-s-default .cm-indent-odd { background: rgba(192, 57, 43, 0.22); }
 
-/* カーソルのいるまとまり（見出しの行から中身の最後まで）に、見出しの字の頭から朱の罫を引く */
-.cm-scope-d0 { --scope-x: 4px; }
-.cm-scope-d1 { --scope-x: calc(4px + 4ch); }
-.cm-scope-d2 { --scope-x: calc(4px + 8ch); }
-.cm-scope-d3 { --scope-x: calc(4px + 12ch); }
-.cm-scope-d4 { --scope-x: calc(4px + 16ch); }
-.cm-scope-d5 { --scope-x: calc(4px + 20ch); }
-.cm-scope-d6 { --scope-x: calc(4px + 24ch); }
-.cm-scope-d7 { --scope-x: calc(4px + 28ch); }
-.cm-scope-head, .cm-scope-body { --scope-tint: rgba(192, 57, 43, 0.045); }
+/* カーソルのいるまとまり（見出しの行から中身の最後まで）
+   ・--head-x … 見出しの字の頭。見出しの行はここから右を塗る
+   ・--scope-x … 見出しの字と中身の字のあいだ（字下げの空白の中）。ここに [ の形の罫を引く
+   罫は空白の中に引くので、字には重ならない。字下げの文字数ごとの位置（.cm-scope-cN）は blockscope.js が足す */
 .cm-scope-head {
-  background:
-    linear-gradient(var(--c-mark), var(--c-mark)) no-repeat var(--scope-x) 100% / 2px 40%,
-    linear-gradient(90deg, transparent var(--scope-x), var(--scope-tint) var(--scope-x));
+  background: linear-gradient(90deg, transparent var(--head-x), rgba(192, 57, 43, 0.1) var(--head-x));
 }
 .cm-scope-body {
-  background:
-    linear-gradient(var(--c-mark), var(--c-mark)) no-repeat var(--scope-x) 0 / 2px 100%,
-    linear-gradient(90deg, transparent var(--scope-x), var(--scope-tint) var(--scope-x));
+  --scope-fill: linear-gradient(90deg, transparent calc(var(--scope-x) + 2px), rgba(192, 57, 43, 0.06) calc(var(--scope-x) + 2px));
+  --scope-bar: linear-gradient(var(--c-mark), var(--c-mark)) no-repeat var(--scope-x) 0 / 2px 100%;
+  background: var(--scope-bar), var(--scope-fill);
 }
-/* 中身の最後の行には、罫の下に短い横線（ここまで）を引く */
-.cm-scope-body.cm-scope-end {
+/* [ の上と下の横線（中身の最初と最後） */
+.cm-scope-body.cm-scope-first {
+  background: linear-gradient(var(--c-mark), var(--c-mark)) no-repeat var(--scope-x) 0 / 1.5ch 2px, var(--scope-bar), var(--scope-fill);
+}
+.cm-scope-body.cm-scope-last {
+  background: linear-gradient(var(--c-mark), var(--c-mark)) no-repeat var(--scope-x) 100% / 1.5ch 2px, var(--scope-bar), var(--scope-fill);
+}
+.cm-scope-body.cm-scope-first.cm-scope-last {
   background:
-    linear-gradient(var(--c-mark), var(--c-mark)) no-repeat var(--scope-x) 100% / 2ch 2px,
-    linear-gradient(var(--c-mark), var(--c-mark)) no-repeat var(--scope-x) 0 / 2px 100%,
-    linear-gradient(90deg, transparent var(--scope-x), var(--scope-tint) var(--scope-x));
+    linear-gradient(var(--c-mark), var(--c-mark)) no-repeat var(--scope-x) 0 / 1.5ch 2px,
+    linear-gradient(var(--c-mark), var(--c-mark)) no-repeat var(--scope-x) 100% / 1.5ch 2px,
+    var(--scope-bar), var(--scope-fill);
+}
+/* 見出しの行の後ろの「中身：4〜5 行目」 */
+.cm-scope-label {
+  margin-left: 1.2em;
+  color: var(--c-mark-deep);
+  font-family: var(--font-sans);
+  font-size: var(--text-2xs);
+  font-weight: 700;
+  white-space: nowrap;
 }
 
 /* 補完 */
@@ -1411,24 +1418,28 @@ dialog.dialog::backdrop { background: rgba(22, 24, 26, 0.45); }
 .indent-demo-step.lv1 { background: rgba(22, 24, 26, 0.05); }
 .indent-demo-step.lv2 { background: rgba(22, 24, 26, 0.1); }
 .indent-demo-note { font-family: var(--font-sans); font-size: var(--text-2xs); font-weight: 700; color: var(--c-mark-deep); white-space: nowrap; }
-/* まとまりの罫（見出しの字の頭から、中身の最後まで）。罫は <code> の中で、見出しの深さ（--scope-x）に引く */
-.indent-demo-line code { flex: 1 1 auto; --scope-x: 0ch; }
-.indent-demo-line.is-scope > code { background: linear-gradient(90deg, transparent var(--scope-x), rgba(192, 57, 43, 0.045) var(--scope-x)); }
+/* まとまり（エディタの .cm-scope-* と同じ見せ方）。<code> の中で、見出しは --head-x から塗り、
+   中身は字下げの空白の中（--scope-x）に [ の罫を引く */
+.indent-demo-line code { flex: 1 1 auto; --head-x: 0ch; --scope-x: 1.5ch; }
 .indent-demo-line.is-head > code {
-  background:
-    linear-gradient(var(--c-mark), var(--c-mark)) no-repeat var(--scope-x) 100% / 2px 40%,
-    linear-gradient(90deg, transparent var(--scope-x), rgba(192, 57, 43, 0.045) var(--scope-x));
+  background: linear-gradient(90deg, transparent var(--head-x), rgba(192, 57, 43, 0.1) var(--head-x));
 }
 .indent-demo-line.is-body > code {
-  background:
-    linear-gradient(var(--c-mark), var(--c-mark)) no-repeat var(--scope-x) 0 / 2px 100%,
-    linear-gradient(90deg, transparent var(--scope-x), rgba(192, 57, 43, 0.045) var(--scope-x));
+  --scope-fill: linear-gradient(90deg, transparent calc(var(--scope-x) + 2px), rgba(192, 57, 43, 0.06) calc(var(--scope-x) + 2px));
+  --scope-bar: linear-gradient(var(--c-mark), var(--c-mark)) no-repeat var(--scope-x) 0 / 2px 100%;
+  background: var(--scope-bar), var(--scope-fill);
 }
-.indent-demo-line.is-end > code {
+.indent-demo-line.is-body.is-first > code {
+  background: linear-gradient(var(--c-mark), var(--c-mark)) no-repeat var(--scope-x) 0 / 1.5ch 2px, var(--scope-bar), var(--scope-fill);
+}
+.indent-demo-line.is-body.is-last > code {
+  background: linear-gradient(var(--c-mark), var(--c-mark)) no-repeat var(--scope-x) 100% / 1.5ch 2px, var(--scope-bar), var(--scope-fill);
+}
+.indent-demo-line.is-body.is-first.is-last > code {
   background:
-    linear-gradient(var(--c-mark), var(--c-mark)) no-repeat var(--scope-x) 100% / 2ch 2px,
-    linear-gradient(var(--c-mark), var(--c-mark)) no-repeat var(--scope-x) 0 / 2px 100%,
-    linear-gradient(90deg, transparent var(--scope-x), rgba(192, 57, 43, 0.045) var(--scope-x));
+    linear-gradient(var(--c-mark), var(--c-mark)) no-repeat var(--scope-x) 0 / 1.5ch 2px,
+    linear-gradient(var(--c-mark), var(--c-mark)) no-repeat var(--scope-x) 100% / 1.5ch 2px,
+    var(--scope-bar), var(--scope-fill);
 }
 /* 動かしているときの「いまの行」。ステップ実行の「次の行」と同じ朱の太い罫 */
 .indent-demo-line.is-current { box-shadow: inset 4px 0 0 var(--c-mark); background-color: rgba(192, 57, 43, 0.14); }

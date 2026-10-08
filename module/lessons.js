@@ -1029,7 +1029,7 @@ function showStep(index) {
   const note = explainLine(step.list, step.index, info, (n) => editorPy.getLine(n - 1) || '');
   annotateStep(editorPy, info.done, note);
   annotateStep(editorKtph, info.done, note);
-  showBlockAt(editorPy, info.next || info.done);
+  showBlockAt(editorPy, info.next || info.done, { busyLine: info.done });
 }
 
 function exitStepMode() {
