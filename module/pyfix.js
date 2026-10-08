@@ -51,31 +51,156 @@ function outsideStrings(line, transform) {
  * 2. 全角 → 半角
  * ========================================================== */
 
-/** 全角の記号・数字・英字 → 半角。文字列の中は触らない */
-const FULL_WIDTH = {
-  '（': '(', '）': ')', '［': '[', '］': ']', '｛': '{', '｝': '}',
-  '，': ',', '、': ',', '．': '.', '：': ':', '；': ';',
-  '＋': '+', '－': '-', 'ー': '-', '＊': '*', '／': '/', '％': '%',
-  '＝': '=', '＜': '<', '＞': '>', '！': '!',
-  '“': '"', '”': '"', '‘': "'", '’': "'",
-  '　': ' ',
-};
+/**
+ * 全角 → 半角にする字（1 字を 1 字に置きかえるので、行の長さは変わらない）
+ *
+ * ・全角の英数字と記号（！〜～）は、そのまま半角へ
+ * ・日本語入力で打ちやすい「、。「」」は、Python の , . [ ] へ
+ * ・長音の「ー」は、カタカナの後ろ（データー など名前の一部）では残し、それ以外は - にする
+ */
+const EXTRA_HALF = { '　': ' ', '、': ',', '。': '.', '「': '[', '」': ']' };
+const JAPANESE = /[\u3040-\u30FF\u3400-\u9FFF\uF900-\uFAFF]/;
 
-/** 行に全角の記号・数字・英字が混ざっているか（文字列の外で） */
-export function hasFullWidth(line) {
-  let found = false;
-  outsideStrings(line, (part) => {
-    if (/[（）［］｛｝，、．：；＋－＊／％＝＜＞！“”‘’　０-９Ａ-Ｚａ-ｚ]/.test(part)) found = true;
-    return part;
-  });
+function halfChar(ch, prev) {
+  const code = ch.charCodeAt(0);
+  if (code >= 0xFF01 && code <= 0xFF5E) return String.fromCharCode(code - 0xFEE0);
+  if (EXTRA_HALF[ch]) return EXTRA_HALF[ch];
+  if (ch === 'ー' && !(prev && JAPANESE.test(prev))) return '-';
+  return ch;
+}
+
+const DOUBLE_QUOTES = '"“”＂';
+const SINGLE_QUOTES = "'‘’＇";
+
+/**
+ * 1 行の字ごとに、コード・文字列・コメント・引用符のどれかを決める
+ *
+ * 全角の引用符（“ ” ‘ ’ ＂ ＇）も文字列の区切りとみなす。日本語入力では、開きは半角に直っても
+ * 閉じを全角で打つことが多いので、半角の " で始まった文字列も ” で閉じられる。
+ * ただし文字列の中に “ があれば、それと対になる ” は文字列の中身として残す（"彼は“はい”と" など）。
+ * ＃ もコメントの始まりとみなす。
+ * @param {string} line
+ * @returns {('code'|'string'|'comment'|'quote')[]}
+ */
+export function scanLine(line) {
+  const kinds = new Array(line.length);
+  let family = null;   // 文字列の中なら、その引用符のなかま
+  let nested = 0;      // 文字列の中で開いた “ ‘ の数
+  let openedBy = null; // 半角の引用符で始まった文字列なら、その引用符
+  for (let i = 0; i < line.length; i++) {
+    const ch = line[i];
+    if (family) {
+      if (ch === '\\') { kinds[i] = 'string'; if (i + 1 < line.length) kinds[++i] = 'string'; continue; }
+      if (family.includes(ch)) {
+        const ascii = ch === '"' || ch === "'";
+        // 半角の " で始まった文字列は、半角の " で閉じるのが本来の形。
+        // 全角の ” で閉じたとみなすのは、この先にもう半角の " が無い（閉じわすれになる）ときだけ。
+        // こうしないと 'it’s ok' のような正しい文字列まで壊してしまう
+        if (!ascii && openedBy && line.indexOf(openedBy, i + 1) >= 0) { kinds[i] = 'string'; continue; }
+        const opener = ch === '“' || ch === '‘';
+        const closer = ch === '”' || ch === '’';
+        if (!ascii && opener) { nested++; kinds[i] = 'string'; continue; }
+        if (!ascii && closer && nested > 0) { nested--; kinds[i] = 'string'; continue; }
+        kinds[i] = 'quote';
+        family = null;
+        continue;
+      }
+      kinds[i] = 'string';
+      continue;
+    }
+    if (DOUBLE_QUOTES.includes(ch) || SINGLE_QUOTES.includes(ch)) {
+      family = DOUBLE_QUOTES.includes(ch) ? DOUBLE_QUOTES : SINGLE_QUOTES;
+      openedBy = ch === '"' || ch === "'" ? ch : null;
+      nested = 0;
+      kinds[i] = 'quote';
+      continue;
+    }
+    if (ch === '#' || ch === '＃') {
+      for (let k = i; k < line.length; k++) kinds[k] = 'comment';
+      break;
+    }
+    kinds[i] = 'code';
+  }
+  return kinds;
+}
+
+/** 日本語の文章の中で使う句読点・かぎかっこ（打っている途中は、文章かもしれないので直さない） */
+const PROSE_MARKS = '、。「」';
+
+/**
+ * 全角を半角にそろえた行を返す。文字列（' や " の中）とコメント（# の後ろ）は残す。
+ *
+ * 先に引用符と＃で文字列・コメントの範囲を決めてから、残りを半角にする。
+ * こうしないと print（“こんにちは、世界”） の「、」まで , に変わってしまう。
+ * @param {string} line
+ * @param {object} [options]
+ * @param {boolean} [options.typing] 打っている途中か。日本語のとなりの「、。「」」は直さない
+ *   （引用符を後から打つつもりの文章を , . [ ] に変えてしまわないように）
+ * @returns {string}
+ */
+export function toHalfWidth(line, { typing = false } = {}) {
+  const kinds = scanLine(line);
+  let out = '';
+  for (let i = 0; i < line.length; i++) {
+    const ch = line[i];
+    const kind = kinds[i];
+    if (kind === 'quote') {
+      out += DOUBLE_QUOTES.includes(ch) ? '"' : "'";
+    } else if (kind === 'comment') {
+      out += ch === '＃' && kinds[i - 1] !== 'comment' ? '#' : ch;
+    } else if (kind === 'string') {
+      out += ch;
+    } else if (typing && PROSE_MARKS.includes(ch)
+      && (JAPANESE.test(line[i - 1] || '') || JAPANESE.test(line[i + 1] || ''))) {
+      out += ch;
+    } else {
+      out += halfChar(ch, line[i - 1]);
+    }
+  }
+  return out;
+}
+
+/**
+ * 文字列とコメントの外にある全角の字を探す
+ * @param {string} line
+ * @returns {{index: number, char: string, half: string}[]} 何文字目（0 から）に、何があり、何に直すか
+ */
+export function findFullWidth(line) {
+  const fixed = toHalfWidth(line);
+  const found = [];
+  for (let i = 0; i < line.length; i++) {
+    if (line[i] !== fixed[i]) found.push({ index: i, char: line[i], half: fixed[i] });
+  }
   return found;
 }
 
-/** 全角を半角にそろえた行を返す（文字列の中は残す） */
-export function toHalfWidth(line) {
-  return outsideStrings(line, (part) => part
-    .replace(/[０-９Ａ-Ｚａ-ｚ]/g, (c) => String.fromCharCode(c.charCodeAt(0) - 0xFEE0))
-    .replace(/[（）［］｛｝，、．：；＋－ー＊／％＝＜＞！“”‘’　]/g, (c) => FULL_WIDTH[c] || c));
+/** 行に全角の記号・数字・英字が混ざっているか（文字列とコメントの外で） */
+export function hasFullWidth(line) {
+  return findFullWidth(line).length > 0;
+}
+
+/**
+ * 全角の字を【 】で囲んで見せる（エラーの説明で、どこが全角かを指す）
+ * @param {string} line
+ * @returns {{shown: string, list: string}|null} 囲んだ行と、「（」→「(」の一覧
+ */
+export function pointOutFullWidth(line) {
+  const found = findFullWidth(line);
+  if (!found.length) return null;
+  const at = new Set(found.map(f => f.index));
+  let shown = '';
+  for (let i = 0; i < line.length; i++) {
+    const ch = line[i] === '　' ? '□' : line[i];
+    shown += at.has(i) ? `【${ch}】` : ch;
+  }
+  const seen = new Map();
+  for (const f of found) if (!seen.has(f.char)) seen.set(f.char, f.half);
+  // 「 と 」は、かぎかっこで囲むと読みにくいので二重かぎで囲む
+  const quote = (c) => (c === '「' || c === '」' ? `『${c}』` : `「${c}」`);
+  const list = [...seen].map(([full, half]) => (full === '　'
+    ? '全角の空白「□」→ 半角の空白'
+    : `${quote(full)}→「${half}」`)).join('、');
+  return { shown, list };
 }
 
 /* ============================================================
@@ -185,10 +310,10 @@ export function suggestSyntaxFix(code, error) {
   if (/invalid (non-printable )?character|invalid decimal literal/.test(message) && hasFullWidth(line)) {
     const fixed = [...lines];
     fixed[at] = toHalfWidth(line);
-    const bad = [...new Set([...line].filter(c => /[（）［］｛｝，、．：；＋－＊／％＝＜＞！“”‘’　０-９Ａ-Ｚａ-ｚ]/.test(c)))];
+    const { list } = pointOutFullWidth(line);
     return {
       label: '全角を半角に直す',
-      why: `全角の「${bad.slice(0, 3).join('」「')}」が混ざっています。プログラムの記号と数字は半角で書きます。`,
+      why: `全角の字が混ざっています（${list}）。プログラムの記号と数字は半角で書きます。`,
       code: fixed.join('\n'),
       line: error.line,
     };

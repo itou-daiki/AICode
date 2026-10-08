@@ -880,6 +880,26 @@ input[type='range'] { accent-color: var(--c-accent); }
 
 /* 字下げの目安。方眼の罫と同じ細さ */
 .cm-indent-guide { border-left: 1px solid var(--c-code-line); }
+/* 文字列とコメントの外に残っている全角の字。波線と薄い朱で「ここが全角」と示す */
+.cm-fullwidth {
+  background: var(--c-mark-faint);
+  text-decoration: underline wavy var(--c-mark);
+  text-decoration-skip-ink: none;
+  text-underline-offset: 3px;
+  border-radius: 2px;
+}
+/* 何行にもわたる文字列やコメントの中は文章なので、全角の印は出さない */
+.cm-string.cm-fullwidth, .cm-comment.cm-fullwidth { background: none; text-decoration: none; }
+/* 打ったそばから半角に直した字を、一瞬だけ光らせる */
+.cm-halfwidth-flash { animation: halfwidth-flash 1.2s var(--ease) 1; border-radius: 2px; }
+@keyframes halfwidth-flash {
+  from { background: var(--c-mark-faint); box-shadow: 0 0 0 1px var(--c-mark); }
+  to   { background: transparent; box-shadow: 0 0 0 1px transparent; }
+}
+@media (prefers-reduced-motion: reduce) { .cm-halfwidth-flash { animation: none; } }
+/* 設定のチェックボックス */
+.check-field { display: flex; align-items: flex-start; gap: var(--sp-1); font-size: var(--text-xs); color: var(--c-ink-2); cursor: pointer; }
+.check-field input { accent-color: var(--c-mark); width: 1rem; height: 1rem; margin: 0.15em 0 0; flex: 0 0 auto; }
 
 .cm-s-default .cm-keyword  { color: var(--c-code-keyword); font-weight: 700; }
 .cm-s-default .cm-string   { color: var(--c-code-string); }
@@ -897,7 +917,8 @@ input[type='range'] { accent-color: var(--c-accent); }
 
 /* ステップ実行。次に実行する行は朱の太い罫と薄い面、いま実行した行は墨の細い罫だけ */
 .CodeMirror-linebackground.step-line {
-  background: var(--c-mark-faint);
+  /* 透かして、下に引いた字下げの段とまとまりの罫が見えるようにする */
+  background: rgba(192, 57, 43, 0.12);
   box-shadow: inset 4px 0 0 var(--c-mark);
 }
 /* 行番号にも印。次の行は朱の地に白、いま実行した行は太字に下線 */
@@ -906,6 +927,59 @@ input[type='range'] { accent-color: var(--c-accent); }
 .CodeMirror-linebackground.step-done {
   box-shadow: inset 2px 0 0 var(--c-ink-3);
   background: repeating-linear-gradient(90deg, transparent 0 6px, var(--c-paper-2) 6px 7px);
+}
+
+/* ステップ実行で、いま実行した行の後ろに書く注釈（「total が 0 → 3 になった」） */
+.step-note {
+  display: inline-block;
+  margin-left: 1.5em;
+  padding: 0 0.5em;
+  border-left: 2px solid var(--c-ink);
+  background: var(--c-paper);
+  color: var(--c-ink);
+  font-family: var(--font-sans);
+  font-size: var(--text-xs);
+  font-weight: 700;
+  line-height: 1.6;
+  white-space: nowrap;
+  animation: step-note-in 0.25s var(--ease) 1;
+}
+@keyframes step-note-in { from { opacity: 0; transform: translateX(-6px); } to { opacity: 1; transform: none; } }
+
+/* ------------------------------------------------------------
+ * 字下げの段とまとまりの範囲（blockscope.js）
+ * 段は墨の濃さを 1 段ごとに変えて塗る。4 文字にそろっていない字下げだけ朱で知らせる
+ * ---------------------------------------------------------- */
+.cm-s-default .cm-indent-1 { background: rgba(22, 24, 26, 0.05); }
+.cm-s-default .cm-indent-2 { background: rgba(22, 24, 26, 0.1); }
+.cm-s-default .cm-indent-odd { background: rgba(192, 57, 43, 0.22); }
+
+/* カーソルのいるまとまり（見出しの行から中身の最後まで）に、見出しの字の頭から朱の罫を引く */
+.cm-scope-d0 { --scope-x: 4px; }
+.cm-scope-d1 { --scope-x: calc(4px + 4ch); }
+.cm-scope-d2 { --scope-x: calc(4px + 8ch); }
+.cm-scope-d3 { --scope-x: calc(4px + 12ch); }
+.cm-scope-d4 { --scope-x: calc(4px + 16ch); }
+.cm-scope-d5 { --scope-x: calc(4px + 20ch); }
+.cm-scope-d6 { --scope-x: calc(4px + 24ch); }
+.cm-scope-d7 { --scope-x: calc(4px + 28ch); }
+.cm-scope-head, .cm-scope-body { --scope-tint: rgba(192, 57, 43, 0.045); }
+.cm-scope-head {
+  background:
+    linear-gradient(var(--c-mark), var(--c-mark)) no-repeat var(--scope-x) 100% / 2px 40%,
+    linear-gradient(90deg, transparent var(--scope-x), var(--scope-tint) var(--scope-x));
+}
+.cm-scope-body {
+  background:
+    linear-gradient(var(--c-mark), var(--c-mark)) no-repeat var(--scope-x) 0 / 2px 100%,
+    linear-gradient(90deg, transparent var(--scope-x), var(--scope-tint) var(--scope-x));
+}
+/* 中身の最後の行には、罫の下に短い横線（ここまで）を引く */
+.cm-scope-body.cm-scope-end {
+  background:
+    linear-gradient(var(--c-mark), var(--c-mark)) no-repeat var(--scope-x) 100% / 2ch 2px,
+    linear-gradient(var(--c-mark), var(--c-mark)) no-repeat var(--scope-x) 0 / 2px 100%,
+    linear-gradient(90deg, transparent var(--scope-x), var(--scope-tint) var(--scope-x));
 }
 
 /* 補完 */
@@ -1092,6 +1166,12 @@ dialog.dialog::backdrop { background: rgba(22, 24, 26, 0.45); }
   border-left: 2px solid var(--c-ink);
   background: var(--c-mark-faint);
   box-shadow: inset 0 -2px 0 var(--c-mark);
+  animation: var-pulse 0.6s var(--ease) 1;
+}
+/* 値が変わった瞬間に、朱の縁を一度だけ広げて目を引く */
+@keyframes var-pulse {
+  from { box-shadow: inset 0 -2px 0 var(--c-mark), 0 0 0 3px var(--c-mark); }
+  to   { box-shadow: inset 0 -2px 0 var(--c-mark), 0 0 0 0 transparent; }
 }
 .var-card.is-focus { border-left: 3px double var(--c-ink); }
 .var-tag {
@@ -1121,26 +1201,51 @@ dialog.dialog::backdrop { background: rgba(22, 24, 26, 0.45); }
   color: var(--c-ink);
   word-break: break-all;
 }
+/* いまの値は大きく。前の値（消し線）より目に入るように */
+.var-now { font-size: var(--text-lg); font-weight: 700; }
+.var-card.is-changed .var-now { color: var(--c-mark-deep); }
+/* これまでの値の移りかわり（0 → 3 → 8） */
+.var-trail {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0 0.15em;
+  margin-top: 0.35em;
+  font-family: var(--font-mono);
+  font-size: var(--text-2xs);
+  color: var(--c-ink-3);
+}
+.var-trail-label { margin-right: 0.5em; font-family: var(--font-sans); font-weight: 700; }
+.var-trail-old { color: var(--c-ink-3); }
+.var-trail-now { color: var(--c-ink); font-weight: 700; text-decoration: underline; text-decoration-color: var(--c-mark); text-underline-offset: 2px; }
 .var-items { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 0.4em; }
 .var-item {
   display: inline-flex;
-  align-items: baseline;
-  gap: 0.35em;
-  padding: 0.15em 0.5em;
-  border: 1px solid var(--c-line);
-  border-radius: var(--r-sm);
-  background: var(--c-surface-2);
+  flex-direction: column;
+  align-items: center;
+  min-width: 2.4em;
+  padding: 0.2em 0.5em 0.1em;
+  border: 1px solid var(--c-ink-3);
+  border-radius: 0;
+  background: var(--c-surface);
   font-family: var(--font-mono);
-  font-size: var(--text-2xs);
+  font-size: var(--text-sm);
 }
+/* 箱を横に並べて 1 本の列に見せる（となりと罫を共有する） */
+.var-items { gap: 0; }
+.var-items .var-item + .var-item { border-left: none; }
 .var-item.is-changed {
   border-color: var(--c-mark);
   background: var(--c-mark-faint);
   box-shadow: inset 0 -2px 0 var(--c-mark);
 }
 .var-item.is-more { color: var(--c-ink-3); font-family: var(--font-sans); }
-.var-key { color: var(--c-ink-3); }
-.var-item-value { color: var(--c-ink); }
+.var-key { color: var(--c-ink-3); font-size: var(--text-2xs); line-height: 1.3; }
+.var-item-value { color: var(--c-ink); font-weight: 700; }
+.var-item.is-changed { animation: var-pulse 0.6s var(--ease) 1; }
+@media (prefers-reduced-motion: reduce) {
+  .var-card.is-changed, .var-item.is-changed, .step-note, .cm-halfwidth-flash { animation: none; }
+}
 
 /* 画面右下に出る一言メッセージ */
 .toast {

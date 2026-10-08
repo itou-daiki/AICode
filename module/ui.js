@@ -652,6 +652,13 @@ export async function bootPython({ prepare, statusEl } = {}) {
  */
 export function makeEditorFriendly(cm, label) {
   if (label) cm.setOption('screenReaderLabel', label);
+  // コードを書きかえたら、前のエラーに向けた「押せば直る」案内は合わなくなるので消す
+  // （読むだけの表記のように、プログラムが書きかえる setValue では消さない）
+  cm.on('change', (_, change) => {
+    if (change.origin === 'setValue') return;
+    const note = document.getElementById('fix-note');
+    if (note) note.remove();
+  });
   let escaped = false;
   cm.on('keydown', (_, e) => {
     if (e.key === 'Escape') { escaped = true; return; }

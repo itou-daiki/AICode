@@ -16,6 +16,7 @@ import {
   makeEditorFriendly, bindRunShortcut, addTextSizeControl, safeStorage,
 } from './ui.js';
 import { EDITOR_CONFIG } from './config.js';
+import { attachHalfWidth, addHalfWidthControl } from './halfwidth.js';
 import { toKtph, toKtphFragment } from './ktph.js';
 import { defineKtphMode } from './ktph-mode.js';
 import { renderFlowchart, fitFlowchart, highlightFlowLine } from './flowview.js';
@@ -32,7 +33,11 @@ import {
   recordMock, bestMock, clearProgress, exportProgress, importProgress,
 } from './lessons-progress.js';
 import { recordTrace, namesInLine } from './stepper.js';
-import { describeStep, renderStepCaption, renderStepOutput, markStepLines, renderVariables } from './stepview.js';
+import {
+  describeStep, renderStepCaption, renderStepOutput, markStepLines, renderVariables,
+  explainLine, annotateStep, variableHistory,
+} from './stepview.js';
+import { attachBlockScope, showBlockAt } from './blockscope.js';
 import * as ai from './ai.js';
 import { icon, iconHtml, setIconLabel } from './icons.js';
 
@@ -73,6 +78,8 @@ const inputState = { waiting: false, resolve: null };
 let running = false;
 /** 問題を開くときの書きかえ中か（このあいだは書きかけを保存しない） */
 let loadingProblem = false;
+/** コードの字下げとまとまりの見せ方（blockscope.js） */
+let pyScope = null;
 /** いまの問題で、続けてまちがえた回数（2 回でヒントを開く） */
 let wrongInRow = 0;
 /** 一覧で、まだ解けていない問題だけを見せるか */
@@ -912,6 +919,8 @@ async function startStepMode() {
     step.list = trace.steps;
     step.index = 0;
     step.active = true;
+    showFix(null);
+    if (pyScope) pyScope.pause(true);
     step.error = trace.error;
     step.truncated = trace.truncated;
 
@@ -1012,7 +1021,13 @@ function showStep(index) {
   drawPairMark(info.next);
 
   const lineText = info.next ? editorPy.getLine(info.next - 1) || '' : '';
-  renderVariables($('step-vars'), state.vars, info.baseVars, namesInLine(lineText));
+  const { order, history } = variableHistory(step.list, step.index);
+  renderVariables($('step-vars'), state.vars, info.baseVars, namesInLine(lineText), { order, history });
+  // いま実行した行の後ろに、その行がしたことを書く（表記の方にも同じ注釈）
+  const note = explainLine(step.list, step.index, info, (n) => editorPy.getLine(n - 1) || '');
+  annotateStep(editorPy, info.done, note);
+  annotateStep(editorKtph, info.done, note);
+  showBlockAt(editorPy, info.next || info.done);
 }
 
 function exitStepMode() {
@@ -1021,6 +1036,9 @@ function exitStepMode() {
   $('step-panel').style.display = 'none';
   markStepLines(editorPy, {}, { scroll: false });
   markStepLines(editorKtph, {}, { scroll: false });
+  annotateStep(editorPy, null);
+  annotateStep(editorKtph, null);
+  if (pyScope) pyScope.pause(false);
   if ($('step-caption')) $('step-caption').replaceChildren();
   highlightFlowLine($('flowchart'), flowLines, 0);
   drawPairMark(0);
@@ -1280,6 +1298,8 @@ async function init() {
     editorKtph = CodeMirror.fromTextArea($('code-ktph'), editorOptions('ktph', true));
     completion = new CodeCompletionEngine(editorPy, { useAI: false });
     makeEditorFriendly(editorPy, 'Python のコード');
+    attachHalfWidth(editorPy);
+    pyScope = attachBlockScope(editorPy);
     makeEditorFriendly(editorKtph, '共通テスト用プログラム表記（読むだけ）');
 
     editorPy.on('change', () => {
@@ -1419,6 +1439,7 @@ async function init() {
     });
 
     addTextSizeControl($('display-settings'));
+    addHalfWidthControl($('display-settings'));
     $('export-progress').addEventListener('click', () => {
       const blob = new Blob([exportProgress()], { type: 'application/json' });
       const link = document.createElement('a');

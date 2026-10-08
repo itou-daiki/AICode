@@ -5,12 +5,17 @@
 
 import { createWorkbench } from './workbench.js';
 import { recordTrace, namesInLine } from './stepper.js';
-import { describeStep, renderStepCaption, renderStepOutput, markStepLines, renderVariables } from './stepview.js';
+import {
+  describeStep, renderStepCaption, renderStepOutput, markStepLines, renderVariables,
+  explainLine, annotateStep, variableHistory,
+} from './stepview.js';
+import { showBlockAt } from './blockscope.js';
 import {
   confirmDialog, toast, initSidebar, initTabs, initMaximize,
   takeCodeFromUrl, makeShareUrl, showShareDialog, showFix, safeStorage, bootPython,
   makeEditorFriendly, bindRunShortcut, addTextSizeControl,
 } from './ui.js';
+import { addHalfWidthControl } from './halfwidth.js';
 import { runUserCode, explainError, suggestFix } from './pyrun.js';
 import { toKtph } from './ktph.js';
 import { setIconLabel } from './icons.js';
@@ -216,6 +221,9 @@ async function startStepMode() {
     step.list = trace.steps;
     step.index = 0;
     step.active = true;
+    showFix(null);
+    // ステップ実行のあいだは、まとまりの罫をカーソルではなく「次に動く行」に合わせる
+    bench.blockScope.pause(true);
     step.error = trace.error;
     step.truncated = trace.truncated;
 
@@ -272,6 +280,8 @@ function exitStepMode() {
   $('step-vars').replaceChildren();
   $('step-caption').replaceChildren();
   markStepLines(bench.editor, {}, { scroll: false });
+  annotateStep(bench.editor, null);
+  bench.blockScope.pause(false);
   bench.highlightFlowLine(null);
   bench.highlightBlockLine(null);
   bench.refreshLayout();
@@ -308,7 +318,11 @@ function showStep(index) {
 
   const line = info.next;
   const lineText = line ? bench.editor.getLine(line - 1) : '';
-  renderVariables($('step-vars'), current.vars, info.baseVars, namesInLine(lineText));
+  const { order, history } = variableHistory(step.list, step.index);
+  renderVariables($('step-vars'), current.vars, info.baseVars, namesInLine(lineText), { order, history });
+  // いま実行した行の後ろに、その行がしたことを書く。次に動く行のまとまりには罫を引く
+  annotateStep(bench.editor, info.done, explainLine(step.list, step.index, info, (n) => bench.editor.getLine(n - 1) || ''));
+  showBlockAt(bench.editor, line || info.done);
 
   // コードには「いま実行した行」と「次に実行する行」を、フローチャートとブロックには次の行を光らせる。
   // 関数を呼び出したところでは、呼び出した行はまだ終わっていないので「実行した行」の印はつけない
@@ -553,6 +567,7 @@ async function init() {
     bench.editor.on('change', updateStepInputs);
 
     addTextSizeControl($('display-settings'));
+    addHalfWidthControl($('display-settings'));
     initSidebar({
       sidebarId: 'sidebar',
       toggleId: 'toggle-sidebar',

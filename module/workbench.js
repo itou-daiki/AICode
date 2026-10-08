@@ -15,6 +15,8 @@ import { defineBlocks, buildToolbox } from './blockdefs.js';
 import { autoIndent, formatCode } from './pyformat.js';
 import { CodeCompletionEngine } from './completion.js';
 import { debounce, throttle, toast, safeStorage } from './ui.js';
+import { attachHalfWidth } from './halfwidth.js';
+import { attachBlockScope } from './blockscope.js';
 
 const BLOCKS_TO_CODE_MS = 80;
 const CODE_TO_BLOCKS_MS = 900;
@@ -84,6 +86,11 @@ export function createWorkbench(options) {
       'Shift-Alt-I': () => applyTransform(autoIndent),
     },
   });
+
+  // 日本語入力のまま打った全角を、打ったそばから半角に直す
+  attachHalfWidth(editor);
+  // 字下げの段を塗り、カーソルのいるまとまりの範囲に罫を引く
+  const blockScope = attachBlockScope(editor);
 
   /* ---------- ブロックエディタ ---------- */
   defineBlocks({ drawing });
@@ -625,6 +632,7 @@ export function createWorkbench(options) {
     editor,
     workspace,
     completion,
+    blockScope,
     getCode: () => editor.getValue(),
     setCode,
     loadShared,

@@ -11,10 +11,11 @@ import { humanizeStatement, humanizeCondition, humanizeValue, humanizeDefHead, s
 import { pythonToMermaid, parsePython } from '../module/flowchart.js';
 import { getCompletions, analyzeCode } from '../module/pycomplete.js';
 import { explainError } from '../module/pyrun.js';
-import { jsToPython, toHalfWidth, hasFullWidth, suggestSyntaxFix, noticeSilentMistakes } from '../module/pyfix.js';
+import { jsToPython, toHalfWidth, hasFullWidth, findFullWidth, pointOutFullWidth, suggestSyntaxFix, noticeSilentMistakes } from '../module/pyfix.js';
 import { sameOutput } from '../module/grade.js';
 import { toKtph } from '../module/ktph.js';
-import { describeStep } from '../module/stepview.js';
+import { describeStep, explainLine, variableHistory } from '../module/stepview.js';
+import { findBlock } from '../module/blockscope.js';
 import {
   normalizeAnswer, sameAnswer, gradeTrace, gradeBlanks, gradeTests, scoreMock,
 } from '../module/grade.js';
@@ -975,6 +976,23 @@ equal('全角: 記号と数字が半角になる', toHalfWidth('circle（２０�
 equal('全角: 文字列の中は残る', toHalfWidth('print("（全角）")'), 'print("（全角）")');
 equal('全角: 全角スペースの字下げ', toHalfWidth('　　circle(1, 2, 3)'), '  circle(1, 2, 3)');
 check('全角: 見つける', hasFullWidth('circle（1, 2, 3）') && !hasFullWidth('print("（）")'));
+equal('全角: 全角の引用符の中は残す', toHalfWidth('print（“こんにちは、世界”）'), 'print("こんにちは、世界")');
+equal('全角: コメントの中は残す', toHalfWidth('x＝１　# 全角（メモ）'), 'x=1 # 全角（メモ）');
+equal('全角: 全角の＃の後ろもコメント', toHalfWidth('x＝１＃ 合計（メモ）'), 'x=1# 合計（メモ）');
+equal('全角: 「」と、はリストの記号に', toHalfWidth('a = 「1、2」'), 'a = [1,2]');
+equal('全角: カタカナの長音は名前の一部として残す', toHalfWidth('データー ー １'), 'データー - 1');
+equal('全角: 半角で開いて全角で閉じた文字列', toHalfWidth('print("こんにちは”)'), 'print("こんにちは")');
+equal('全角: 正しい文字列の中のアポストロフィは残す', toHalfWidth("print('it’s ok')"), "print('it’s ok')");
+equal('全角: 正しい文字列の中の ” は残す', toHalfWidth('print("5”の画面")'), 'print("5”の画面")');
+equal('全角: 文字列の中の “” は残す', toHalfWidth('s = "彼は“はい、”と"'), 's = "彼は“はい、”と"');
+equal('全角: 打っている途中の文章の句読点は直さない', toHalfWidth('print(こんにちは、世界)', { typing: true }), 'print(こんにちは、世界)');
+equal('全角: 長さは変わらない', toHalfWidth('ｘ＝（１＋２）＊３').length, 'ｘ＝（１＋２）＊３'.length);
+equal('全角: 場所を見つける', findFullWidth('print（x）').map(f => f.index).join(','), '5,7');
+equal('全角: 【 】で囲んで見せる', pointOutFullWidth('print（x）').shown, 'print【（】x【）】');
+equal('全角: 全角の空白は □ で見せる', pointOutFullWidth('　x = 1').shown, '【□】x = 1');
+check('全角: 直し方の一覧', pointOutFullWidth('print（x）').list === '「（」→「(」、「）」→「)」');
+check('全角: 文字列だけなら何もしない', pointOutFullWidth('print("（全角）")') === null);
+check('全角: エラーの説明で【 】を使う', explainError({ type: 'SyntaxError', message: "invalid character '（' (U+FF08)", line: 1 }, 'print（1）').includes('print【（】1【）】'));
 
 // エラーから直し方
 const fw = suggestSyntaxFix('circle（200, 200, 50）', { type: 'SyntaxError', message: "invalid character '（' (U+FF08)", line: 1 });
@@ -1171,6 +1189,66 @@ section('レッスンの記録（書きかけ・持ち運び）');
   check('記録: 壊れたファイルは断る', threw.includes('読めませんでした'));
   clearProgress();
   equal('記録: 消すと空になる', Object.keys(loadProgress().solved).length, 0);
+}
+
+section('字下げのまとまりと、ステップの注釈');
+{
+  const code = ['total = 0', 'for n in nums:', '    if n > 2:', '        total += n', '', '    print(n)', 'print(total)'];
+  const b = (line) => { const r = findBlock(code, line); return r ? `${r.head}-${r.end}` : 'none'; };
+  equal('まとまり: for の見出しの行', b(1), '1-5');
+  equal('まとまり: if の中身の行', b(3), '2-3');
+  equal('まとまり: for の中で if の外の行', b(5), '1-5');
+  equal('まとまり: 中の空行は、下の行のまとまり', b(4), '1-5');
+  equal('まとまり: 外の行は、まとまりなし', b(6), 'none');
+
+  const V = (o) => Object.fromEntries(Object.entries(o).map(([k, v]) => [k, { repr: String(v) }]));
+  const S = (line, vars, output = '') => ({ line, event: 'line', func: '<module>', vars: V(vars), output });
+  const steps = [
+    S(1, {}), S(2, { total: 0 }), S(3, { total: 0, n: 3 }), S(4, { total: 0, n: 3 }),
+    S(2, { total: 3, n: 3 }), S(3, { total: 3, n: 1 }), S(2, { total: 3, n: 1 }), S(7, { total: 3, n: 1 }),
+  ];
+  const lines = ['total = 0', 'for n in nums:', '    if n > 2:', '        total += n', '', '', 'print(total)'];
+  const get = (n) => lines[n - 1] || '';
+  const note = (i) => explainLine(steps, i, describeStep(steps, i), get);
+  equal('注釈: 代入', note(1), 'total に 0 が入った');
+  equal('注釈: for の 1 回目', note(2), 'n に 3 が入った（1 回目）');
+  equal('注釈: 条件が成り立つ', note(3), 'n > 2 は 成り立つ → 中を実行');
+  equal('注釈: 値が変わった', note(4), 'total が 0 → 3 になった');
+  equal('注釈: for の 2 回目', note(5), 'n に 1 が入った（2 回目）');
+  equal('注釈: 条件が成り立たない', note(6), 'n > 2 は 成り立たない → とばす');
+  equal('注釈: くり返しの終わり', note(7), 'くり返しを終えた → for の外へ');
+  // if が成り立たず else に進む（else の行は記録に出てこない）
+  {
+    const L = ['a = 0', 'if a:', '    x = 1', 'else:', '    y = 2'];
+    const st = [S(1, {}), S(2, { a: 0 }), S(5, { a: 0 }), S(5, { a: 0, y: 2 })];
+    equal('注釈: else に進むときは成り立たない', explainLine(st, 2, describeStep(st, 2), (n) => L[n - 1]), 'a は 成り立たない → else の中へ');
+  }
+  // 条件の中で自分の関数を呼んで、戻ってきてから中へ進む
+  {
+    const L = ['def f(v):', '    return v', 'if f(1):', '    print(1)'];
+    const F = (line, ev = 'line') => ({ line, event: ev, func: 'f', vars: V({ v: 1 }), output: '' });
+    const st = [S(1, {}), S(3, {}), F(2), F(2, 'return'), S(4, {})];
+    equal('注釈: 関数を呼ぶ条件でも、成り立てば中へ', explainLine(st, 4, describeStep(st, 4), (n) => L[n - 1]).endsWith('成り立つ → 中を実行'), true);
+  }
+  // 同じ値がくり返し入っても、くり返しは続いている
+  {
+    const L = ['for x in [1, 1]:', '    print(x)', 'print(0)'];
+    const st = [S(1, {}), S(2, { x: 1 }), S(1, { x: 1 }), S(2, { x: 1 }), S(1, { x: 1 }), S(3, { x: 1 })];
+    equal('注釈: 値が同じでも 2 回目', explainLine(st, 3, describeStep(st, 3), (n) => L[n - 1]), 'x に 1 が入った（2 回目）');
+  }
+  // 入れ子の for は、外が回るたびに 1 回目から数えなおす
+  {
+    const L = ['for i in [0, 1]:', '    for j in [0, 1]:', '        pass', 'print(0)'];
+    const st = [
+      S(1, {}), S(2, { i: 0 }), S(3, { i: 0, j: 0 }), S(2, { i: 0, j: 0 }), S(3, { i: 0, j: 1 }), S(2, { i: 0, j: 1 }),
+      S(1, { i: 0, j: 1 }), S(2, { i: 1, j: 1 }), S(3, { i: 1, j: 0 }),
+    ];
+    equal('注釈: 内側の for は数えなおす', explainLine(st, 8, describeStep(st, 8), (n) => L[n - 1]), 'j に 0 が入った（1 回目）');
+  }
+  const h = variableHistory(steps, 7);
+  equal('変数: 出てきた順', h.order.join(','), 'total,n');
+  equal('変数: 値の移りかわり', h.history.total.join('→'), '0→3');
+  equal('変数: 同じ値はまとめる', h.history.n.join('→'), '3→1');
 }
 
 /* ============================================================

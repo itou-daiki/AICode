@@ -11,6 +11,7 @@ import {
   takeCodeFromUrl, makeShareUrl, showShareDialog, showFix, bootPython,
   makeEditorFriendly, bindRunShortcut, addTextSizeControl,
 } from './ui.js';
+import { addHalfWidthControl } from './halfwidth.js';
 import { callGemini, chatWithAI } from './ai.js';
 import { runUserCode, explainError, suggestFix } from './pyrun.js';
 import { noticeSilentMistakes } from './pyfix.js';
@@ -788,6 +789,7 @@ async function init() {
     });
 
     addTextSizeControl($('display-settings'));
+    addHalfWidthControl($('display-settings'));
     initSidebar({
       sidebarId: 'sidebar',
       toggleId: 'toggle-sidebar',

@@ -230,6 +230,138 @@ export function markStepLines(editor, { done = null, next = null } = {}, { scrol
   if (scroll && target) editor.scrollIntoView({ line: target - 1, ch: 0 }, 80);
 }
 
+/* ------------------------------------------------------------
+ * コードの中の注釈（いま実行した行の後ろに「x が 3 になった」と書く）
+ * ---------------------------------------------------------- */
+
+const indentOf = (text) => (String(text || '').match(/^[ \t]*/)[0].replace(/\t/g, '    ').length);
+const stripComment = (text) => String(text || '').replace(/\s+#.*$/, '').trim();
+
+/**
+ * いま実行した行が何をしたかを、短い日本語にする（コードの行末に書く注釈）
+ * @param {object[]} steps 記録
+ * @param {number} index 今のステップ
+ * @param {ReturnType<typeof describeStep>} info
+ * @param {(line: number) => string} getLine その行のコード
+ * @returns {string} 注釈（書くことが無ければ空）
+ */
+export function explainLine(steps, index, info, getLine) {
+  if (!info || !info.done || !['done', 'back', 'error'].includes(info.doneKind)) return '';
+  if (info.doneKind === 'error') return 'ここでエラーになった';
+  const doneText = getLine(info.done);
+  const text = stripComment(doneText);
+  const changes = info.changes || [];
+  const current = steps[index] || {};
+  const nextText = info.next ? getLine(info.next) : '';
+  const base = indentOf(doneText);
+  // 関数から戻ったとき（条件の中で自分の関数を呼んだときなど）は、1 つ前の記録は呼んだ関数の中
+  const sameFunc = info.doneKind === 'back' || current.func === (steps[index - 1] || {}).func;
+  // 次の行が、いま実行した行の「中」（字下げが深い、下の行）か
+  const deeper = Boolean(info.next) && sameFunc && info.next > info.done && indentOf(nextText) > base;
+  // あいだに同じ深さの else / elif があれば、中ではなく else 側へ進んだ（else の行は記録に出てこない）
+  let branch = '';
+  if (deeper) {
+    for (let n = info.done + 1; n < info.next; n++) {
+      const t = getLine(n);
+      if (indentOf(t) === base && /^\s*(else|elif)\b/.test(t)) { branch = t.trim().startsWith('else') ? 'else' : 'elif'; break; }
+      if (t.trim() && indentOf(t) < base) break;
+    }
+  }
+  const goesInside = deeper && !branch;
+
+  const forMatch = text.match(/^(?:async\s+)?for\s+(.+?)\s+in\s+(.+):$/);
+  if (forMatch) {
+    if (!goesInside) return 'くり返しを終えた → for の外へ';
+    const names = forMatch[1].split(',').map(n => n.trim().replace(/[()]/g, '')).filter(Boolean);
+    // 何回目のくり返しか。外のくり返しの中にあるときは、この for に入りなおしたところから数える
+    let end = info.done;
+    for (let n = info.done + 1; ; n++) {
+      const t = getLine(n);
+      if (t === undefined || (n > info.done + 200)) break;
+      if (!t.trim()) continue;
+      if (indentOf(t) <= base) break;
+      end = n;
+    }
+    let count = 0;
+    for (let j = index - 1; j >= 0; j--) {
+      if (steps[j].func !== current.func) continue;
+      const at = steps[j].line;
+      if (at === info.done) { count++; continue; }
+      if (at < info.done || at > end) break;
+    }
+    const vars = current.vars || {};
+    const what = names.filter(n => vars[n]).map(n => `${n} に ${short(vars[n].repr, 16)}`).join('、');
+    return what ? `${what} が入った（${count} 回目）` : `${count} 回目のくり返し`;
+  }
+
+  const condMatch = text.match(/^(if|elif|while)\s+(.+):$/);
+  if (condMatch) {
+    const [, word, cond] = condMatch;
+    const shown = short(cond, 20);
+    if (goesInside) return `${shown} は 成り立つ → 中を実行`;
+    if (branch === 'else') return `${shown} は 成り立たない → else の中へ`;
+    if (branch === 'elif' || /^\s*elif\b/.test(nextText)) return `${shown} は 成り立たない → 次の elif へ`;
+    return word === 'while' ? `${shown} は 成り立たない → くり返しを終える` : `${shown} は 成り立たない → とばす`;
+  }
+  const defMatch = text.match(/^(?:async\s+)?def\s+([A-Za-z_]\w*)/);
+  if (defMatch) return `関数 ${defMatch[1]} を作った（中はまだ動かない）`;
+
+  const parts = [];
+  for (const c of changes.slice(0, 2)) {
+    parts.push(c.kind === 'new'
+      ? `${c.name} に ${short(c.after, 16)} が入った`
+      : `${c.name} が ${short(c.before, 10)} → ${short(c.after, 12)} になった`);
+  }
+  if (changes.length > 2) parts.push(`ほか ${changes.length - 2} 個`);
+  if (info.newOutput) parts.push(`「${short(info.newOutput.replace(/\n$/, '').replace(/\n/g, '⏎'), 16)}」を表示した`);
+  if (/^return\b/.test(text) && info.doneKind !== 'back') parts.push('値を返して、呼び出したところへ戻る');
+  if (info.doneKind === 'back' && info.callee) parts.unshift(`${info.callee}() から戻った`);
+  return parts.join('、');
+}
+
+const noteMarks = new WeakMap();
+
+/**
+ * 行の後ろに注釈を書く（前の注釈は消す）
+ * @param {object} editor CodeMirror
+ * @param {number|null} line 1 から数えた行。null なら消すだけ
+ * @param {string} [text]
+ */
+export function annotateStep(editor, line, text = '') {
+  if (!editor) return;
+  const old = noteMarks.get(editor);
+  if (old) old.clear();
+  noteMarks.delete(editor);
+  if (!line || !text || line < 1 || line > editor.lineCount()) return;
+  const widget = document.createElement('span');
+  widget.className = 'step-note';
+  widget.textContent = `← ${text}`;
+  const mark = editor.setBookmark({ line: line - 1, ch: editor.getLine(line - 1).length }, { widget, insertLeft: true });
+  noteMarks.set(editor, mark);
+}
+
+/**
+ * 変数ごとの、これまでの値の移りかわり（同じ値が続くところは 1 つにまとめる）
+ * @param {object[]} steps
+ * @param {number} index
+ * @returns {{order: string[], history: Object<string, string[]>}} 出てきた順の名前と、値の移りかわり
+ */
+export function variableHistory(steps, index) {
+  const order = [];
+  const history = {};
+  const func = (steps[index] || {}).func;
+  for (let i = 0; i <= index && i < steps.length; i++) {
+    // 関数の中と外で同じ名前があっても混ぜない（今いる関数の分だけ数える）
+    if (steps[i].func !== func) continue;
+    for (const [name, info] of Object.entries(steps[i].vars || {})) {
+      if (!history[name]) { history[name] = []; order.push(name); }
+      const list = history[name];
+      if (list[list.length - 1] !== info.repr) list.push(info.repr);
+    }
+  }
+  return { order, history };
+}
+
 /**
  * 変数の一覧を見せる。変わった値は「前 → 後」も書く
  * @param {HTMLElement} container
@@ -237,9 +369,14 @@ export function markStepLines(editor, { done = null, next = null } = {}, { scrol
  * @param {object|null} previousVariables 1 つ前の変数
  * @param {Set<string>} focusNames 次の行で使う名前
  */
-export function renderVariables(container, variables, previousVariables, focusNames = new Set()) {
+export function renderVariables(container, variables, previousVariables, focusNames = new Set(), options = {}) {
   if (!container) return;
-  const names = Object.keys(variables || {}).sort();
+  const { order = null, history = {} } = options;
+  // 出てきた順に並べる（名前順だと、さっき作った変数が上下に飛んで追いにくい）
+  const present = Object.keys(variables || {});
+  const names = order
+    ? [...order.filter(n => present.includes(n)), ...present.filter(n => !order.includes(n)).sort()]
+    : present.sort();
   if (!names.length) {
     const empty = document.createElement('div');
     empty.className = 'empty-state';
@@ -256,13 +393,14 @@ export function renderVariables(container, variables, previousVariables, focusNa
     list.appendChild(renderVariable(name, variables[name], before, {
       changed: changed.has(name),
       focused: focusNames.has(name),
+      history: history[name] || [],
     }));
   }
   container.replaceChildren(list);
 }
 
 /** 変数 1 つ分 */
-function renderVariable(name, info, before, { changed, focused }) {
+function renderVariable(name, info, before, { changed, focused, history = [] }) {
   const card = document.createElement('div');
   card.className = 'var-card';
   if (changed) card.classList.add('is-changed');
@@ -297,8 +435,29 @@ function renderVariable(name, info, before, { changed, focused }) {
       old.textContent = before.repr;
       value.append(old, ' → ');
     }
-    value.append(info.repr);
+    const now = document.createElement('span');
+    now.className = 'var-now';
+    now.textContent = info.repr;
+    value.append(now);
     card.appendChild(value);
+  }
+  // これまでの値の移りかわり（くり返しで、どう増えていったかが見える）
+  if (history.length > 1 && !(info.items && info.items.length)) {
+    const trail = document.createElement('div');
+    trail.className = 'var-trail';
+    const shown = history.length > 6 ? ['…', ...history.slice(-5)] : history;
+    shown.forEach((repr, i) => {
+      if (i) trail.append(document.createTextNode(' → '));
+      const chip = document.createElement('span');
+      chip.className = i === shown.length - 1 ? 'var-trail-now' : 'var-trail-old';
+      chip.textContent = short(repr, 12);
+      trail.appendChild(chip);
+    });
+    const label = document.createElement('span');
+    label.className = 'var-trail-label';
+    label.textContent = 'これまで';
+    trail.prepend(label);
+    card.appendChild(trail);
   }
   return card;
 }
@@ -312,16 +471,17 @@ function renderItems(info, before) {
     const cell = document.createElement('div');
     cell.className = 'var-item';
     if (changed.has(key)) cell.classList.add('is-changed');
+    // 値を上に大きく、番号（辞書ならキー）を下に小さく。教科書の配列の図と同じ並び
+    const valueEl = document.createElement('span');
+    valueEl.className = 'var-item-value';
+    valueEl.textContent = value;
+    cell.appendChild(valueEl);
     if (key !== '') {
       const keyEl = document.createElement('span');
       keyEl.className = 'var-key';
       keyEl.textContent = key;
       cell.appendChild(keyEl);
     }
-    const valueEl = document.createElement('span');
-    valueEl.className = 'var-item-value';
-    valueEl.textContent = value;
-    cell.appendChild(valueEl);
     table.appendChild(cell);
   }
   if (info.size !== undefined && info.items.length < info.size) {

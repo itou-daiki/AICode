@@ -1,5 +1,5 @@
 // module/pyrun.js
-import { suggestSyntaxFix } from './pyfix.js';
+import { suggestSyntaxFix, pointOutFullWidth } from './pyfix.js';
 // 学習者のコードを走らせて、結果とエラーを受け取るところ。
 //
 // ここに集めたのには理由がある。
@@ -412,12 +412,34 @@ export function explainError(info, code = '') {
   const lines = [];
   lines.push(info.line ? `× ${info.line} 行目でエラーが起きました` : '× エラーが起きました');
 
+  // 全角の字が混ざっていたら、どれが全角かを【 】で囲んで見せる
+  // （全角の字は Python の名前にも使えてしまうので、書き方のエラーのときだけ全角を疑う）
+  let fullWidth = null;
+  let targetShown = false;
   if (info.line && code) {
     const target = code.split('\n')[info.line - 1];
-    if (target && target.trim()) lines.push(`   ${target.trim()}`);
+    fullWidth = target && info.type === 'SyntaxError' ? pointOutFullWidth(target) : null;
+    if (fullWidth) lines.push(`   ${fullWidth.shown.trim()}`);
+    else if (target && target.trim()) lines.push(`   ${target.trim()}`);
+    targetShown = Boolean(fullWidth || (target && target.trim()));
   }
 
   lines.push(`${info.type}: ${info.message}`);
+
+  if (fullWidth) {
+    lines.push(`→ 【 】で囲んだところが全角です（${fullWidth.list}）。プログラムの記号・数字・空白は半角で書きます。`);
+    return lines.join('\n');
+  }
+
+  // 字下げのまちがいは、空白を「·」にして数えられるようにする（空白は目に見えないので）
+  if ((info.type === 'IndentationError' || info.type === 'TabError') && info.line && code) {
+    const indentNote = explainIndent(info, code);
+    if (indentNote) {
+      lines.splice(1, targetShown ? 1 : 0, ...indentNote.shown);
+      lines.push(`→ ${indentNote.hint}`);
+      return lines.join('\n');
+    }
+  }
 
   const hint = detailedHint(info) || HINTS[info.type];
   if (hint) {
@@ -426,6 +448,47 @@ export function explainError(info, code = '') {
   }
 
   return lines.join('\n');
+}
+
+/** 行頭の空白を「·」（タブは「→」）にして見せる */
+function showIndent(text) {
+  const lead = text.match(/^[ \t]*/)[0];
+  return lead.replace(/ /g, '·').replace(/\t/g, '→   ') + text.slice(lead.length);
+}
+
+
+/**
+ * 字下げのエラーを、空白の数が見える形で説明する
+ * @returns {{shown: string[], hint: string}|null}
+ */
+function explainIndent(info, code) {
+  const all = code.replace(/\r/g, '').split('\n');
+  const at = info.line - 1;
+  const target = all[at];
+  if (target === undefined) return null;
+  let prev = at - 1;
+  while (prev >= 0 && !all[prev].trim()) prev--;
+  const shown = [];
+  if (prev >= 0) shown.push(`   ${prev + 1} 行目｜${showIndent(all[prev])}`);
+  shown.push(target.trim()
+    ? `   ${info.line} 行目｜${showIndent(target)}　← 字下げ ${indentWidth(target)} 文字`
+    : `   ${info.line} 行目｜（中身の行がありません）`);
+  const message = info.message || '';
+  const after = message.match(/after '?(\w+)'? statement on line (\d+)/);
+  let hint;
+  if (info.type === 'TabError' || /\t/.test(target.match(/^[ \t]*/)[0])) {
+    hint = 'タブ（→）と空白（·）がまざっています。字下げは空白 4 つずつにそろえましょう（「字下げ」ボタンでも直せます）。';
+  } else if (after || /expected an indented block/.test(message)) {
+    const head = after ? `${after[2]} 行目の ${after[1]} ` : '上の「:」で終わる行';
+    hint = `${head}の中身は、その行より 4 文字（····）下げて書きます。中身が何も無いなら pass と書きます。`;
+  } else if (/unexpected indent/.test(message)) {
+    hint = `前の行より深く下げています（· の数をくらべましょう）。前の行が「:」で終わっていないなら、同じ深さにそろえます。`;
+  } else if (/unindent does not match/.test(message)) {
+    hint = '上のどの行の字下げ（0・4・8 … 文字）ともそろっていません。· の数を 4 の倍数にそろえましょう。';
+  } else {
+    hint = '字下げ（行のはじめの空白）がずれています。· の数をそろえましょう。同じまとまりの行は、同じ数だけ下げます。';
+  }
+  return { shown, hint };
 }
 
 /** メッセージの中身を見て、もっと近いヒントがあれば選ぶ */
