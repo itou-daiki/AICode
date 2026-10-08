@@ -43,6 +43,21 @@ function clipParent(el) {
   return null;
 }
 
+/**
+ * 下に押し出されても、スクロールで届くか
+ * スクロールできる親があり、その親が画面の中に収まっていて、
+ * あいだの「隠す」入れ物で切れていないときだけ届くとみなす
+ */
+function reachableByScroll(el, vh) {
+  const r = el.getBoundingClientRect();
+  for (let p = el.parentElement; p && p !== document.documentElement; p = p.parentElement) {
+    const s = getComputedStyle(p);
+    if (/(auto|scroll)/.test(s.overflowY)) return p.getBoundingClientRect().bottom <= vh + 1;
+    if (/(hidden|clip)/.test(s.overflowY) && p.getBoundingClientRect().bottom < r.bottom - 1) return false;
+  }
+  return false;
+}
+
 /** 閉じたサイドバーなど、わざと幅 0 にしている入れ物の中か */
 function insideCollapsed(el) {
   for (let p = el.parentElement; p; p = p.parentElement) {
@@ -84,7 +99,7 @@ export function check() {
     }
     // 3. 画面の外（スクロールできないページで下に押し出された）
     if (r.right > vw + 1 || r.left < -1) issues.push(`画面の横の外: ${label(el)}`);
-    if (!pageScrollsY && (!clip || !clip.scroll) && r.bottom > vh + 1) issues.push(`画面の下の外（スクロールできない）: ${label(el)}`);
+    if (!pageScrollsY && !reachableByScroll(el, vh) && r.bottom > vh + 1) issues.push(`画面の下の外（スクロールできない）: ${label(el)}`);
 
     // 4. 字があふれている（「…」で切る作りのものは除く）
     const s = getComputedStyle(el);

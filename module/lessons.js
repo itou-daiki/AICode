@@ -17,6 +17,7 @@ import {
 } from './ui.js';
 import { EDITOR_CONFIG } from './config.js';
 import { attachHalfWidth, addHalfWidthControl } from './halfwidth.js';
+import { addIndentGuide } from './indentguide.js';
 import { toKtph, toKtphFragment } from './ktph.js';
 import { defineKtphMode } from './ktph-mode.js';
 import { renderFlowchart, fitFlowchart, highlightFlowLine } from './flowview.js';
@@ -1440,6 +1441,8 @@ async function init() {
 
     addTextSizeControl($('display-settings'));
     addHalfWidthControl($('display-settings'));
+    // 字下げのしくみの説明（「設定」の前に入れる）
+    addIndentGuide($('course-nav'), $('display-settings').closest('details'));
     $('export-progress').addEventListener('click', () => {
       const blob = new Blob([exportProgress()], { type: 'application/json' });
       const link = document.createElement('a');

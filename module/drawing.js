@@ -12,6 +12,7 @@ import {
   makeEditorFriendly, bindRunShortcut, addTextSizeControl,
 } from './ui.js';
 import { addHalfWidthControl } from './halfwidth.js';
+import { addIndentGuide } from './indentguide.js';
 import { callGemini, chatWithAI } from './ai.js';
 import { runUserCode, explainError, suggestFix } from './pyrun.js';
 import { noticeSilentMistakes } from './pyfix.js';
@@ -790,6 +791,8 @@ async function init() {
 
     addTextSizeControl($('display-settings'));
     addHalfWidthControl($('display-settings'));
+    // 字下げのしくみの説明（「表示」の前に入れる）
+    addIndentGuide($('sidebar'), $('display-settings').closest('details'));
     initSidebar({
       sidebarId: 'sidebar',
       toggleId: 'toggle-sidebar',

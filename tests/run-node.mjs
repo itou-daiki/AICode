@@ -16,6 +16,7 @@ import { sameOutput } from '../module/grade.js';
 import { toKtph } from '../module/ktph.js';
 import { describeStep, explainLine, variableHistory } from '../module/stepview.js';
 import { findBlock } from '../module/blockscope.js';
+import { indentTrace } from '../module/indentguide.js';
 import {
   normalizeAnswer, sameAnswer, gradeTrace, gradeBlanks, gradeTests, scoreMock,
 } from '../module/grade.js';
@@ -1245,6 +1246,12 @@ section('字下げのまとまりと、ステップの注釈');
     ];
     equal('注釈: 内側の for は数えなおす', explainLine(st, 8, describeStep(st, 8), (n) => L[n - 1]), 'j に 0 が入った（1 回目）');
   }
+  // サイドバーの字下げの例: 外の print は 1 回、中の print はくり返すたび
+  const outside = indentTrace(false);
+  const inside = indentTrace(true);
+  equal('字下げの例: 外なら最後に 1 回だけ表示', outside[outside.length - 1].out.join(','), '6');
+  equal('字下げの例: 中ならくり返すたびに表示', inside[inside.length - 1].out.join(','), '1,3,6');
+  equal('字下げの例: 外の print は最後の行', outside[outside.length - 1].line, 3);
   const h = variableHistory(steps, 7);
   equal('変数: 出てきた順', h.order.join(','), 'total,n');
   equal('変数: 値の移りかわり', h.history.total.join('→'), '0→3');

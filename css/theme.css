@@ -779,6 +779,8 @@ input[type='range'] { accent-color: var(--c-accent); }
      開いた／閉じたが分かればよいので、動かさない。 */
   transition: opacity var(--t-fast) var(--ease);
 }
+/* 中の区画は縮めない（縮むと、開いた説明の下の方が切れて見えなくなる）。あふれた分はサイドバーごとスクロール */
+.sidebar > * { flex-shrink: 0; }
 .sidebar:not(.is-open) {
   flex-basis: 0;
   width: 0;
@@ -1382,3 +1384,68 @@ dialog.dialog::backdrop { background: rgba(22, 24, 26, 0.45); }
   .CodeMirror, .CodeMirror-scroll { height: auto !important; overflow: visible !important; }
   .console { max-height: none !important; overflow: visible !important; white-space: pre-wrap; }
 }
+
+/* ------------------------------------------------------------
+ * サイドバーの「字下げ（インデント）のしくみ」（indentguide.js）
+ * エディタと同じ塗り分け（段の濃さ・朱の罫）で、例のコードを描く
+ * ---------------------------------------------------------- */
+.indent-guide-head { margin: var(--sp-2) 0 0; font-size: var(--text-xs); font-weight: 700; color: var(--c-ink); }
+.indent-guide .expander-body > p:not(.indent-guide-head) { font-size: var(--text-xs); color: var(--c-ink-2); }
+.indent-demo {
+  padding: var(--sp-1) 0;
+  border: 1px solid var(--c-rule);
+  background: var(--c-code-bg);
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  line-height: 1.8;
+  overflow-x: auto;
+}
+.indent-demo-line {
+  --scope-x: 6px;
+  display: flex;
+  align-items: baseline;
+  gap: 0.6em;
+  padding: 0 6px;
+  white-space: pre;
+  transition: background var(--t-fast) var(--ease);
+}
+.indent-demo-line code { font: inherit; color: var(--c-code-ink); background: none; padding: 0; }
+.indent-demo-step { color: var(--c-ink-3); letter-spacing: 0; }
+.indent-demo-step.lv1 { background: rgba(22, 24, 26, 0.05); }
+.indent-demo-step.lv2 { background: rgba(22, 24, 26, 0.1); }
+.indent-demo-note { font-family: var(--font-sans); font-size: var(--text-2xs); font-weight: 700; color: var(--c-mark-deep); white-space: nowrap; }
+/* まとまりの罫（見出しの字の頭から、中身の最後まで） */
+.indent-demo-line.is-scope { background: linear-gradient(90deg, transparent var(--scope-x), rgba(192, 57, 43, 0.045) var(--scope-x)); }
+.indent-demo-line.is-head {
+  background:
+    linear-gradient(var(--c-mark), var(--c-mark)) no-repeat var(--scope-x) 100% / 2px 40%,
+    linear-gradient(90deg, transparent var(--scope-x), rgba(192, 57, 43, 0.045) var(--scope-x));
+}
+.indent-demo-line.is-body {
+  background:
+    linear-gradient(var(--c-mark), var(--c-mark)) no-repeat var(--scope-x) 0 / 2px 100%,
+    linear-gradient(90deg, transparent var(--scope-x), rgba(192, 57, 43, 0.045) var(--scope-x));
+}
+.indent-demo-line.is-end {
+  background:
+    linear-gradient(var(--c-mark), var(--c-mark)) no-repeat var(--scope-x) 100% / 2ch 2px,
+    linear-gradient(var(--c-mark), var(--c-mark)) no-repeat var(--scope-x) 0 / 2px 100%,
+    linear-gradient(90deg, transparent var(--scope-x), rgba(192, 57, 43, 0.045) var(--scope-x));
+}
+/* 動かしているときの「いまの行」。ステップ実行の「次の行」と同じ朱の太い罫 */
+.indent-demo-line.is-current { box-shadow: inset 4px 0 0 var(--c-mark); background-color: rgba(192, 57, 43, 0.14); }
+.indent-compare { display: flex; flex-direction: column; gap: var(--sp-2); }
+.indent-compare-controls { display: flex; flex-wrap: wrap; gap: var(--sp-1); }
+.indent-compare-state { min-height: 2.6em; font-size: var(--text-2xs); font-weight: 700; color: var(--c-ink); }
+.indent-compare-result {
+  margin: 0;
+  padding: var(--sp-1) var(--sp-2);
+  border: 1px solid var(--c-rule);
+  background: var(--c-paper);
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  white-space: pre-wrap;
+  min-height: 5.5em;
+}
+.indent-guide-list { margin: 0; padding-left: 1.2em; font-size: var(--text-xs); color: var(--c-ink-2); }
+.indent-guide-list li + li { margin-top: 0.3em; }
