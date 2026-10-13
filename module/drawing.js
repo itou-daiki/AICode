@@ -9,7 +9,7 @@ import { P5_CALL_BLOCKS, P5_NAME_BLOCKS } from './blockdefs.js';
 import {
   confirmDialog, toast, initSidebar, initTabs, initMaximize,
   takeCodeFromUrl, makeShareUrl, showShareDialog, showFix, bootPython,
-  makeEditorFriendly, bindRunShortcut, addTextSizeControl,
+  makeEditorFriendly, bindRunShortcut, addTextSizeControl, addCodeZoom,
 } from './ui.js';
 import { addHalfWidthControl } from './halfwidth.js';
 import { addTipsLinks } from './tipslinks.js';
@@ -777,6 +777,7 @@ async function init() {
       onStatus: showSyncState,
     });
     makeEditorFriendly(bench.editor, 'Python のスケッチのコード');
+    addCodeZoom([bench.editor], $('code-undo').parentElement);
     bindRunShortcut($('run-btn'));
     const shared = await takeCodeFromUrl();
     // 共有リンクで開いたときは、前のプログラムを控えてから上書きする（知らせも restore が出す）

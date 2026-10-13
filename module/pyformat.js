@@ -9,6 +9,8 @@
 //   ・括弧で複数行にまたがる文は、書いた人のそろえ方をこわさない
 //   ・字下げがまったく無いコードを貼っても、正しい形に組み直せる
 
+import { findIndentOutliers, reindent } from './indentcheck.js';
+
 const INDENT = '    ';
 
 /* ============================================================
@@ -191,6 +193,23 @@ const PAIRS = {
 };
 
 /**
+ * その行だけ字下げが前後とちがう行を、前後の行の字下げにそろえる（そろわなくなるまでくり返す）
+ * @param {string} code
+ * @returns {string}
+ */
+export function alignOutliers(code) {
+  let text = code;
+  for (let round = 0; round < 5; round++) {
+    const found = findIndentOutliers(text);
+    if (!found.length) break;
+    const lines = text.split('\n');
+    for (const f of found) lines[f.line] = reindent(lines[f.line], f.lead);
+    text = lines.join('\n');
+  }
+  return text;
+}
+
+/**
  * 字下げをそろえる。
  * 「: で終わる行の次」は必ず1段深くし、else / elif などは対応する見出しにそろえる。
  * 複数行にまたがる文の2行目以降は、1行目と同じだけ横にずらすので、
@@ -208,7 +227,10 @@ export function autoIndent(code) {
  * @returns {{text: string, inString: boolean, blank: boolean, level: number}[]}
  */
 function layout(code) {
-  const statements = splitStatements(code);
+  // 「その行だけ字下げがちがう行」は、先に前後の行にそろえておく。
+  // そうしないと、字下げを忘れた 1 行のところで「まとまりが終わった」とみなし、
+  // そのあとの行までぜんぶ外へ出してしまう（def draw(): の中身が途中から外に出る）
+  const statements = splitStatements(alignOutliers(code));
   const result = [];
 
   const stack = [0];        // もとの字下げ幅の並び。長さ - 1 が深さ。
@@ -229,6 +251,20 @@ function layout(code) {
 
     const text = statement.code;
     const width = statement.indent;
+
+    // コメントだけの行は、まとまりの形を変えない（浅く書いたコメントで、下の行まで外に出さない）
+    if (!text && statement.lines.length === 1 && statement.lines[0].trim().startsWith('#')) {
+      let level;
+      if (expectDeeper) {
+        level = stack.length;
+      } else {
+        const widths = [...stack];
+        while (widths.length > 1 && width < widths[widths.length - 1]) widths.pop();
+        level = widths.length - 1;
+      }
+      result.push({ text: INDENT.repeat(level) + statement.lines[0].trim(), inString: false, blank: false, level });
+      continue;
+    }
 
     if (expectDeeper) {
       // Python では「: で終わる行の次」だけが1段深くなれる

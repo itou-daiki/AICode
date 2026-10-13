@@ -234,6 +234,8 @@ export class CodeCompletionEngine {
   showInline(entry, replaceLength, cursor) {
     this.hideInline();
     if (!entry || entry.insert.includes('\n')) return;
+    // 日本語入力の変換中は出さない（行を描きなおすと、変換が途切れることがある）
+    if (this.editor.display && this.editor.display.input && this.editor.display.input.composing) return;
 
     const rest = entry.insert.slice(replaceLength);
     if (!rest) return;
@@ -242,7 +244,8 @@ export class CodeCompletionEngine {
     widget.className = 'inline-suggestion';
     widget.textContent = rest;
 
-    this.inlineWidget = this.editor.addWidget(cursor, widget, false);
+    // カーソルのところに、文の中の字として差しこむ（addWidget は字の流れの外に重ねるので、ずれて見えていた）
+    this.inlineMark = this.editor.setBookmark(cursor, { widget, insertLeft: true, handleMouseEvents: false });
     this.inlineWidget = widget;
     this.inlineText = rest;
     this.inlineItem = entry;
@@ -250,9 +253,8 @@ export class CodeCompletionEngine {
   }
 
   hideInline() {
-    if (this.inlineWidget && this.inlineWidget.parentNode) {
-      this.inlineWidget.parentNode.removeChild(this.inlineWidget);
-    }
+    if (this.inlineMark) this.inlineMark.clear();
+    this.inlineMark = null;
     this.inlineWidget = null;
     this.inlineText = '';
     this.inlineItem = null;

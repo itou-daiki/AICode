@@ -19,6 +19,7 @@ import { attachHalfWidth } from './halfwidth.js';
 import { attachBlockScope } from './blockscope.js';
 import { attachNameFix, registerNames } from './namefix.js';
 import { attachLineDrag } from './linedrag.js';
+import { attachIndentCheck } from './indentcheck.js';
 
 const BLOCKS_TO_CODE_MS = 80;
 const CODE_TO_BLOCKS_MS = 900;
@@ -100,6 +101,8 @@ export function createWorkbench(options) {
   attachNameFix(editor);
   // 行番号の左のつまみで、行（見出しなら中身ごと）をドラッグして動かす
   attachLineDrag(editor);
+  // その行だけ字下げが前後とちがう行に、朱の帯と「そろえる」ボタンを出す
+  attachIndentCheck(editor);
 
   /* ---------- ブロックエディタ ---------- */
   defineBlocks({ drawing });

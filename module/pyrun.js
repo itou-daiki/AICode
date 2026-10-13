@@ -1,6 +1,7 @@
 // module/pyrun.js
 import { suggestSyntaxFix, pointOutFullWidth, scanLine } from './pyfix.js';
 import { suggestName } from './namefix.js';
+import { findIndentOutliers, reindent, describeIndent } from './indentcheck.js';
 // 学習者のコードを走らせて、結果とエラーを受け取るところ。
 //
 // ここに集めたのには理由がある。
@@ -328,6 +329,22 @@ function suggestNameFix(code, error) {
 export function suggestFix(code, error) {
   if (!error || !error.line) return null;
 
+  // その行だけ字下げがちがう（エラーの行の 1 つ前が原因のことも多い）
+  if (error.type === 'IndentationError') {
+    const culprit = indentCulprit(error, code);
+    if (culprit) {
+      const lines = code.split('\n');
+      const fixed = [...lines];
+      fixed[culprit.line] = reindent(lines[culprit.line], culprit.lead);
+      return {
+        label: `${culprit.line + 1} 行目を ${culprit.expected} 文字にそろえる`,
+        why: `${culprit.line + 1} 行目だけ字下げが ${describeIndent(culprit.indent)}で、前後の行（${describeIndent(culprit.expected)}）とそろっていません。`,
+        code: fixed.join('\n'),
+        line: culprit.line + 1,
+      };
+    }
+  }
+
   // 大文字・小文字だけがちがう名前（Print → print、createcanvas → createCanvas）
   if (error.type === 'NameError') {
     const fix = suggestNameFix(code, error);
@@ -488,12 +505,27 @@ export function explainError(info, code = '') {
   return lines.join('\n');
 }
 
+/** 「·」と、Tab キー・スペースの数の対応（字下げのエラーの説明にそえる） */
+const INDENT_LEGEND = '   （· はスペース 1 つ。字下げ 4 文字 ＝ スペース 4 つ ＝ Tab キー 1 回。Shift + Tab で 1 段もどる）';
+
 /** 行頭の空白を「·」（タブは「→」）にして見せる */
 function showIndent(text) {
   const lead = text.match(/^[ \t]*/)[0];
   return lead.replace(/ /g, '·').replace(/\t/g, '→   ') + text.slice(lead.length);
 }
 
+
+/**
+ * 字下げのエラーの、本当の原因らしい行（その行だけ字下げが前後とちがう行）
+ * Python は、字下げを忘れた行の「次の行」をエラーにすることがあるので、エラーの行とその前の行を見る
+ */
+function indentCulprit(info, code) {
+  const all = code.replace(/\r/g, '').split('\n');
+  const at = info.line - 1;
+  let prev = at - 1;
+  while (prev >= 0 && !all[prev].trim()) prev--;
+  return findIndentOutliers(code.replace(/\r/g, '')).find(o => o.line === at || o.line === prev) || null;
+}
 
 /**
  * 字下げのエラーを、空白の数が見える形で説明する
@@ -504,6 +536,22 @@ function explainIndent(info, code) {
   const at = info.line - 1;
   const target = all[at];
   if (target === undefined) return null;
+  const culprit = indentCulprit(info, code);
+  if (culprit && culprit.line !== at) {
+    // エラーの行ではなく、その前の行がずれている（字下げを忘れた行のあとで、中身が終わったとみなされた）
+    const before = all[culprit.line - 1] !== undefined ? culprit.line - 1 : -1;
+    const shown = [];
+    if (before >= 0 && all[before].trim()) shown.push(`   ${before + 1} 行目｜${showIndent(all[before])}`);
+    shown.push(`   ${culprit.line + 1} 行目｜${showIndent(all[culprit.line])}　← ここだけ字下げ ${culprit.indent} 文字`);
+    shown.push(`   ${info.line} 行目｜${showIndent(target)}`);
+    shown.push(INDENT_LEGEND);
+    return {
+      shown,
+      hint: `エラーは ${info.line} 行目ですが、原因は ${culprit.line + 1} 行目です。${culprit.line + 1} 行目だけ字下げが ${describeIndent(culprit.indent)}で、前後の行は ${describeIndent(culprit.expected)}です。`
+        + `Python は ${culprit.line + 1} 行目で上のまとまりが終わったと考えるので、次の ${info.line} 行目の字下げがおかしい、と言っています。`
+        + `${culprit.line + 1} 行目の頭で ${culprit.expected % 4 === 0 && culprit.expected ? `Tab キーを ${culprit.expected / 4} 回押して` : `スペースを ${culprit.expected} つ入れて`}、前後の行とそろえましょう。`,
+    };
+  }
   let prev = at - 1;
   while (prev >= 0 && !all[prev].trim()) prev--;
   const shown = [];
@@ -511,6 +559,7 @@ function explainIndent(info, code) {
   shown.push(target.trim()
     ? `   ${info.line} 行目｜${showIndent(target)}　← 字下げ ${indentWidth(target)} 文字`
     : `   ${info.line} 行目｜（中身の行がありません）`);
+  shown.push(INDENT_LEGEND);
   const message = info.message || '';
   const after = message.match(/after '?(\w+)'? statement on line (\d+)/);
   let hint;
@@ -518,11 +567,11 @@ function explainIndent(info, code) {
     hint = 'タブ（→）と空白（·）がまざっています。字下げは空白 4 つずつにそろえましょう（「字下げ」ボタンでも直せます）。';
   } else if (after || /expected an indented block/.test(message)) {
     const head = after ? `${after[2]} 行目の ${after[1]} ` : '上の「:」で終わる行';
-    hint = `${head}の中身は、その行より 4 文字（····）下げて書きます。中身が何も無いなら pass と書きます。`;
+    hint = `${head}の中身は、その行より 4 文字（····、Tab キー 1 回）下げて書きます。中身が何も無いなら pass と書きます。`;
   } else if (/unexpected indent/.test(message)) {
     hint = `前の行より深く下げています（· の数をくらべましょう）。前の行が「:」で終わっていないなら、同じ深さにそろえます。`;
   } else if (/unindent does not match/.test(message)) {
-    hint = '上のどの行の字下げ（0・4・8 … 文字）ともそろっていません。· の数を 4 の倍数にそろえましょう。';
+    hint = '上のどの行の字下げ（0・4・8 … 文字＝Tab キー 0・1・2 … 回）ともそろっていません。· の数を 4 の倍数にそろえましょう。';
   } else {
     hint = '字下げ（行のはじめの空白）がずれています。· の数をそろえましょう。同じまとまりの行は、同じ数だけ下げます。';
   }

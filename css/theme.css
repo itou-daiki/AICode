@@ -999,7 +999,8 @@ input[type='range'] { accent-color: var(--c-accent); }
 }
 
 /* 補完 */
-.inline-suggestion { color: var(--c-ink-3); font-style: italic; }
+/* 補完の薄い字。コードと同じ等幅の字で、カーソルのすぐうしろに並べる（斜体にすると字の位置がずれて見える） */
+.inline-suggestion { color: var(--c-ink-3); opacity: 0.75; font-family: inherit; font-style: normal; white-space: pre; pointer-events: none; }
 .code-completion-popup {
   position: absolute;
   z-index: 60;
@@ -1570,13 +1571,13 @@ button.indent-demo-line:focus-visible { outline: 2px solid var(--c-mark); outlin
 .namefix-skip:hover, .namefix-skip:focus-visible { background: var(--c-paper-3); }
 
 /* 行番号の左のつまみ（linedrag.js）。ふだんは薄く、行に重ねると濃く */
-.cm-drag-gutter { width: 14px; }
+.cm-drag-gutter { width: 16px; }
 .cm-drag-handle {
   display: inline-block;
-  width: 14px;
-  color: var(--c-ink-3);
-  opacity: 0.6;
-  font-size: 10px;
+  width: 16px;
+  color: var(--c-ink-2);
+  opacity: 0.75;
+  font-size: 11px;
   letter-spacing: -3px;
   text-align: center;
   cursor: grab;
@@ -1600,3 +1601,18 @@ button.indent-demo-line:focus-visible { outline: 2px solid var(--c-mark); outlin
 }
 .cm-drop-before::before { top: -1px; }
 .cm-drop-after::after { bottom: -1px; }
+
+/* その行だけ字下げが前後とちがう行（indentcheck.js）。行のはじめに朱の太い罫、行を薄い朱で塗る */
+.cm-indent-outlier {
+  background: linear-gradient(var(--c-mark), var(--c-mark)) no-repeat 0 0 / 4px 100%, rgba(192, 57, 43, 0.12);
+}
+.indent-chip { border-width: 2px; }
+.indent-chip-note { padding: 0 0.6em; color: var(--c-mark-deep); font-weight: 700; white-space: nowrap; }
+
+/* 行番号もつかんで動かせる（押しただけでは動かない） */
+.CodeMirror-linenumber { cursor: grab; }
+
+/* コードの字の大きさ（− 100% ＋） */
+.code-zoom { display: inline-flex; align-items: center; gap: 0; margin-right: var(--sp-1); }
+.code-zoom .tool-btn { min-width: 1.8em; justify-content: center; font-weight: 700; }
+.code-zoom-value { font-family: var(--font-mono); font-size: var(--text-2xs); min-width: 3.2em !important; color: var(--c-ink-2); }

@@ -8,6 +8,7 @@ import { DEMOS } from './tips-demos.js';
 import { attachBlockScope, enclosingHeaders } from './blockscope.js';
 import { attachHalfWidth } from './halfwidth.js';
 import { attachLineDrag } from './linedrag.js';
+import { attachIndentCheck } from './indentcheck.js';
 import { urlWithCode, makeEditorFriendly } from './ui.js';
 
 /* ============================================================
@@ -169,6 +170,7 @@ function playground(slot) {
   attachBlockScope(cm);
   attachHalfWidth(cm);
   attachLineDrag(cm);
+  attachIndentCheck(cm);
   makeEditorFriendly(cm, '字下げを確かめるエディタ');
 
   const describe = () => {

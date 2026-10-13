@@ -13,7 +13,7 @@ import { CodeCompletionEngine } from './completion.js';
 import { autoIndent, formatCode } from './pyformat.js';
 import {
   initSidebar, initTabs, initMaximize, toast, confirmDialog, debounce, showFix, bootPython,
-  makeEditorFriendly, bindRunShortcut, addTextSizeControl, safeStorage,
+  makeEditorFriendly, bindRunShortcut, addTextSizeControl, safeStorage, addCodeZoom,
 } from './ui.js';
 import { EDITOR_CONFIG } from './config.js';
 import { attachHalfWidth, addHalfWidthControl } from './halfwidth.js';
@@ -41,6 +41,7 @@ import {
 import { attachBlockScope, showBlockAt } from './blockscope.js';
 import { attachNameFix } from './namefix.js';
 import { attachLineDrag } from './linedrag.js';
+import { attachIndentCheck } from './indentcheck.js';
 import * as ai from './ai.js';
 import { icon, iconHtml, setIconLabel } from './icons.js';
 
@@ -1308,7 +1309,9 @@ async function init() {
     pyScope = attachBlockScope(editorPy);
     attachNameFix(editorPy);
     attachLineDrag(editorPy);
+    attachIndentCheck(editorPy);
     makeEditorFriendly(editorKtph, '共通テスト用プログラム表記（読むだけ）');
+    addCodeZoom([editorPy, editorKtph], $('code-undo').parentElement);
 
     editorPy.on('change', () => {
       // コードを書きかえたら、記録と合わなくなるのでステップ実行を終える

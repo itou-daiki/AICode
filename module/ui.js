@@ -12,6 +12,7 @@ import { PYODIDE_CONFIG } from './config.js';
 //   bootPython()    … Python（Pyodide）を、時間切れと再挑戦つきで読みこむ
 //   makeEditorFriendly() … コードエディタを、キーボードと読み上げでも使いやすくする
 //   bindRunShortcut() … Ctrl/⌘+Enter で「実行」
+//   addCodeZoom()   … コードの区画の字を ＋ − で大きく・小さくする
 //   initTextSize()  … 字の大きさ（後ろの席・投影向けに大きくできる）。読みこむと自動で戻す
 //   safeStorage     … localStorage の代わり。保存が使えない端末（学校の設定・プライベート閲覧）でも止まらない
 
@@ -787,4 +788,64 @@ export function addTextSizeControl(container) {
 if (typeof document !== 'undefined') {
   const saved = safeStorage.get(TEXT_SIZE_KEY);
   if (saved && saved !== 'normal') applyTextSize(saved);
+}
+
+/* ============================================================
+ * 12. コードの字の大きさ（＋ −）
+ * ========================================================== */
+
+const CODE_ZOOM_KEY = 'easycode_code_zoom';
+const CODE_ZOOMS = [80, 90, 100, 115, 130, 150, 175, 200];
+
+/**
+ * コードの区画の見出しに「− 100% ＋」を置き、エディタの字を大きく・小さくする（全ページで同じ大きさを覚える）
+ * @param {object[]} editors CodeMirror（いっしょに大きさを変えるもの）
+ * @param {HTMLElement} tools ボタンを置く場所（区画の見出しの道具の列）
+ */
+export function addCodeZoom(editors, tools) {
+  if (!tools || !editors.length) return;
+  let zoom = Number(safeStorage.get(CODE_ZOOM_KEY)) || 100;
+  if (!CODE_ZOOMS.includes(zoom)) zoom = 100;
+
+  const group = document.createElement('span');
+  group.className = 'code-zoom';
+  group.setAttribute('role', 'group');
+  group.setAttribute('aria-label', 'コードの字の大きさ');
+  const make = (text, label) => {
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.className = 'tool-btn';
+    b.textContent = text;
+    b.title = label;
+    b.setAttribute('aria-label', label);
+    return b;
+  };
+  const smaller = make('−', 'コードの字を小さくする');
+  const value = make('', 'コードの字を元の大きさ（100%）にもどす');
+  value.classList.add('code-zoom-value');
+  const larger = make('＋', 'コードの字を大きくする');
+  group.append(smaller, value, larger);
+  tools.prepend(group);
+
+  const apply = () => {
+    for (const cm of editors) {
+      // .CodeMirror の字の大きさ（--text-sm）に倍率をかける。字下げの塗りやまとまりの罫は ch で決めているので、いっしょに大きくなる
+      cm.getWrapperElement().style.fontSize = zoom === 100 ? '' : `calc(var(--text-sm) * ${zoom / 100})`;
+      cm.refresh();
+    }
+    value.textContent = `${zoom}%`;
+    smaller.disabled = zoom === CODE_ZOOMS[0];
+    larger.disabled = zoom === CODE_ZOOMS[CODE_ZOOMS.length - 1];
+    safeStorage.set(CODE_ZOOM_KEY, String(zoom));
+  };
+  const step = (dir) => {
+    const i = CODE_ZOOMS.indexOf(zoom) + dir;
+    if (i < 0 || i >= CODE_ZOOMS.length) return;
+    zoom = CODE_ZOOMS[i];
+    apply();
+  };
+  smaller.addEventListener('click', () => step(-1));
+  larger.addEventListener('click', () => step(1));
+  value.addEventListener('click', () => { zoom = 100; apply(); });
+  apply();
 }

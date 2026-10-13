@@ -171,10 +171,12 @@ export function attachLineDrag(cm) {
   /** 動かさずにやめる（マウスがエディタの外で離された・Esc・別のところへ移った） */
   const cancel = () => {
     if (!drag) return;
+    try { wrapper.releasePointerCapture(drag.pointerId); } catch { /* もう離れている */ }
     clearInterval(scrollTimer);
     clearMarks();
     drag = null;
     wrapper.classList.remove('is-line-dragging');
+    window.removeEventListener('pointermove', onMove, true);
     window.removeEventListener('pointerup', onUp, true);
     window.removeEventListener('pointercancel', cancel, true);
     window.removeEventListener('blur', cancel);
@@ -183,43 +185,65 @@ export function attachLineDrag(cm) {
   const onKey = (e) => { if (e.key === 'Escape') { e.preventDefault(); cancel(); } };
   const onUp = (e) => {
     if (!drag || e.pointerId !== drag.pointerId) return;
-    const { from, to, before, generation, hadFocus } = drag;
+    const { from, to, before, generation, hadFocus, started, line, onNumber } = drag;
     cancel();
+    if (!started) {
+      // 行番号を押しただけなら、その行を選ぶ（CodeMirror のふだんの動きと同じ）
+      if (onNumber) {
+        const end = line + 1 < cm.lineCount() ? { line: line + 1, ch: 0 } : { line, ch: cm.getLine(line).length };
+        cm.setSelection({ line, ch: 0 }, end);
+        cm.focus();
+      }
+      return;
+    }
     // つかんでいるあいだにコードが変わったら（ブロックからの同期など）、古い行番号では動かさない
     if (before !== null && cm.changeGeneration() === generation) applyMove(cm, from, to, before);
     // 書いている途中だったときだけエディタに戻る（タブレットで画面のキーボードが出ないように）
     if (hadFocus) cm.focus();
   };
 
+  // つまみ（⋮⋮）と行番号の列をつかめる。押しただけでは動かさず、少し動かしてから行を運びはじめる
+  const START_DISTANCE = 4;
   wrapper.addEventListener('pointerdown', (e) => {
-    const handle = e.target.closest && e.target.closest('.cm-drag-handle');
-    if (!handle) return;
+    const grip = e.target.closest && e.target.closest('.cm-drag-handle, .CodeMirror-linenumber');
+    if (!grip || locked() || e.button !== 0 || !e.isPrimary) return;
+    // 指で触るときは、つまみ（⋮⋮）だけでつかむ。行番号の上から始めた指の動きは、ふつうのスクロールにする
+    const onNumber = grip.classList.contains('CodeMirror-linenumber');
+    if (onNumber && e.pointerType === 'touch') return;
     e.preventDefault();
     e.stopPropagation();
-    if (locked() || e.button !== 0 || !e.isPrimary) return;
     const line = cm.lineAtHeight(e.clientY, 'window');
     const { from, to } = rangeFor(cm, line);
-    drag = { from, to, before: null, marks: [], pointerId: e.pointerId, generation: cm.changeGeneration(), hadFocus: cm.hasFocus() };
-    // 指やマウスがエディタの外に出ても、離すまで追いかける
-    try { handle.setPointerCapture(e.pointerId); } catch { /* 取れなくても、window で離したことを受け取る */ }
+    drag = {
+      from, to, before: null, marks: [], pointerId: e.pointerId, startY: e.clientY, started: false, line, onNumber,
+      generation: cm.changeGeneration(), hadFocus: cm.hasFocus(),
+    };
+    // つかんだ印は、行を描きなおすと消えてしまう（指で触ったときは、そこで追えなくなる）。
+    // 消えないエディタ全体で追いかける
+    try { wrapper.setPointerCapture(e.pointerId); } catch { /* 取れなくても、window で受け取る */ }
+    window.addEventListener('pointermove', onMove, true);
     window.addEventListener('pointerup', onUp, true);
     window.addEventListener('pointercancel', cancel, true);
     window.addEventListener('blur', cancel);
     window.addEventListener('keydown', onKey, true);
-    wrapper.classList.add('is-line-dragging');
-    showDrag();
   }, true);
-  // CodeMirror の「行番号を押すと行を選ぶ」を、つまみの上では起こさない
+  // CodeMirror の「行番号を押すと行を選ぶ」を、つかめるところでは起こさない
   wrapper.addEventListener('mousedown', (e) => {
-    if (e.target.closest && e.target.closest('.cm-drag-handle')) { e.preventDefault(); e.stopPropagation(); }
+    if (locked()) return;
+    if (e.target.closest && e.target.closest('.cm-drag-handle, .CodeMirror-linenumber')) { e.preventDefault(); e.stopPropagation(); }
   }, true);
 
-  window.addEventListener('pointermove', (e) => {
+  function onMove(e) {
     if (!drag || e.pointerId !== drag.pointerId) return;
+    if (!drag.started) {
+      if (Math.abs(e.clientY - drag.startY) < START_DISTANCE) return;
+      drag.started = true;
+      wrapper.classList.add('is-line-dragging');
+    }
     drag.before = boundaryAt(e.clientY);
     autoScroll(e.clientY);
     showDrag();
-  });
+  }
 
   /* ---------- キーボード（Alt + ↑ / ↓） ---------- */
   const step = (direction) => (editor) => {

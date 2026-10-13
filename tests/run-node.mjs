@@ -20,6 +20,7 @@ import { tipForError } from '../module/ui.js';
 import { findNameMistakes, suggestName, registerNames } from '../module/namefix.js';
 import { suggestFix } from '../module/pyrun.js';
 import { moveLines, blockRange } from '../module/linedrag.js';
+import { findIndentOutliers } from '../module/indentcheck.js';
 import {
   indentTrace, indentIfSteps, indentNestedSteps, indentDefSteps, swapSteps, inputSteps, resetSteps, returnSteps, loopSteps, equalSteps,
 } from '../module/tips-demos.js';
@@ -1338,6 +1339,26 @@ section('字下げのまとまりと、ステップの注釈');
   equal('行: 中身の行は 1 行', br(ifElse, 2), '2-2');
   equal('行: try と except', br(['try:', '    f()', 'except ValueError:', '    g()', 'finally:', '    h()', 'z'], 0), '0-5');
   equal('行: for だけなら中身まで', br(['for i in a:', '    p(i)', 'q()'], 0), '0-1');
+  // その行だけ字下げがちがう行
+  const out = (code) => findIndentOutliers(code).map(o => `${o.line + 1}:${o.indent}>${o.expected}`).join(',');
+  const sketch = 'def setup():\n    createCanvas(400, 400)\n\ndef draw():\n    fill(255, 0, 0, 50)\ncircle(200, 150, 150)\n    fill(0, 255, 0, 50)\n    circle(150, 250, 150)';
+  equal('字下げ: 1 行だけ浅い行を見つける', out(sketch), '6:0>4');
+  equal('字下げ: 1 行だけ深い行', out('a = 1\n    b = 2\nc = 3'), '2:4>0');
+  equal('字下げ: 1 行目からの字下げ', out('    a = 1\nb = 2'), '1:4>0');
+  equal('字下げ: else は見出しなので問題なし', out('if x:\n    a\nelse:\n    b'), '');
+  equal('字下げ: かっこの続きは見ない', out('f(1,\n      2)\nc = 3\nd = 4'), '');
+  equal('字下げ: 行末の \\ の続きは見ない', out('x = 1 + \\\n      2\ny = 3'), '');
+  equal('字下げ: まとまりの終わりは問題なし', out('for i in a:\n    b\nc\nd'), '');
+  equal('字下げ: 何行にもわたる def の見出し', out('def f(a,\n      b):\n    return a\nx = 1'), '');
+  equal('字下げ: 何行にもわたる if の見出し', out('if (a and\n        b):\n    print(1)\nprint(2)'), '');
+  equal('字下げ: \\ で続く if の見出し', out('if a and \\\n   b:\n    x = 1\ny = 2'), '');
+  equal('字下げ: 文字列の中の """ は数えない', out("s = 'a\"\"\"b'\nfor i in a:\n    b\nc\n    d"), '4:0>4');
+  equal('字下げ: タブの行は、前の行のタブでそろえる', findIndentOutliers('if a:\n\tx = 1\ny = 2\n\tz = 3').map(o => JSON.stringify(o.lead)).join(','), '"\\t"');
+  equal('整形: 1 行だけ字下げを忘れた行は、前後にそろえる（あとの行を外に出さない）', formatCode(sketch).split('\n').slice(5, 8).join('|'), '    circle(200, 150, 150)|    fill(0, 255, 0, 50)|    circle(150, 250, 150)');
+  equal('字下げをそろえる: 同じく前後にそろえる', autoIndent(sketch).split('\n')[5], '    circle(200, 150, 150)');
+  equal('字下げをそろえる: 浅く書いたコメントで、下の行を外に出さない', autoIndent('def f():\n    if a:\n        x()\n  # c\n    y()').split('\n')[4], '    y()');
+  const culprit = suggestFix(sketch, { type: 'IndentationError', message: 'unexpected indent', line: 7 });
+  equal('字下げ: エラーは次の行でも、原因の行を直す', culprit && culprit.label, '6 行目を 4 文字にそろえる');
   const h = variableHistory(steps, 7);
   equal('変数: 出てきた順', h.order.join(','), 'total,n');
   equal('変数: 値の移りかわり', h.history.total.join('→'), '0→3');

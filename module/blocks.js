@@ -13,7 +13,7 @@ import { showBlockAt } from './blockscope.js';
 import {
   confirmDialog, toast, initSidebar, initTabs, initMaximize,
   takeCodeFromUrl, makeShareUrl, showShareDialog, showFix, safeStorage, bootPython,
-  makeEditorFriendly, bindRunShortcut, addTextSizeControl,
+  makeEditorFriendly, bindRunShortcut, addTextSizeControl, addCodeZoom,
 } from './ui.js';
 import { addHalfWidthControl } from './halfwidth.js';
 import { addTipsLinks } from './tipslinks.js';
@@ -543,6 +543,7 @@ async function init() {
       onStatus: showSyncState,
     });
     makeEditorFriendly(bench.editor, 'Python のコード');
+    addCodeZoom([bench.editor], $('code-undo').parentElement);
     bindRunShortcut($('run-btn'));
 
     // はじめて開いた人には、何から始めればよいかを出力欄で一言だけ伝える
