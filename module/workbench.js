@@ -17,6 +17,8 @@ import { CodeCompletionEngine } from './completion.js';
 import { debounce, throttle, toast, safeStorage } from './ui.js';
 import { attachHalfWidth } from './halfwidth.js';
 import { attachBlockScope } from './blockscope.js';
+import { attachNameFix, registerNames } from './namefix.js';
+import { attachLineDrag } from './linedrag.js';
 
 const BLOCKS_TO_CODE_MS = 80;
 const CODE_TO_BLOCKS_MS = 900;
@@ -68,6 +70,8 @@ export function createWorkbench(options) {
     smartIndent: true,
     electricChars: true,
     lineWrapping: false,
+    // 選んだ字そのものに色をつける（字下げの塗りやまとまりの罫の上でも、選んだ範囲が見える）
+    styleSelectedText: true,
     rulers: [4, 8, 12, 16, 20, 24, 28, 32].map(column => ({
       column, className: 'cm-indent-guide', lineStyle: 'solid',
     })),
@@ -91,6 +95,11 @@ export function createWorkbench(options) {
   attachHalfWidth(editor);
   // 字下げの段を塗り、カーソルのいるまとまりの範囲に罫を引く
   const blockScope = attachBlockScope(editor);
+  // createcanvas → createCanvas のように、大文字・小文字だけちがう名前に、押せば直る候補を出す
+  registerNames(extraApi);
+  attachNameFix(editor);
+  // 行番号の左のつまみで、行（見出しなら中身ごと）をドラッグして動かす
+  attachLineDrag(editor);
 
   /* ---------- ブロックエディタ ---------- */
   defineBlocks({ drawing });

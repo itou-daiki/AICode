@@ -63,13 +63,13 @@ function watchPointer() {
   const canvas = $('canvas');
   if (!canvas) return;
 
-  // キャンバスは表示上の大きさと中の大きさが違うことがあるので、比で直す
+  // 縁（border）の分を引いてから、表示上の大きさと中の大きさの比で直す
   const toCanvas = (event) => {
     const box = canvas.getBoundingClientRect();
-    if (!box.width || !box.height) return { x: 0, y: 0 };
+    if (!canvas.clientWidth || !canvas.clientHeight) return { x: 0, y: 0 };
     return {
-      x: Math.round((event.clientX - box.left) * (canvas.width / box.width)),
-      y: Math.round((event.clientY - box.top) * (canvas.height / box.height)),
+      x: Math.round((event.clientX - box.left - canvas.clientLeft) * (canvas.width / canvas.clientWidth)),
+      y: Math.round((event.clientY - box.top - canvas.clientTop) * (canvas.height / canvas.clientHeight)),
     };
   };
 
@@ -616,16 +616,17 @@ function setupControls() {
   $('clear-btn').addEventListener('click', async () => {
     const ok = await confirmDialog({
       title: 'すべて消しますか？',
-      message: 'コード・ブロック・キャンバスがすべて消えます。この操作は元に戻せません。',
+      message: 'コードとブロックを消して、最初の形（setup と draw だけ）に戻します。キャンバスも消えます。',
       okLabel: '全消去',
     });
     if (!ok) return;
     stopAnimation(null);
     clearCanvas();
-    bench.clearAll();
+    // 空にすると何も描けないので、いつでも書きはじめられる最初の形に戻す
+    bench.setCode(STARTER_CODE);
     $('output').textContent = '';
     setCanvasState('停止中', false);
-    toast('すべて消しました');
+    toast('最初の形に戻しました。「元に戻す」で消す前に戻せます', 3600);
   });
 
   $('share-btn').addEventListener('click', async () => {

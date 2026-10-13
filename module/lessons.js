@@ -39,6 +39,8 @@ import {
   explainLine, annotateStep, variableHistory,
 } from './stepview.js';
 import { attachBlockScope, showBlockAt } from './blockscope.js';
+import { attachNameFix } from './namefix.js';
+import { attachLineDrag } from './linedrag.js';
 import * as ai from './ai.js';
 import { icon, iconHtml, setIconLabel } from './icons.js';
 
@@ -150,6 +152,8 @@ function editorOptions(mode, readOnly) {
     electricChars: true,
     indentWithTabs: false,
     readOnly: readOnly ? 'nocursor' : false,
+    // 選んだ字そのものに色をつける（字下げの塗りやまとまりの罫の上でも、選んだ範囲が見える）
+    styleSelectedText: true,
     rulers: [4, 8, 12, 16, 20, 24, 28, 32].map(column => ({
       column, className: 'cm-indent-guide', lineStyle: 'solid',
     })),
@@ -1302,6 +1306,8 @@ async function init() {
     makeEditorFriendly(editorPy, 'Python のコード');
     attachHalfWidth(editorPy);
     pyScope = attachBlockScope(editorPy);
+    attachNameFix(editorPy);
+    attachLineDrag(editorPy);
     makeEditorFriendly(editorKtph, '共通テスト用プログラム表記（読むだけ）');
 
     editorPy.on('change', () => {

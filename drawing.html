@@ -112,18 +112,19 @@
 
     /* キャンバス */
     #canvas-body {
-      display: flex; align-items: center; justify-content: center;
+      display: flex;
       padding: var(--sp-3); background: var(--c-surface-3); overflow: auto;
     }
     #canvas {
-      /* パネルからはみ出さない（縦にも収める） */
-      max-height: 100%;
-      object-fit: contain;
+      /* createCanvas で決めた大きさのまま（1 px = 1 px）で見せる。縮めると、座標と見た目の大きさが
+         食いちがって分かりにくい。区画より大きいときは、区画をスクロールして見る。
+         margin: auto で、小さいときは真ん中に置き、大きいときも左上から見られるようにする */
+      flex: none;
+      margin: auto;
       background: #fff;
       border: 1px solid var(--c-line-2);
       border-radius: var(--r-md);
       box-shadow: var(--sh-2);
-      max-width: 100%;
     }
 
     #output { flex: 1 1 auto; }
@@ -135,6 +136,8 @@
       #workbench { flex-direction: column; }
       .stage-column { min-height: 460px; }
       .side-column { flex: 1 1 auto; }
+      /* 縦に積むときは区画の高さが決まらないので、大きなキャンバスは区画の中でスクロールさせる */
+      #canvas-body { max-height: 75vh; }
     }
   </style>
 </head>
@@ -358,6 +361,7 @@
   <script src="https://cdn.jsdelivr.net/npm/codemirror@5.65.16/mode/python/python.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/codemirror@5.65.16/addon/comment/comment.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/codemirror@5.65.16/addon/display/rulers.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/codemirror@5.65.16/addon/selection/mark-selection.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/blockly@11.2.1/blockly_compressed.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/blockly@11.2.1/blocks_compressed.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/blockly@11.2.1/python_compressed.js"></script>

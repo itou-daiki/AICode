@@ -1,5 +1,6 @@
 // module/pyrun.js
-import { suggestSyntaxFix, pointOutFullWidth } from './pyfix.js';
+import { suggestSyntaxFix, pointOutFullWidth, scanLine } from './pyfix.js';
+import { suggestName } from './namefix.js';
 // 学習者のコードを走らせて、結果とエラーを受け取るところ。
 //
 // ここに集めたのには理由がある。
@@ -279,6 +280,37 @@ export function withBrowserInput(code) {
  * エラーを、押せば直せる形にする
  * ========================================================== */
 
+/** NameError の名前が、大文字・小文字だけちがう名前なら、押せば直る案内を作る */
+function suggestNameFix(code, error) {
+  const name = error.name || guessName(error);
+  if (!name) return null;
+  const right = suggestName(name, code);
+  if (!right) return null;
+  const lines = code.split('\n');
+  const at = error.line - 1;
+  if (at < 0 || at >= lines.length) return null;
+  // その行の、同じ名前だけを置きかえる。文字列とコメントの中、. のうしろ（中身の名前）は触らない
+  const text = lines[at];
+  const kinds = scanLine(text);
+  const escaped = name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  let out = '';
+  let last = 0;
+  for (const m of text.matchAll(new RegExp(`(?<![\\w.])${escaped}(?!\\w)`, 'g'))) {
+    if (kinds[m.index] !== 'code') continue;
+    out += text.slice(last, m.index) + right;
+    last = m.index + name.length;
+  }
+  if (!last) return null;
+  const fixed = [...lines];
+  fixed[at] = out + text.slice(last);
+  return {
+    label: `${name} を ${right} に直す`,
+    why: `「${name}」という名前はありません。「${right}」のことかもしれません。Python では大文字と小文字は別の字です。`,
+    code: fixed.join('\n'),
+    line: error.line,
+  };
+}
+
 /**
  * エラーから「1 行足せば直る」直し方を探す
  *
@@ -295,6 +327,12 @@ export function withBrowserInput(code) {
  */
 export function suggestFix(code, error) {
   if (!error || !error.line) return null;
+
+  // 大文字・小文字だけがちがう名前（Print → print、createcanvas → createCanvas）
+  if (error.type === 'NameError') {
+    const fix = suggestNameFix(code, error);
+    if (fix) return fix;
+  }
 
   // 書き方のまちがい（JavaScript の癖・全角・: の書きわすれ・= と ==）
   if (error.type !== 'UnboundLocalError') return suggestSyntaxFix(code, error);

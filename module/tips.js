@@ -7,6 +7,7 @@
 import { DEMOS } from './tips-demos.js';
 import { attachBlockScope, enclosingHeaders } from './blockscope.js';
 import { attachHalfWidth } from './halfwidth.js';
+import { attachLineDrag } from './linedrag.js';
 import { urlWithCode, makeEditorFriendly } from './ui.js';
 
 /* ============================================================
@@ -155,7 +156,7 @@ function playground(slot) {
     return;
   }
   const cm = CodeMirror.fromTextArea(textarea, {
-    mode: 'python', lineNumbers: true, indentUnit: 4, tabSize: 4, indentWithTabs: false,
+    mode: 'python', lineNumbers: true, indentUnit: 4, tabSize: 4, indentWithTabs: false, styleSelectedText: true,
     extraKeys: {
       Tab: (editor) => {
         if (editor.somethingSelected()) editor.indentSelection('add');
@@ -167,6 +168,7 @@ function playground(slot) {
   cm.setValue(PLAYGROUND_CODE);
   attachBlockScope(cm);
   attachHalfWidth(cm);
+  attachLineDrag(cm);
   makeEditorFriendly(cm, '字下げを確かめるエディタ');
 
   const describe = () => {

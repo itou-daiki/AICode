@@ -172,7 +172,9 @@ export function check() {
     const r = canvas.getBoundingClientRect();
     const holder = canvas.parentElement.getBoundingClientRect();
     if (r.width < 80 || r.height < 80) issues.push(`キャンバスが小さすぎる（${Math.round(r.width)}×${Math.round(r.height)}）`);
-    if (r.right > holder.right + 1 || r.bottom > holder.bottom + 1) issues.push('キャンバスが区画からはみ出す');
+    // 実物大で見せるので、区画をスクロールできれば大きくてもよい
+    const scrolls = /(auto|scroll)/.test(getComputedStyle(canvas.parentElement).overflow);
+    if (!scrolls && (r.right > holder.right + 1 || r.bottom > holder.bottom + 1)) issues.push('キャンバスが区画からはみ出す');
   }
 
   return [...new Set(issues)];

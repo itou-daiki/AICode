@@ -877,7 +877,14 @@ input[type='range'] { accent-color: var(--c-accent); }
   font-variant-numeric: tabular-nums;
 }
 .CodeMirror-cursor { border-left: 2px solid var(--c-mark); }
-.CodeMirror-selected { background: var(--c-mark-faint) !important; }
+/* 選んだ範囲。朱（ステップ実行・まとまり）と見分けがつくよう、コードの数の色（藍）で塗る。
+   字そのもの（.CodeMirror-selectedtext）にも塗るので、字下げの塗りの上でも見える */
+.CodeMirror-selected { background: rgba(31, 78, 121, 0.16) !important; }
+.CodeMirror-focused .CodeMirror-selected { background: rgba(31, 78, 121, 0.26) !important; }
+/* 字下げの塗り（.cm-s-default .cm-indent-*）より強く効かせる */
+.CodeMirror .CodeMirror-line .CodeMirror-selectedtext { background: rgba(31, 78, 121, 0.22); }
+.CodeMirror-focused .CodeMirror-line .CodeMirror-selectedtext { background: rgba(31, 78, 121, 0.32); }
+.CodeMirror-line::selection, .CodeMirror-line *::selection { background: transparent; }
 .CodeMirror-activeline-background { background: var(--c-paper-3); }
 
 /* 字下げの目安。方眼の罫と同じ細さ */
@@ -1542,3 +1549,54 @@ button.indent-demo-line:focus-visible { outline: 2px solid var(--c-mark); outlin
 /* エラーの下に出す「くわしく」の案内 */
 .tip-note { margin: 0 var(--sp-2) var(--sp-2); font-size: var(--text-xs); }
 .tip-note a { color: var(--c-ink); font-weight: 700; text-decoration-color: var(--c-mark); text-underline-offset: 3px; }
+
+/* 大文字・小文字だけがちがう名前（namefix.js）。点線の下線と、行の後ろの「→ 正しい名前」の候補 */
+.cm-namefix { text-decoration: underline dotted var(--c-mark); text-decoration-thickness: 2px; text-underline-offset: 3px; }
+.namefix-box { display: inline-flex; gap: 0.4em; margin-left: 1.2em; vertical-align: baseline; }
+.namefix-chip {
+  display: inline-flex;
+  align-items: stretch;
+  border: 1px solid var(--c-mark);
+  background: var(--c-paper);
+  font-family: var(--font-sans);
+  font-size: var(--text-2xs);
+  line-height: 1.5;
+}
+.namefix-chip button { border: none; background: transparent; font: inherit; color: var(--c-ink); cursor: pointer; padding: 0 0.5em; }
+.namefix-apply s { color: var(--c-ink-3); }
+.namefix-apply b { color: var(--c-mark-deep); font-family: var(--font-mono); }
+.namefix-apply:hover, .namefix-apply:focus-visible { background: var(--c-mark-faint); }
+.namefix-skip { border-left: 1px solid var(--c-rule) !important; color: var(--c-ink-3) !important; }
+.namefix-skip:hover, .namefix-skip:focus-visible { background: var(--c-paper-3); }
+
+/* 行番号の左のつまみ（linedrag.js）。ふだんは薄く、行に重ねると濃く */
+.cm-drag-gutter { width: 14px; }
+.cm-drag-handle {
+  display: inline-block;
+  width: 14px;
+  color: var(--c-ink-3);
+  opacity: 0.6;
+  font-size: 10px;
+  letter-spacing: -3px;
+  text-align: center;
+  cursor: grab;
+  touch-action: none;
+  user-select: none;
+}
+.CodeMirror-code > div:hover .cm-drag-handle { opacity: 1; color: var(--c-ink); }
+.is-line-dragging, .is-line-dragging .cm-drag-handle { cursor: grabbing; }
+/* つかんでいる行と、入れる場所の朱の線 */
+.CodeMirror-linebackground.cm-drag-source { background: rgba(31, 78, 121, 0.14); }
+/* 行の塗り（いまの行・まとまり）に隠れないよう、行の上に重ねて描く */
+.cm-drop-before::before, .cm-drop-after::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: var(--c-mark);
+  z-index: 6;
+  pointer-events: none;
+}
+.cm-drop-before::before { top: -1px; }
+.cm-drop-after::after { bottom: -1px; }
