@@ -266,6 +266,7 @@ async function startStepMode() {
     // ステップ実行の間は、まとまりの罫をカーソルではなく「次に動く行」に合わせる
     bench.blockScope.pause(true);
     step.error = trace.error;
+    step.inputSpans = trace.input_spans || [];
     step.truncated = trace.truncated;
 
     step.missingInput = Boolean(trace.missing_input);
@@ -354,7 +355,7 @@ function showStep(index) {
     if (step.error) after += `\nエラー: ${step.error}`;
     if (step.truncated) after += '\n（記録できる回数の上限に達したため、記録を途中で止めました）';
   }
-  renderStepOutput($('output'), current.output || '', info.newOutput, { before, after });
+  renderStepOutput($('output'), current.output || '', info.newOutput, { before, after, inputSpans: step.inputSpans });
   renderStepCaption($('step-caption'), info, (n) => bench.editor.getLine(n - 1) || '');
 
   const line = info.next;

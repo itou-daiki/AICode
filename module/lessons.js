@@ -1019,6 +1019,7 @@ async function startStepMode() {
     showFix(null);
     if (pyScope) pyScope.pause(true);
     step.error = trace.error;
+    step.inputSpans = trace.input_spans || [];
     step.truncated = trace.truncated;
 
     $('step-panel').style.display = '';
@@ -1103,7 +1104,7 @@ function showStep(index) {
 
   const info = describeStep(step.list, step.index, { error: step.error, truncated: step.truncated });
   const after = step.index === step.list.length - 1 && step.error ? `\n${step.error}` : '';
-  renderStepOutput($('output'), state.output || '', info.newOutput, { after });
+  renderStepOutput($('output'), state.output || '', info.newOutput, { after, inputSpans: step.inputSpans });
   // 文に引くコードは、今見ている方（共通テスト表記か Python か）にそろえる
   const showingKtph = tabs.current() === 'ktph' && editorKtph;
   renderStepCaption($('step-caption'), info, (n) => (showingKtph

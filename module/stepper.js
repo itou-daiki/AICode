@@ -107,6 +107,8 @@ def _easycode_trace(source, inputs_json, max_steps, max_seconds=6.0):
     out = io.StringIO()
     steps = []
     state = {'stopped': False, 'start': time.time(), 'missing_input': False}
+    # input() に渡した値が、出力のどこに書かれたか（画面で「←キーボードから入力」の印を付けるため）
+    input_spans = []
 
     def fake_input(prompt=''):
         try:
@@ -117,7 +119,11 @@ def _easycode_trace(source, inputs_json, max_steps, max_seconds=6.0):
             # 足りなかったことを覚えておいて、あとで画面に出す。
             state['missing_input'] = True
             value = ''
-        out.write(str(prompt) + str(value) + '\\n')
+        out.write(str(prompt))
+        start = out.tell()
+        out.write(str(value))
+        input_spans.append([start, out.tell()])
+        out.write('\\n')
         return value
 
     namespace = {'__name__': '__main__', 'input': fake_input}
@@ -173,7 +179,8 @@ def _easycode_trace(source, inputs_json, max_steps, max_seconds=6.0):
         'output': out.getvalue(),
     })
 
-    return json.dumps({'steps': steps, 'error': error, 'truncated': state['stopped'], 'missing_input': state['missing_input']})
+    return json.dumps({'steps': steps, 'error': error, 'truncated': state['stopped'],
+                       'missing_input': state['missing_input'], 'input_spans': input_spans})
 `;
 
 let tracerReady = false;

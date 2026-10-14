@@ -22,8 +22,9 @@ import { attachLineDrag } from './linedrag.js';
 import { attachIndentCheck } from './indentcheck.js';
 
 const BLOCKS_TO_CODE_MS = 80;
-const CODE_TO_BLOCKS_MS = 900;
-const FLOWCHART_MS = 500;
+const CODE_TO_BLOCKS_MS = 1200;
+// 図を描くのは重い（0.2〜0.3 秒）。キーボードに慣れない人は打つ途中で手が止まるので、少し長めに待ってから描く
+const FLOWCHART_MS = 1200;
 const SAVE_MS = 1500;
 
 /**
@@ -326,11 +327,17 @@ export function createWorkbench(options) {
   /* ---------- フローチャート ---------- */
 
   const scheduleFlowchart = debounce(() => { renderFlowchart(); }, FLOWCHART_MS);
+  /** 図が見えていないあいだに、コードが変わったか（見えたときに描く） */
+  let flowDirty = false;
 
   /** 今のコードからフローチャートを描く */
   async function renderFlowchart(force = false) {
     const container = document.getElementById(flowchartId);
     if (!container) return;
+    // 図の区画が画面に出ていないときは描かない（描くのに 0.2〜0.3 秒かかり、打っている途中に固まる）。
+    // 区画が見えたときに、下の ResizeObserver から描き直す
+    if (!force && !container.getClientRects().length) { flowDirty = true; return; }
+    flowDirty = false;
 
     // 図が同じなら描き直さない（ここが一番重い処理）。
     // 中身の判定だけ先にして、描くのは flowview.js にまかせる。
@@ -435,7 +442,13 @@ export function createWorkbench(options) {
   // 入れ物そのものの大きさを見張る。
   const flowHost = document.getElementById(flowchartId)?.parentElement;
   if (typeof ResizeObserver !== 'undefined') {
-    if (flowHost) new ResizeObserver(debounce(() => fitFlowchart(), 120)).observe(flowHost);
+    if (flowHost) {
+      new ResizeObserver(debounce(() => {
+        // 隠れていたあいだにコードが変わっていたら、見えたこのときに描く
+        if (flowDirty && flowHost.getClientRects().length) renderFlowchart();
+        else fitFlowchart();
+      }, 120)).observe(flowHost);
+    }
     const blocklyHost = document.getElementById(blocklyId);
     // ResizeObserver の知らせは、大きさが決まったあとに来るので、その場で合わせ直してよい
     // （入れ物の大きさは CSS で決まっていて、中を変えても入れ物は変わらないので、繰り返しにならない）

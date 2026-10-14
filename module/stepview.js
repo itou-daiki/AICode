@@ -180,7 +180,7 @@ export function renderStepCaption(container, info, lineText) {
  * @param {string} newOutput このステップで増えた部分
  * @param {object} [extra] 前と後ろに添える文（入力が足りない、エラー など）
  */
-export function renderStepOutput(element, output, newOutput, { before = '', after = '' } = {}) {
+export function renderStepOutput(element, output, newOutput, { before = '', after = '', inputSpans = [] } = {}) {
   if (!element) return;
   element.replaceChildren();
   if (before) element.append(before);
@@ -190,15 +190,40 @@ export function renderStepOutput(element, output, newOutput, { before = '', afte
     empty.textContent = '（まだ出力はありません）';
     element.appendChild(empty);
   } else if (newOutput && output.endsWith(newOutput)) {
-    element.append(output.slice(0, output.length - newOutput.length));
+    const cut = output.length - newOutput.length;
+    appendWithInputs(element, output, 0, cut, inputSpans);
     const mark = document.createElement('mark');
     mark.className = 'step-output-new';
-    mark.textContent = newOutput;
+    appendWithInputs(mark, output, cut, output.length, inputSpans);
     element.appendChild(mark);
   } else {
-    element.append(output);
+    appendWithInputs(element, output, 0, output.length, inputSpans);
   }
   if (after) element.append(after);
+}
+
+/**
+ * output の from〜to を書き足す。input() に打った値の部分は、ふつうの実行と同じ印（.console-input）で包む
+ * @param {HTMLElement} element
+ * @param {string} output
+ * @param {number} from
+ * @param {number} to
+ * @param {number[][]} inputSpans [始め, 終わり] の並び（出力の中の位置）
+ */
+function appendWithInputs(element, output, from, to, inputSpans) {
+  let at = from;
+  for (const [start, end] of inputSpans || []) {
+    if (end <= at || start >= to) continue;
+    const s = Math.max(start, at);
+    const e = Math.min(end, to);
+    if (s > at) element.append(output.slice(at, s));
+    const mark = document.createElement('span');
+    mark.className = 'console-input';
+    mark.textContent = output.slice(s, e);
+    element.appendChild(mark);
+    at = e;
+  }
+  if (at < to) element.append(output.slice(at, to));
 }
 
 /** エディタごとの、いま付けている行の印 */
