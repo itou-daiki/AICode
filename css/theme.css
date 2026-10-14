@@ -1375,7 +1375,8 @@ dialog.dialog::backdrop { background: rgba(22, 24, 26, 0.45); }
   .topbar-end { order: 2; width: 100%; margin-left: 0; }
   .mode-switch { width: 100%; border-left: 0; border-top: 1px solid var(--c-rule); }
   .mode-switch a { flex: 1 1 0; min-width: 0; padding: var(--sp-1) 4px; align-items: center; text-align: center; }
-  .mode-switch a .label { font-size: var(--text-xs); white-space: nowrap; }
+  /* 字を大きくしても 4 つが 1 行に収まるよう、画面の幅で上限を決める（「コーディング」を途中で折らない） */
+  .mode-switch a .label { font-size: min(var(--text-xs), 3.4vw); white-space: nowrap; }
 }
 
 /* ------------------------------------------------------------

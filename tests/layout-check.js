@@ -263,3 +263,103 @@ export async function runAll() {
   }
   return results;
 }
+
+/** いま見えているコードのエディタ（02 は Python の方） */
+function mainEditor() {
+  const el = document.querySelector('#stage-python .CodeMirror') || document.querySelector('#panel-code .CodeMirror')
+    || document.querySelector('.CodeMirror');
+  return el && el.CodeMirror;
+}
+
+/** 長い行・名前の打ちまちがい・字下げのずれが入ったコード（行末に候補や案内が出る） */
+const BUSY_CODE = [
+  'def setup():',
+  '    createcanvas(400, 400)',
+  '    background(220)',
+  '',
+  'def draw():',
+  '    fill(255, 0, 0, 50)',
+  'circle(200, 150, 150)',
+  '    nofill()',
+  '    Print("とても長い行です。とても長い行です。とても長い行です。とても長い行です。とても長い行です。とても長い行です。")',
+  '    for i in range(3):',
+  '        if i > 0:',
+  '            circle(i * 10, i * 10, 20)',
+].join('\n');
+
+/**
+ * 字の大きさ・コードの拡大・長い行の候補・エラーの案内・ステップ実行など、
+ * あとから足した部品が出ている状態で調べる
+ * @returns {Promise<Object<string, string[]>>}
+ */
+export async function runExtras() {
+  const results = {};
+  const record = (state) => {
+    const found = check();
+    if (found.length) results[state] = found;
+  };
+  const page = location.pathname.split('/').pop() || 'index.html';
+  // 02 は、答えを書くまで実行できない問題があるので、自由記述で試す
+  if (page === 'lessons.html') await click(document.getElementById('free-coding'), 500);
+  const cm = mainEditor();
+  const before = cm ? cm.getValue() : null;
+
+  // 字の大きさ
+  const size = document.getElementById('text-size-select');
+  if (size) {
+    for (const value of ['large', 'xlarge']) {
+      size.value = value;
+      size.dispatchEvent(new Event('change'));
+      await sleep(700);
+      record(`字の大きさ ${value}`);
+    }
+    size.value = 'normal';
+    size.dispatchEvent(new Event('change'));
+    await sleep(400);
+  }
+
+  if (cm) {
+    // 長い行・候補・字下げの案内
+    cm.setValue(BUSY_CODE);
+    cm.setCursor({ line: 0, ch: 0 });
+    await sleep(900);
+    record('行末に候補と案内が出ている');
+
+    // コードの拡大（いちばん大きく）
+    const larger = document.querySelector('.code-zoom .tool-btn:last-child');
+    if (larger) {
+      for (let i = 0; i < 8; i++) larger.click();
+      await sleep(600);
+      record('コードの拡大 200%');
+      document.querySelector('.code-zoom-value')?.click();
+      await sleep(300);
+    }
+
+    // エラーの案内（押せば直るボタン・つまずき解説への案内）
+    const run = document.getElementById('run-btn');
+    if (run && !run.disabled && page !== 'tips.html') {
+      cm.setValue('total = 0\nprint(Totl)\n');
+      await sleep(300);
+      run.click();
+      await sleep(2500);
+      record('エラーの案内が出ている');
+    }
+
+    // ステップ実行
+    const stepBtn = document.getElementById('step-btn');
+    if (stepBtn && !stepBtn.disabled && (page === 'index.html' || page === 'lessons.html')) {
+      cm.setValue('total = 0\nfor n in [1, 2, 3]:\n    total = total + n\nprint(total)\n');
+      await sleep(300);
+      stepBtn.click();
+      await sleep(2500);
+      for (let i = 0; i < 4; i++) { document.getElementById('step-next')?.click(); await sleep(120); }
+      await sleep(400);
+      record('ステップ実行中');
+      if (page === 'index.html') stepBtn.click();
+      else document.getElementById('step-exit')?.click();
+      await sleep(600);
+    }
+    cm.setValue(before);
+  }
+  return results;
+}
