@@ -1039,8 +1039,16 @@ input[type='range'] { accent-color: var(--c-accent); }
   white-space: pre-wrap;
   word-break: break-word;
 }
-/* input() に打った値。プログラムが出した文字と見分けられるように赤字にする */
-.console .console-input { color: var(--c-mark); font-weight: 700; }
+/* input() に打った値。値はふつうの色のまま、後ろに赤字で「←キーボードから入力」と添える。
+   添え書きは CSS で出すので、実行結果の文字（答え合わせで比べる文字）には入らない */
+.console .console-input::after {
+  content: "　←キーボードから入力";
+  color: var(--c-mark);
+  font-family: var(--font-sans, sans-serif);
+  font-size: 0.9em;
+  font-weight: 700;
+  user-select: none;
+}
 .console .is-error { color: var(--c-mark); }
 
 /* ------------------------------------------------------------

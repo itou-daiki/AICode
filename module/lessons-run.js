@@ -44,7 +44,7 @@ export function createInteractiveInput(parts, state) {
 }
 
 /**
- * input() に打った値を、実行結果に赤字で書き足す（プログラムが出した文字と見分けられるように）
+ * input() に打った値を実行結果に書き足し、後ろに「←キーボードから入力」の印を付ける（css/theme.css の .console-input）
  * @param {HTMLElement} outputEl 実行結果の欄
  * @param {string} value 打った値
  */
