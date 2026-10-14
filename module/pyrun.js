@@ -19,7 +19,7 @@ export const RUN_LIMIT_SECONDS = 10;
 
 /** 時間切れのときのメッセージ */
 export const TIMEOUT_MESSAGE =
-  '時間がかかりすぎたので止めました。終わらないくり返し（while True など）になっていませんか？';
+  '時間がかかりすぎたので止めました。終わらない繰り返し（while True など）になっていませんか？';
 
 /** エラーの中でこの名前が出たら、学習者のコードの行だとわかる */
 export const USER_FILE = '<あなたのコード>';
@@ -144,7 +144,7 @@ def _easycode_describe(value):
 def _easycode_timed_input(helper, out):
     """input() で人が考えている時間は、制限時間に数えない。
     待った長さだけ期限をのばすので、入力のあるプログラムが
-    「終わらないくり返し」と間違われて止められることがない"""
+    「終わらない繰り返し」と間違われて止められることがない"""
     async def timed_input(*args):
         out.flush()  # 問いかけが画面に出るより先に、これまでの出力を出しておく
         started = _ec_time.time()
@@ -309,7 +309,7 @@ function suggestNameFix(code, error) {
     label: `${name} を ${right} に直す`,
     why: right.toLowerCase().replace(/_/g, '') === name.toLowerCase().replace(/_/g, '')
       ? `「${name}」という名前はありません。「${right}」のことかもしれません。Python では大文字と小文字は別の字です。`
-      : `「${name}」という名前はありません。「${right}」の打ちまちがいかもしれません。`,
+      : `「${name}」という名前はありません。「${right}」の入力ミスかもしれません。`,
     code: fixed.join('\n'),
     line: error.line,
   };
@@ -340,10 +340,10 @@ export function suggestFix(code, error) {
       const fixed = [...lines];
       fixed[culprit.line] = reindent(lines[culprit.line], culprit.lead);
       return {
-        label: culprit.afterHeader ? `${culprit.line + 1} 行目を 4 文字下げる` : `${culprit.line + 1} 行目を ${culprit.expected} 文字にそろえる`,
+        label: culprit.afterHeader ? `${culprit.line + 1} 行目を 4 文字下げる` : `${culprit.line + 1} 行目を ${culprit.expected} 文字に揃える`,
         why: culprit.afterHeader
           ? `「:」で終わる行の次の行（${culprit.line + 1} 行目）は、中身なので 4 文字（Tab キー 1 回）下げて書きます。`
-          : `${culprit.line + 1} 行目だけ字下げが ${describeIndent(culprit.indent)}で、前後の行（${describeIndent(culprit.expected)}）とそろっていません。`,
+          : `${culprit.line + 1} 行目だけインデントが ${describeIndent(culprit.indent)}で、前後の行（${describeIndent(culprit.expected)}）と揃っていません。`,
         code: fixed.join('\n'),
         line: culprit.line + 1,
       };
@@ -363,8 +363,8 @@ export function suggestFix(code, error) {
         const fixed = [...lines];
         fixed[at] = ' '.repeat(nearest) + target.trim();
         return {
-          label: `${error.line} 行目を ${nearest} 文字にそろえる`,
-          why: `${error.line} 行目の字下げ（${width} 文字）が、上のどの行ともそろっていません。いちばん近い ${nearest} 文字にそろえます（外に出したいときは、そのあと Backspace で 1 段もどします）。`,
+          label: `${error.line} 行目を ${nearest} 文字に揃える`,
+          why: `${error.line} 行目のインデント（${width} 文字）が、上のどの行とも揃っていません。最も近い ${nearest} 文字に揃えます（外に出したいときは、そのあと Backspace で 1 段戻します）。`,
           code: fixed.join('\n'),
           line: error.line,
         };
@@ -372,13 +372,13 @@ export function suggestFix(code, error) {
     }
   }
 
-  // それでも決まらない字下げのまちがいは、「字下げ」ボタンと同じ組み直しを出す（組み直して変わるときだけ）
+  // それでも決まらない字下げのまちがいは、「整形」ボタンと同じ組み直しを出す（組み直して変わるときだけ）
   if (error.type === 'IndentationError' || error.type === 'TabError') {
     const rebuilt = autoIndent(code);
     if (rebuilt.trim() && rebuilt.replace(/\s+$/, '') !== code.replace(/\s+$/, '')) {
       return {
-        label: '字下げをそろえる（「字下げ」ボタンと同じ）',
-        why: '行のはじめの空白の数がそろっていません。「:」の次の行は 4 文字下げ、同じまとまりの行は同じだけ下げて、組み直します。',
+        label: 'インデントを揃える',
+        why: '行頭の空白の数が揃っていません。「:」の次の行は 4 文字下げ、同じまとまりの行は同じだけ下げて、組み直します。',
         code: rebuilt,
         line: error.line,
       };
@@ -419,7 +419,7 @@ export function suggestFix(code, error) {
     if (globalAt < 0 && /^\s*global\s+\w/.test(lines[i])) globalAt = i;
   }
 
-  // その名前が、関数の外で作られていること（そうでなければ打ちまちがい）
+  // その名前が、関数の外で作られていること（そうでなければ入力ミス）
   const outside = lines.some((line, i) => (i < defAt || indentWidth(line) === 0)
     && new RegExp(`^${name}\\s*(=[^=]|[-+*/]=)`).test(line.trim()) && indentWidth(line) === 0);
   if (!outside) return null;
@@ -465,28 +465,28 @@ function indentOf(lines, defAt) {
 /** よくあるエラーの説明。{name} はエラーが指す名前に置きかわる */
 const HINTS = {
   NameError:
-    '「{name}」という名前は、まだ作られていません。打ちまちがいがないか、使う前に代入しているかを見てみましょう。',
+    '「{name}」という名前は、まだ作られていません。入力ミスがないか、使う前に代入しているかを確認してください。',
   SyntaxError:
-    '書き方のまちがいです。かっこ ( ) や引用符 \' \' の閉じわすれ、行のおわりの : を確かめましょう。',
+    '構文エラーです。括弧 ( ) や引用符 \' \' の閉じ忘れ、行末の : を確認してください。',
   IndentationError:
-    '字下げ（行のはじめの空白）がそろっていません。if や for の中身は、空白 4 つ（Tab キー 1 回）下げます。',
+    'インデント（字下げ）が揃っていません。if や for の中身は、スペース 4 つ（Tab キー 1 回）下げます。',
   TabError:
-    'タブと空白が混ざっています。「字下げ」ボタンを押すと、空白にそろえられます。',
+    'タブと空白が混ざっています。「整形」ボタンを押すと、空白に揃えられます。',
   TypeError:
-    'ちがう種類のもの同士を使おうとしています。文字列と数値は + でつなげないので、str() や int() で種類をそろえます。',
-  ZeroDivisionError: '0 で割ることはできません。割る数が 0 になっていないか確かめましょう。',
+    '違う種類のもの同士を使おうとしています。文字列と数値は + でつなげないので、str() や int() で種類を揃えます。',
+  ZeroDivisionError: '0 で割ることはできません。割る数が 0 になっていないか確かめてください。',
   IndexError:
     'リストの範囲の外を見ています。番号は 0 から始まり、最後は len(リスト) - 1 です。',
-  KeyError: '辞書に「{name}」というキーがありません。キーの名前を確かめましょう。',
+  KeyError: '辞書に「{name}」というキーがありません。キーの名前を確かめてください。',
   ValueError:
     '中身が合っていません。int("あ") のように、数字でない文字を数値にしようとしていませんか？',
-  AttributeError: 'その種類のものには、その名前のはたらきがありません。つづりを確かめましょう。',
+  AttributeError: 'その種類のものには、その名前のはたらきがありません。綴りを確かめてください。',
   ModuleNotFoundError: 'そのライブラリはこの画面では使えません。',
   ImportError: 'そのライブラリはこの画面では使えません。',
   UnboundLocalError:
-    '関数の中で「{name}」を書きかえています。'
-    + '関数の外にある「{name}」を使うには、関数のはじめに「global {name}」と書きます。',
-  RecursionError: '関数が自分自身を呼びすぎました。止まる条件を入れましょう。',
+    '関数の中で「{name}」を書き換えています。'
+    + '関数の外にある「{name}」を使うには、関数の最初に「global {name}」と書きます。',
+  RecursionError: '関数が自分自身を呼びすぎました。止まる条件を入れてください。',
   OverflowError: '数が大きくなりすぎました。',
   StopIteration: '取り出すものがもうありません。',
   KeyboardInterrupt: '実行を止めました。',
@@ -546,7 +546,7 @@ export function explainError(info, code = '') {
 }
 
 /** 「·」と、Tab キー・スペースの数の対応（字下げのエラーの説明にそえる） */
-const INDENT_LEGEND = '   （字下げ＝行のはじめの空白。· はスペース 1 つ。4 文字 ＝ スペース 4 つ ＝ キーボード左はしの Tab キー 1 回。「:」のあと Enter を押すと自動で 4 文字下がり、Backspace 1 回で 1 段もどる）';
+const INDENT_LEGEND = '   （インデント（字下げ）＝行頭の空白。· はスペース 1 つ。4 文字 ＝ スペース 4 つ ＝ キーボード左端の Tab キー 1 回。「:」のあと Enter を押すと自動で 4 文字下がり、Backspace 1 回で 1 段戻る）';
 
 /** 行頭の空白を「·」（タブは「→」）にして見せる */
 function showIndent(text) {
@@ -582,14 +582,14 @@ function explainIndent(info, code) {
     const before = all[culprit.line - 1] !== undefined ? culprit.line - 1 : -1;
     const shown = [];
     if (before >= 0 && all[before].trim()) shown.push(`   ${before + 1} 行目｜${showIndent(all[before])}`);
-    shown.push(`   ${culprit.line + 1} 行目｜${showIndent(all[culprit.line])}　← ここだけ字下げ ${culprit.indent} 文字`);
+    shown.push(`   ${culprit.line + 1} 行目｜${showIndent(all[culprit.line])}　← ここだけインデント ${culprit.indent} 文字`);
     shown.push(`   ${info.line} 行目｜${showIndent(target)}`);
     shown.push(INDENT_LEGEND);
     return {
       shown,
-      hint: `エラーは ${info.line} 行目ですが、原因は ${culprit.line + 1} 行目です。${culprit.line + 1} 行目だけ字下げが ${describeIndent(culprit.indent)}で、前後の行は ${describeIndent(culprit.expected)}です。`
-        + `Python は ${culprit.line + 1} 行目で上のまとまりが終わったと考えるので、次の ${info.line} 行目の字下げがおかしい、と言っています。`
-        + `${culprit.line + 1} 行目の頭で ${culprit.expected % 4 === 0 && culprit.expected ? `Tab キーを ${culprit.expected / 4} 回押して` : `スペースを ${culprit.expected} つ入れて`}、前後の行とそろえましょう。`,
+      hint: `エラーは ${info.line} 行目ですが、原因は ${culprit.line + 1} 行目です。${culprit.line + 1} 行目だけインデントが ${describeIndent(culprit.indent)}で、前後の行は ${describeIndent(culprit.expected)}です。`
+        + `Python は ${culprit.line + 1} 行目で上のまとまりが終わったと考えるので、次の ${info.line} 行目のインデントがおかしい、と言っています。`
+        + `${culprit.line + 1} 行目の頭で ${culprit.expected % 4 === 0 && culprit.expected ? `Tab キーを ${culprit.expected / 4} 回押して` : `スペースを ${culprit.expected} つ入れて`}、前後の行と揃えてください。`,
     };
   }
   let prev = at - 1;
@@ -597,7 +597,7 @@ function explainIndent(info, code) {
   const shown = [];
   if (prev >= 0) shown.push(`   ${prev + 1} 行目｜${showIndent(all[prev])}`);
   shown.push(target.trim()
-    ? `   ${info.line} 行目｜${showIndent(target)}　← 字下げ ${indentWidth(target)} 文字`
+    ? `   ${info.line} 行目｜${showIndent(target)}　← インデント ${indentWidth(target)} 文字`
     : `   ${info.line} 行目｜（中身の行がありません）`);
   shown.push(INDENT_LEGEND);
   const message = info.message || '';
@@ -606,12 +606,12 @@ function explainIndent(info, code) {
   const realAfter = after && after.length >= 3 && after[1] ? after : null;
   let hint;
   if (info.type === 'TabError' || /\t/.test(target.match(/^[ \t]*/)[0])) {
-    hint = 'タブ（→）と空白（·）がまざっています。字下げは空白 4 つずつにそろえましょう（「字下げ」ボタンでも直せます）。';
+    hint = 'タブ（→）と空白（·）が混ざっています。インデントはスペース 4 つずつに揃えてください（「整形」ボタンでも直せます）。';
   } else if (realAfter || /expected an indented block/.test(message)) {
     const head = realAfter ? `${realAfter[2]} 行目の ${realAfter[1]} ` : '上の「:」で終わる行';
     hint = `${head}の中身は、その行より 4 文字（····、Tab キー 1 回）下げて書きます。中身が何も無いなら pass と書きます。`;
   } else if (/unexpected indent/.test(message)) {
-    hint = `前の行より深く下げています（· の数をくらべましょう）。前の行が「:」で終わっていないなら、同じ深さにそろえます。`;
+    hint = `前の行より深く下げています（· の数を比べてください）。前の行が「:」で終わっていないなら、同じ深さに揃えます。`;
   } else if (/unindent does not match/.test(message)) {
     // 上にある行の字下げのうち、この行のすぐ浅い方と深い方を、選べる 2 つとして言う
     const width = indentWidth(target);
@@ -619,10 +619,10 @@ function explainIndent(info, code) {
     const lower = levels.filter(v => v < width).pop();
     const upper = levels.find(v => v > width);
     const choices = [lower, upper].filter(v => v !== undefined).map(v => `${v} 文字（· が ${v} 個）`).join(' か ');
-    hint = `上のどの行の字下げともそろっていません（いまは · が ${width} 個）。`
-      + (choices ? `前の中身に入れるなら上の行と同じだけ、外に出すなら浅い方にそろえて、${choices}にします。` : '· の数を 4 の倍数にそろえましょう。');
+    hint = `上のどの行のインデントとも揃っていません（いまは · が ${width} 個）。`
+      + (choices ? `前の中身に入れるなら上の行と同じだけ、外に出すなら浅い方に揃えて、${choices}にします。` : '· の数を 4 の倍数に揃えてください。');
   } else {
-    hint = '字下げ（行のはじめの空白）がずれています。· の数をそろえましょう。同じまとまりの行は、同じ数だけ下げます。';
+    hint = 'インデント（字下げ）がずれています。· の数を揃えてください。同じまとまりの行は、同じ数だけ下げます。';
   }
   return { shown, hint };
 }
@@ -636,17 +636,17 @@ function detailedHint(info, code = '') {
 
   if (info.type === 'SyntaxError') {
     if (/Missing parentheses in call to 'print'/.test(message)) {
-      return 'print のうしろの中身は ( ) で囲みます。print("こんにちは") のように書きます。';
+      return 'print の後ろの中身は ( ) で囲みます。print("こんにちは") のように書きます。';
     }
     if (/unterminated (triple-quoted )?string literal/.test(message)) {
-      return '文字のおわりの引用符がありません。はじめと同じ引用符（" なら "、\' なら \'）で閉じます。'
+      return '文字の終わりの引用符がありません。最初と同じ引用符（" なら "、\' なら \'）で閉じます。'
         + '文字の中に \' が入るとき（It\'s など）は、外側を " " で囲みます。';
     }
     if (/was never closed/.test(message)) {
-      return '開いたかっこを閉じていません。( の数と ) の数をそろえます（いちばん後ろの ) を忘れやすいところです）。';
+      return '開いた括弧を閉じていません。( の数と ) の数を揃えます（最後の ) を忘れやすいところです）。';
     }
     if (/unmatched '[)\]}]'/.test(message)) {
-      return '閉じるかっこが多すぎます。( の数と ) の数をそろえます。';
+      return '閉じる括弧が多すぎます。( の数と ) の数を揃えます。';
     }
     if (/'return' outside function/.test(message)) {
       return 'return は、def で作った関数の中身（4 文字下げた行）でだけ使えます。';
@@ -658,20 +658,20 @@ function detailedHint(info, code = '') {
       return 'f"…" の中の { } が閉じていません。f"{名前}さん" のように、{ と } を組にして書きます。';
     }
     if (/Perhaps you forgot a comma/.test(message)) {
-      return 'かっこの中のもののあいだに , （カンマ）を忘れていませんか。print("a", "b", 1) のように区切ります。';
+      return '括弧の中のものの間に , （カンマ）を忘れていませんか。print("a", "b", 1) のように区切ります。';
     }
     if (/invalid decimal literal/.test(message)) {
-      return '数のすぐうしろに文字が続いています。かけ算なら 2 * x と * を書きます。名前は数字から始められません。';
+      return '数のすぐ後ろに文字が続いています。かけ算なら 2 * x と * を書きます。名前は数字から始められません。';
     }
     if (/expected ':'/.test(message)) {
-      return 'if・for・while・def の行は、おわりに「:」（コロン）が要ります。: は『け』のキーです。';
+      return 'if・for・while・def の行は、終わりに「:」（コロン）が要ります。: は「け」のキーで入力します。';
     }
     const keyword = line.match(/^\s*(class|def|if|for|while|in|is|and|or|not|return|import|from|as|with|try|pass|break|continue|lambda|global|del|True|False|None)\s*=(?!=)/);
     if (keyword) {
-      return `「${keyword[1]}」は Python が使う言葉なので、名前（変数）にはできません。ちがう名前にします。`;
+      return `「${keyword[1]}」は Python が使う言葉なので、名前（変数）にはできません。違う名前にします。`;
     }
     if (/^\s*(elif|else)\b/.test(line)) {
-      return 'elif や else は、すぐ上に同じ深さ（同じ列）の if が要ります。字下げがそろっているかを見ましょう。';
+      return 'elif や else は、すぐ上に同じ深さ（同じ列）の if が要ります。インデントが揃っているかを見てください。';
     }
   }
 
@@ -679,24 +679,24 @@ function detailedHint(info, code = '') {
     // 「多すぎる」を先に調べる。"takes 1 positional argument but 2 were given" は
     // "takes \d+ positional" にも当てはまるので、後ろに回すと「足りない」と誤って案内してしまう
     if (/but \d+ (were|was) given|takes from \d+ to \d+ positional|positional arguments? but/.test(message)) {
-      return 'かっこの中に書いた値が多すぎます。いくつ必要か確かめましょう。';
+      return '括弧の中に書いた値が多すぎます。いくつ必要か確かめてください。';
     }
     if (/missing \d+ required|takes \d+ positional|expected \d+ argument/.test(message)) {
-      return 'かっこの中に書く値の数が足りていません。circle(x, y, 大きさ) のように、いくつ必要か確かめましょう。';
+      return '括弧の中に書く値の数が足りていません。circle(x, y, 大きさ) のように、いくつ必要か確かめてください。';
     }
     // input() は文字列を返すので、数と比べるには int() が要る
     if (/'(<|>|<=|>=)' not supported between instances of '(str' and '(int|float)|(int|float)' and 'str)'/.test(message)) {
-      return 'input() で受け取った値は文字列です。数と比べるときは int(input()) のように、数に直してから比べましょう。';
+      return 'input() で受け取った値は文字列です。数と比べるときは int(input()) のように、数に直してから比べてください。';
     }
     if (/NoneType/.test(message)) {
       if (/=\s*[A-Za-z_]\w*\.(sort|append|reverse|insert|remove|extend|clear)\(/.test(code || '')) {
-        return 'sort()・append()・reverse() などは、リストそのものを書きかえるだけで、値を返しません（None になります）。'
+        return 'sort()・append()・reverse() などは、リストそのものを書き換えるだけで、値を返しません（None になります）。'
           + 'b = a.sort() ではなく、a.sort() のあとで a を使います。';
       }
       return '関数が値を返していません（None になっています）。関数の中で、print ではなく return で答えを返します。';
     }
     if (/'(int|float)' object is not iterable/.test(message)) {
-      return '数そのものは、くり返しに使えません。10 回くり返すなら for i in range(10): と書きます。';
+      return '数そのものは、繰り返しに使えません。10 回繰り返すなら for i in range(10): と書きます。';
     }
     if (/has no len\(\)/.test(message)) {
       return 'len() は、文字列やリストの長さ（個数）を数えるものです。数には使えません。';
@@ -714,14 +714,14 @@ function detailedHint(info, code = '') {
       return 'これは呼び出せるものではありません。変数の名前と関数の名前が同じになっていませんか？';
     }
     if (/not subscriptable/.test(message)) {
-      return 'これは [ ] で取り出せる種類ではありません。リストや文字列かどうか確かめましょう。';
+      return 'これは [ ] で取り出せる種類ではありません。リストや文字列かどうか確かめてください。';
     }
   }
 
   if (info.type === 'ValueError' && /invalid literal for int/.test(message)) {
     if (/: ''$/.test(message)) return '何も入力しないで Enter を押したようです。数を打ってから Enter を押します。';
     if (/: '-?\d+\.\d*'$/.test(message)) return '小数（3.5 など）は int() で整数にできません。小数のまま使うなら float() を使います。';
-    return '数字でない文字を int() で数値にしようとしています。入力した中身に、文字や記号が入っていないかを確かめましょう。';
+    return '数字でない文字を int() で数値にしようとしています。入力した中身に、文字や記号が入っていないかを確かめてください。';
   }
 
   if (info.type === 'NameError' && name) {
@@ -735,7 +735,7 @@ function detailedHint(info, code = '') {
 
   if (info.type === 'ModuleNotFoundError' && name) {
     const near = closeTypo(name, ['math', 'random', 'time', 'statistics', 'datetime', 'itertools', 'collections', 'string']);
-    if (near) return `「${name}」は「${near}」の打ちまちがいかもしれません。import ${near} と書きます。`;
+    if (near) return `「${name}」は「${near}」の入力ミスかもしれません。import ${near} と書きます。`;
   }
 
   return '';
@@ -747,7 +747,7 @@ function concatHint(line, code, message) {
     .map(m => m[1] || m[2]))].filter(n => !['str', 'int', 'float', 'print'].includes(n));
   const fromInput = around.find(n => new RegExp(`^\\s*${n}\\s*=\\s*input\\(`, 'mu').test(code));
   if (fromInput) {
-    return `${fromInput} は input() で受け取った文字です。数として計算するなら int(${fromInput}) にします（はじめから ${fromInput} = int(input()) と書いてもよい）。`;
+    return `${fromInput} は input() で受け取った文字列です。数として計算するなら int(${fromInput}) にします（最初から ${fromInput} = int(input()) と書いてもよい）。`;
   }
   const number = around.find(n => !new RegExp(`^\\s*${n}\\s*=\\s*(input\\(|["'f])`, 'mu').test(code));
   if (number && /can only concatenate str/.test(message)) {
@@ -775,13 +775,13 @@ function nameHint(name, line, code) {
   // 日本語の名前：文字として出したかった（引用符をわすれた）か、日本語入力のまま打った
   if (/[぀-ヿ㐀-鿿]/.test(name)) {
     if (/^[぀-ゟ]+[a-z]+$/.test(name)) {
-      return `「${name}」と打たれています。日本語入力がオンのまま打ったかもしれません。キーボードの『半角/全角』（Mac・Chromebook は『英数』）で切りかえてから打ち直しましょう。`
+      return `「${name}」と打たれています。日本語入力がオンのまま打ったかもしれません。キーボードの『半角/全角』（Mac・Chromebook は『英数』）で切り替えてから打ち直してください。`
         + `文字として出したいなら、print("${name}") のように " " で囲みます。`;
     }
     return `「${name}」を文字として出したいなら、" " で囲みます。print("${name}") のように書きます。`;
   }
   const typo = suggestName(name, code);
-  if (typo) return `「${name}」という名前はありません。「${typo}」の打ちまちがいかもしれません（下のボタンで直せます）。`;
+  if (typo) return `「${name}」という名前はありません。「${typo}」の入力ミスかもしれません（下のボタンで直せます）。`;
   const js = { console: 'Python では、表示は print( ) です。', null: 'Python では、何もないことを None と書きます。',
     undefined: 'Python では、何もないことを None と書きます。', Math: 'Math.random() などは Python では random()、Math.max は max() のように書きます。',
     let: 'Python では let を書かずに、x = 0 のように名前に入れるだけです。', var: 'Python では var を書かずに、x = 0 のように名前に入れるだけです。' };
@@ -792,7 +792,7 @@ function nameHint(name, line, code) {
   // ほかのどこにも出てこない英字の名前：文字として出したかったのかもしれない
   const count = (String(code).match(new RegExp(`(?<![\\w"'])${name}(?![\\w"'])`, 'g')) || []).length;
   const tail = count <= 1 ? `文字をそのまま出したいなら、print("${name}") のように " " で囲みます。` : '';
-  return `「${name}」という名前は、まだ作られていません。打ちまちがいがないか、使う行より上で「${name} = …」と作っているかを見ましょう。${tail}`;
+  return `「${name}」という名前は、まだ作られていません。入力ミスがないか、使う行より上で「${name} = …」と作っているかを見てください。${tail}`;
 }
 
 /**

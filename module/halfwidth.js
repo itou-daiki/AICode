@@ -3,7 +3,7 @@
 //
 //   attachHalfWidth(cm) … 打ったそばから半角に直す（文字列とコメントの中は残す）。
 //                         直した字は一瞬光らせ、残っている全角には印をつける
-//   addHalfWidthControl() … 「自動で半角にする」を切りかえる欄
+//   addHalfWidthControl() … 「自動で半角にする」を切り替える欄
 //
 // Python は全角の（ ）や ： を「invalid character」としか言わない。
 // 生徒はどこが悪いのか見つけられないので、打った時点で直し、直せないものは目に見える形で示す。
@@ -16,7 +16,7 @@ let autoOn = safeStorage.get(AUTO_KEY) !== '0';
 let told = false;
 let toldKana = false;
 
-/** ひらがなのあとに英字が続く名前（ぷりんt）。日本語入力がオンのまま英語を打ったときの形 */
+/** ひらがなの後に英字が続く名前（ぷりんt）。日本語入力がオンのまま英語を打ったときの形 */
 const KANA_TYPED = /[\u3041-\u309F]+[A-Za-z]+[\w\u3041-\u309F]*/g;
 
 /**
@@ -71,7 +71,7 @@ function flash(cm, line, indexes) {
   setTimeout(() => marks.forEach(mark => mark.clear()), 1200);
 }
 
-/** 1 行を半角にそろえる。置きかえは 1 字ずつなので、カーソルの位置は動かない */
+/** 1 行を半角にそろえる。置き換えは 1 字ずつなので、カーソルの位置は動かない */
 function fixLine(cm, line) {
   const text = cm.getLine(line);
   if (text === undefined || !/[^\x00-\x7F]/.test(text)) return [];
@@ -110,7 +110,7 @@ function fixLines(cm, from, to) {
       const word = kanaTyped(cm.getLine(line) || '');
       if (word) {
         toldKana = true;
-        toast(`「${word}」と打たれています。日本語入力がオンのようです。キーボードの『半角/全角』（Mac・Chromebook は『英数』）で切りかえてから打ちましょう。`, 7000);
+        toast(`「${word}」と打たれています。日本語入力がオンのようです。キーボードの『半角/全角』（Mac・Chromebook は『英数』）で切り替えてから打ってください。`, 7000);
         break;
       }
     }
@@ -140,7 +140,7 @@ export function attachHalfWidth(cm) {
   // 変換を確定したとき。確定の字は inputRead に来ないことがあるので、ここでも直す
   // タブレット（contenteditable の入力）では、確定した字が届くのが少し遅れるので待つ
   cm.getInputField().addEventListener('compositionend', () => {
-    // 待っているあいだに Enter で次の行へ移っても、確定した行を直す
+    // 待っている間に Enter で次の行へ移っても、確定した行を直す
     const line = cm.getCursor().line;
     setTimeout(() => fixLines(cm, line, line), 120);
   });
@@ -153,7 +153,7 @@ export function attachHalfWidth(cm) {
 }
 
 /**
- * 「全角を自動で半角にする」を切りかえる欄を作る
+ * 「全角を自動で半角にする」を切り替える欄を作る
  * @param {HTMLElement} container
  */
 export function addHalfWidthControl(container) {

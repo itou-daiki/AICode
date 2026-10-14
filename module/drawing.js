@@ -1,4 +1,4 @@
-// module/drawing.js - 描画モードの画面まわり
+// module/drawing.js - 描画モードの画面周り
 //
 // コード ⇄ ブロック ⇄ フローチャートの同期は module/workbench.js が受け持つ。
 // このファイルは p5 の実行（1回だけ描く / アニメーション）と画面の切り替えを担当する。
@@ -22,7 +22,7 @@ import { setIconLabel } from './icons.js';
 import { attachSymbolBar } from './symbolbar.js';
 
 const STORAGE_KEY = 'easycode_drawing_workspace_v2';
-/** はじめて開いたかを覚えるキー（はじめてのときだけ使い方を開いて見せる） */
+/** 初めて開いたかを覚えるキー（初めてのときだけ使い方を開いて見せる） */
 const FIRST_VISIT_KEY = 'easycode_drawing_seen';
 
 /** 最初に置いておくコード（説明はサンプルパネルにまとめてある） */
@@ -131,14 +131,14 @@ function watchPointer() {
   });
   window.addEventListener('keyup', (e) => {
     const code = e.keyCode || 0;
-    // 離したキーだけを外す（ほかのキーは押されたまま）
+    // 離したキーだけを外す（他のキーは押されたまま）
     const wasDown = pointer.keys.includes(code);
     pointer.keys = pointer.keys.filter(k => k !== code);
     pointer.keyDown = pointer.keys.length > 0;
     if (!pointer.keyDown) { pointer.key = ''; pointer.code = 0; }
     if (wasDown) events.push('keyup');
   });
-  // ほかの窓に移ると keyup が届かないので、押されていることにしたままにしない
+  // 他の窓に移ると keyup が届かないので、押されていることにしたままにしない
   window.addEventListener('blur', () => {
     pointer.keys = [];
     pointer.keyDown = false;
@@ -213,7 +213,7 @@ const SAMPLES = [
 def draw():
     x = 200 + 130 * cos(frameCount * 0.05)
     y = 200 + 130 * sin(frameCount * 0.05)
-    circle(x, y, 26)`, 'setup() は1回、draw() はくり返し呼ばれます'],
+    circle(x, y, 26)`, 'setup() は1回、draw() は繰り返し呼ばれます'],
       ['四角が回転する', `def setup():
     background(20, 22, 34)
 
@@ -277,7 +277,7 @@ function findFunctionBody(lines, name) {
   let indent = '';
   for (let i = head + 1; i < lines.length; i++) {
     const line = lines[i];
-    // 空の行と、左はしに書いたコメントは、中身の終わりとみなさない
+    // 空の行と、左端に書いたコメントは、中身の終わりとみなさない
     if (!line.trim() || /^\s*#/.test(line)) continue;
     // 行のはじめに空白が無い行が来たら、中身はそこで終わり
     if (!/^\s/.test(line)) break;
@@ -315,7 +315,7 @@ function addSampleTo(current, sample) {
     return { code: `${lines.join('\n')}\n`, line: at + added.length - 1, where };
   }
 
-  // 関数を作るサンプルは、前のコードとのあいだを 1 行あける
+  // 関数を作るサンプルは、前のコードとの間を 1 行あける
   if (definesFunction && lines.length) lines.push('');
   lines.push(...sampleLines);
   return { code: `${lines.join('\n')}\n`, line: lines.length - 1, where: 'end' };
@@ -342,7 +342,7 @@ function insertSample(code) {
     editor.focus();
   });
   const place = { draw: 'draw() の中', setup: 'setup() の中', end: 'コードの最後' }[result.where];
-  toast(`${place}に足しました。『実行』を押してみましょう`, 3600);
+  toast(`${place}に足しました。『実行』を押してください`, 3600);
 }
 
 /* ============================================================
@@ -377,7 +377,7 @@ function stopAnimation(message = '停止しました') {
 }
 
 /**
- * ライブラリを読みこんだ直後の状態を覚える（Python の準備のときに 1 回だけ）。
+ * ライブラリを読み込んだ直後の状態を覚える（Python の準備のときに 1 回だけ）。
  * 実行のたびにここへ戻すので、前のプログラムの関数（mousePressed など）や
  * 色・モードの設定が、次のプログラムに残らない
  */
@@ -425,7 +425,7 @@ async function runCode() {
   clearCanvas();
 
   if (!code.trim()) {
-    output.textContent = '実行するコードがありません。サンプルから選んでみましょう。';
+    output.textContent = '実行するコードがありません。サンプルから選んでください。';
     return;
   }
 
@@ -475,15 +475,15 @@ delta_time = 0
 p5.frame_count = 0
 p5.start_time = _ec_time.time()
 p5._last_time = _ec_time.time()
-# 前に動かしたプログラムの frameRate() が残らないよう、p5.js の既定にもどす
+# 前に動かしたプログラムの frameRate() が残らないよう、p5.js の既定に戻す
 p5._target_fps = 60
 p5._recent_fps = 0
-# noLoop() で止めたままにならないように、毎回もどす
+# noLoop() で止めたままにならないように、毎回戻す
 p5._looping = True
 `);
   if (isStale()) return;
 
-  // 学習者のコードを読みこんで、setup() があれば一度だけ呼ぶ。
+  // 学習者のコードを読み込んで、setup() があれば一度だけ呼ぶ。
   // 末尾に足しているだけなので、エラーの行番号はずれない。
   const setupRun = await runUserCode(
     pyodide,
@@ -524,7 +524,7 @@ p5._looping = True
   /** マウスやキーの関数が print() したもの（コマごとの表示で上書きしない） */
   let eventLog = '';
 
-  // 画面の書きかえの合間にわずかな時間しかないと、1コマ飛ばしてしまい
+  // 画面の書き換えの合間にわずかな時間しかないと、1コマ飛ばしてしまい
   // 60 のつもりが 30 になる。少し早めでも描くようにして取りこぼしを防ぐ。
   const TOLERANCE_MS = 4;
 
@@ -603,7 +603,7 @@ f"{p5._target_fps},{1 if p5._looping else 0}"
         }
       }
 
-      // noLoop() で止めているあいだは draw() を呼ばない（p5.js と同じ）。
+      // noLoop() で止めている間は draw() を呼ばない（p5.js と同じ）。
       // 関数の中で loop() / noLoop() が呼ばれたかもしれないので、関数を呼んだコマだけ聞き直す
       if (hadEvents) {
         looping = Boolean(await pyodide.runPythonAsync('p5._looping'));
@@ -653,7 +653,7 @@ function applyFix(code, line) {
   bench.setCode(code);
   bench.editor.setCursor({ line: line - 1, ch: bench.editor.getLine(line - 1).length });
   bench.editor.focus();
-  toast('コードを直しました。もう一度「実行」を押してみましょう', 3600);
+  toast('コードを直しました。もう一度「実行」を押してください', 3600);
 }
 
 /* ============================================================
@@ -696,7 +696,7 @@ async function improveDrawing() {
     );
     const match = response.match(/```[\w+-]*[ \t]*\r?\n([\s\S]*?)```/);
     // コードの形で返ってこなかったら、説明の文をエディタに流しこまない
-    if (!match || !match[1].trim()) { toast('AI の返事からコードを取り出せませんでした。もう一度ためしてください。'); return; }
+    if (!match || !match[1].trim()) { toast('AI の返事からコードを取り出せませんでした。もう一度試してください。'); return; }
     bench.setCode(match[1].trim() + '\n');
     toast('AI がコードを書き直しました。「元に戻す」で前のコードに戻せます', 3600);
   } catch (error) {
@@ -782,9 +782,9 @@ function setupControls() {
 
   $('clear-btn').addEventListener('click', async () => {
     const ok = await confirmDialog({
-      title: 'すべて消しますか？',
+      title: '全消去しますか？',
       message: 'コードとブロックを消して、最初の形（setup と draw だけ）に戻します。キャンバスも消えます。',
-      okLabel: 'すべて消す',
+      okLabel: '全消去する',
     });
     if (!ok) return;
     stopAnimation(null);
@@ -820,11 +820,9 @@ function setupControls() {
   });
   historyButton('code-undo', false);
   historyButton('code-redo', true);
-  $('code-indent').addEventListener('click', () => {
-    toast(bench.autoIndent() ? '字下げをそろえました' : 'すでに字下げは整っています');
-  });
+  // 「整形」1 つで、字下げも空白も整える（ボタンが多いと迷うので分けない）
   $('code-format').addEventListener('click', () => {
-    toast(bench.formatCode() ? 'コードを整えました' : 'すでに整っています');
+    toast(bench.formatCode() ? 'インデントと空白を整えました' : 'すでに整っています');
   });
 
   $('blocks-undo').addEventListener('click', () => bench.workspace.undo(false));
@@ -836,8 +834,8 @@ function setupControls() {
 
   $('flow-refresh').addEventListener('click', () => bench.renderFlowchart(true));
 
-  // いま書いているコードを、共通テストの表記で見せる。
-  // ふだんの Python が、試験ではどう書かれるのかを見くらべられる。
+  // 今書いているコードを、共通テストの表記で見せる。
+  // 通常の Python が、試験ではどう書かれるのかを見比べられる。
   $('flow-ktph').addEventListener('click', () => {
     const button = $('flow-ktph');
     const showing = button.classList.toggle('is-on');
@@ -847,7 +845,7 @@ function setupControls() {
 
     // コードを直した直後は、図の描き直しが控えている。
     // それが後から走ると、せっかく出した表記を上書きしてしまうので、
-    // 先に済ませてから差しかえる。
+    // 先に済ませてから差し替える。
     if (bench.scheduleFlowchart && bench.scheduleFlowchart.cancel) {
       bench.scheduleFlowchart.cancel();
     }
@@ -898,9 +896,9 @@ $('flow-zoom-in').addEventListener('click', () => bench.zoomFlowchart(1.25));
   $('flow-language').addEventListener('click', (e) => {
     const japanese = !bench.isFlowJapanese();
     bench.setFlowJapanese(japanese);
-    setIconLabel(e.currentTarget, 'notation', japanese ? 'やさしい日本語' : 'コードのまま');
+    setIconLabel(e.currentTarget, 'notation', japanese ? '日本語表記' : 'コード表記');
     e.currentTarget.classList.toggle('is-on', japanese);
-    toast(japanese ? 'やさしい日本語で書きます' : 'コードのまま書きます');
+    toast(japanese ? '日本語で表記します' : 'コードのまま表記します');
   });
   $('output-clear').addEventListener('click', () => { $('output').textContent = ''; });
 
@@ -988,7 +986,7 @@ async function init() {
       onToggle: () => bench.refreshLayout(),
     });
     showAiControls();
-    // はじめて開いた人には、使い方を開いて見せ、出力欄で最初の一歩を伝える
+    // 初めて開いた人には、使い方を開いて見せ、出力欄で最初の一歩を伝える
     // （出力欄の字は、Python の準備が終わると bootPython がここに戻してくれる）
     // 画面がせまい（iPad を縦にしたときなど）と使い方の欄が上に重なり、コードとキャンバスが下に隠れるので開かない
     if (!safeStorage.get(FIRST_VISIT_KEY)) {
@@ -997,8 +995,8 @@ async function init() {
         sidebar.toggle(true);
         $('sketch-howto').open = true;
       }
-      $('output').textContent = 'はじめての人へ：① 『サンプル』のタブから選ぶ → ② ▶ 実行\n'
-        + `（サンプルは draw() の中に足されます。使い方は${wide ? '左の' : '「ヒント・AIを開く」で出る'}「03 スケッチの使い方」にあります）`;
+      $('output').textContent = '初めての人へ：① 『サンプル』のタブから選ぶ → ② ▶ 実行\n'
+        + `（サンプルは draw() の中に足されます。使い方は${wide ? '左の' : '「ヒント」ボタンで出る'}「03 スケッチの使い方」にあります）`;
       safeStorage.set(FIRST_VISIT_KEY, '1');
     }
     initMaximize(() => bench.refreshLayout());
@@ -1021,7 +1019,7 @@ async function init() {
       fitButton.classList.remove('is-on');
     }
     const flowButton = $('flow-language');
-    setIconLabel(flowButton, 'notation', bench.isFlowJapanese() ? 'やさしい日本語' : 'コードのまま');
+    setIconLabel(flowButton, 'notation', bench.isFlowJapanese() ? '日本語表記' : 'コード表記');
     flowButton.classList.toggle('is-on', bench.isFlowJapanese());
     setupChat();
 
@@ -1035,7 +1033,7 @@ async function init() {
     return;
   }
 
-  // 画面は先に使えるようにして、Python は後ろで読みこむ
+  // 画面は先に使えるようにして、Python は後ろで読み込む
   loader.style.display = 'none';
   try {
     pyodide = await bootPython({
@@ -1050,7 +1048,7 @@ async function init() {
     watchPointer();
     $('run-btn').disabled = false;
   } catch (error) {
-    console.error('Python を読みこめませんでした:', error);
+    console.error('Python を読み込めませんでした:', error);
   }
 }
 

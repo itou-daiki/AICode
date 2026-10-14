@@ -1,33 +1,33 @@
 import { iconHtml, setIconLabel } from './icons.js';
 import { PYODIDE_CONFIG } from './config.js';
 // module/ui.js
-// 画面まわりの共通部品。全モードで同じ操作感になるようにまとめている。
+// 画面周りの共通部品。全モードで同じ操作感になるようにまとめている。
 //
 //   confirmDialog() … window.confirm の代わりになる自前のダイアログ
-//   toast()         … 右下に一言だけ出すお知らせ
-//   watchTopbarHeight() … 上の帯が 2 段になったとき、下の区画の高さを合わせる（読みこむと自動で動く）
+//   toast()         … 右下に一言だけ出す通知
+//   watchTopbarHeight() … 上の帯が 2 段になったとき、下の区画の高さを合わせる（読み込むと自動で動く）
 //   initSidebar()   … 開閉できるサイドバー（既定は閉じた状態）
 //   initTabs()      … ステージの切り替えタブ
 //   initMaximize()  … パネルの拡大表示
-//   bootPython()    … Python（Pyodide）を、時間切れと再挑戦つきで読みこむ
+//   bootPython()    … Python（Pyodide）を、時間切れと再挑戦つきで読み込む
 //   makeEditorFriendly() … コードエディタを、キーボードと読み上げでも使いやすくする
 //   bindRunShortcut() … Ctrl/⌘+Enter で「実行」
 //   addCodeZoom()   … コードの区画の字を ＋ − で大きく・小さくする
-//   initTextSize()  … 字の大きさ（後ろの席・投影向けに大きくできる）。読みこむと自動で戻す
+//   initTextSize()  … 字の大きさ（後ろの席・投影向けに大きくできる）。読み込むと自動で戻す
 //   safeStorage     … localStorage の代わり。保存が使えない端末（学校の設定・プライベート閲覧）でも止まらない
 
 /* ============================================================
  * 0. 保存（localStorage が使えなくても止まらない）
  * ========================================================== */
 
-// 使えないときは、ページを開いているあいだだけメモリに覚えておく。
+// 使えないときは、ページを開いている間だけメモリに覚えておく。
 const memoryStore = new Map();
 let storageWarned = false;
 
 function warnStorage() {
   if (storageWarned || typeof document === 'undefined') return;
   storageWarned = true;
-  // toast はこのファイルの下で定義している（呼ばれるのは読みこみ後なので使える）
+  // toast はこのファイルの下で定義している（呼ばれるのは読み込み後なので使える）
   setTimeout(() => toast('この端末では保存ができません。ページを閉じると、作ったものは消えます。', 5000), 0);
 }
 
@@ -127,14 +127,14 @@ export function confirmDialog({ title, message = '', okLabel = '実行', tone = 
 }
 
 /* ============================================================
- * 2. お知らせ（トースト）
+ * 2. 通知（トースト）
  * ========================================================== */
 
 let toastElement = null;
 let toastTimer = null;
 
 /**
- * 右下に短いお知らせを出す
+ * 右下に短い通知を出す
  * @param {string} message
  * @param {number} [duration] 表示時間（ミリ秒）
  */
@@ -142,7 +142,7 @@ let pendingToast = null;
 
 export function toast(message, duration = 2200, action = null) {
   if (typeof document === 'undefined') return;
-  // ボタンつきのお知らせが出ているあいだは、ふつうのお知らせで消さずに後に回す
+  // ボタンつきの通知が出ている間は、通常の通知で消さずに後に回す
   if (!action && toastElement && toastElement.classList.contains('has-action')
       && toastElement.classList.contains('is-visible')) {
     pendingToast = [message, duration];
@@ -223,22 +223,22 @@ if (typeof document !== 'undefined') {
 export function tipForError(error) {
   const type = error && error.type;
   const message = (error && error.message) || '';
-  if (type === 'IndentationError' || type === 'TabError') return { id: 'indent', label: '字下げ（インデント）とまとまり' };
+  if (type === 'IndentationError' || type === 'TabError') return { id: 'indent', label: 'インデント（字下げ）とまとまり' };
   if (type === 'SyntaxError' && /invalid character|non-printable/.test(message)) return { id: 'fullwidth', label: '全角と半角' };
-  if (type === 'SyntaxError' && /Maybe you meant '=='/.test(message)) return { id: 'assign', label: '「=」と「==」のちがい' };
-  if (type === 'SyntaxError' && /expected ':'/.test(message)) return { id: 'indent', label: '字下げ（インデント）とまとまり' };
-  if (type === 'NameError') return { id: 'quote', label: '引用符の有無と、名前の打ちまちがい' };
-  if (type === 'TypeError' && /NoneType/.test(message)) return { id: 'return', label: 'print と return はちがう' };
+  if (type === 'SyntaxError' && /Maybe you meant '=='/.test(message)) return { id: 'assign', label: '「=」と「==」の違い' };
+  if (type === 'SyntaxError' && /expected ':'/.test(message)) return { id: 'indent', label: 'インデント（字下げ）とまとまり' };
+  if (type === 'NameError') return { id: 'quote', label: '引用符の有無と、名前の入力ミス' };
+  if (type === 'TypeError' && /NoneType/.test(message)) return { id: 'return', label: 'print と return は違う' };
   if ((type === 'TypeError' && /concatenate str|'str' and '(int|float)'|'(int|float)' and 'str'/.test(message))
     || (type === 'ValueError' && /invalid literal for int/.test(message))) {
     return { id: 'input', label: 'input() で受け取った値は文字列' };
   }
   if (type === 'IndexError') return { id: 'range', label: 'range と番号' };
-  if (type === 'TimeoutError') return { id: 'loop', label: '止まらないくり返し' };
+  if (type === 'TimeoutError') return { id: 'loop', label: '止まらない繰り返し' };
   return { id: 'errors', label: 'エラーメッセージの読み方' };
 }
 
-/** エラーの下に「くわしく → つまずき解説」の案内を出す（null なら消す） */
+/** エラーの下に「詳しく → つまずき解説」の案内を出す（null なら消す） */
 function showTip(error, output) {
   const old = document.getElementById('tip-note');
   if (old) old.remove();
@@ -252,7 +252,7 @@ function showTip(error, output) {
   link.target = '_blank';
   link.rel = 'noopener';
   link.textContent = `つまずき解説「${tip.label}」`;
-  note.append('くわしく → ', link, '（動く例で説明しています）');
+  note.append('詳しく → ', link, '（動く例で説明しています）');
   const after = document.getElementById('fix-note') || output;
   after.parentElement.insertBefore(note, after.nextSibling);
 }
@@ -311,7 +311,7 @@ export function initSidebar({ sidebarId, toggleId, storageKey, onToggle, default
   const label = button.dataset.label || 'パネル';
   const labelEl = button.querySelector('.sidebar-toggle-label');
 
-  // 前に開いていたかを覚えておく。はじめて開いたときは defaultOpen にしたがう。
+  // 前に開いていたかを覚えておく。初めて開いたときは defaultOpen にしたがう。
   const saved = storageKey ? safeStorage.get(storageKey) : null;
   const remembered = saved === null ? defaultOpen : saved === '1';
 
@@ -319,10 +319,9 @@ export function initSidebar({ sidebarId, toggleId, storageKey, onToggle, default
     sidebar.classList.toggle('is-open', open);
     button.classList.toggle('is-on', open);
     button.setAttribute('aria-expanded', String(open));
-    // 図だけだと押して何が起きるか分からないので、「〇〇を開く／閉じる」と字でも書く。
-    const text = `${label}を${open ? '閉じる' : '開く'}`;
-    if (labelEl) labelEl.textContent = text;
-    button.title = text;
+    // ボタンの字は短く「ヒント」とだけ書き、開いているかは押した色（is-on）で見せる
+    if (labelEl) labelEl.textContent = label;
+    button.title = `${label}を${open ? '閉じる' : '開く'}`;
     if (storageKey) safeStorage.set(storageKey, open ? '1' : '0');
     if (onToggle) onToggle(open);
   };
@@ -543,7 +542,7 @@ export async function takeCodeFromUrl() {
     return decodeURIComponent(plain[1]);
   } catch {
     // 黙って無視すると「リンクを開いたのに何も起きない」になる
-    toast('リンクが途中で切れているため、コードを開けませんでした。リンクをもう一度コピーしてもらいましょう。', 5200);
+    toast('リンクが途中で切れているため、コードを開けませんでした。リンクをもう一度コピーしてもらってください。', 5200);
     return null;
   }
 }
@@ -604,26 +603,26 @@ export function showShareDialog(url) {
 }
 
 /* ============================================================
- * 9. Python の読みこみ
+ * 9. Python の読み込み
  * ========================================================== */
 
-/** 学校の回線では、はじめの読みこみに時間がかかることがある */
+/** 学校の回線では、はじめの読み込みに時間がかかることがある */
 const PYTHON_TIMEOUT_MS = 120000;
 
 export const PYTHON_LOAD_FAILED =
-  'Python の実行環境を読みこめませんでした。インターネットにつながっているか、'
+  'Python の実行環境を読み込めませんでした。インターネットにつながっているか、'
   + '学校のネットワークで cdn.jsdelivr.net への接続が止められていないかを確かめてください。';
 
 /**
- * Pyodide を読みこむ。画面はこれを待たずに使えるようにしておき、終わったら実行ボタンを開ける。
+ * Pyodide を読み込む。画面はこれを待たずに使えるようにしておき、終わったら実行ボタンを開ける。
  * @param {object} [options]
- * @param {(pyodide: object) => Promise<void>} [options.prepare] 読みこんだあとの下ごしらえ
+ * @param {(pyodide: object) => Promise<void>} [options.prepare] 読み込んだあとの下ごしらえ
  * @param {HTMLElement} [options.statusEl] 準備中・失敗を書く場所（ふつうは出力欄）
  * @returns {Promise<object>} pyodide
  */
 export async function bootPython({ prepare, statusEl } = {}) {
-  const waiting = 'Python を準備しています…（はじめは 10〜30 秒ほどかかります。そのあいだもコードは書けます）';
-  // 出力欄にもとの案内があれば、読みこめたあとに戻す
+  const waiting = 'Python を準備しています…（はじめは 10〜30 秒ほどかかります。その間もコードは書けます）';
+  // 出力欄にもとの案内があれば、読み込めたあとに戻す
   const before = statusEl ? statusEl.textContent : '';
   if (statusEl) statusEl.textContent = waiting;
 
@@ -635,7 +634,7 @@ export async function bootPython({ prepare, statusEl } = {}) {
     return Promise.race([promise, timeout]).finally(() => clearTimeout(timer));
   };
   const start = () => {
-    if (typeof loadPyodide !== 'function') return Promise.reject(new Error('pyodide.js を読みこめていません'));
+    if (typeof loadPyodide !== 'function') return Promise.reject(new Error('pyodide.js を読み込めていません'));
     return loadPyodide({ indexURL: PYODIDE_CONFIG.INDEX_URL });
   };
 
@@ -647,15 +646,15 @@ export async function bootPython({ prepare, statusEl } = {}) {
       pyodide = await wait(loading, PYTHON_TIMEOUT_MS);
     } catch (e) {
       lastError = e;
-      console.warn(`Python の読みこみに失敗（${attempt + 1} 回目）:`, e);
+      console.warn(`Python の読み込みに失敗（${attempt + 1} 回目）:`, e);
       if (typeof loadPyodide !== 'function') break;
       if (e.timeout) {
-        // 遅いだけなら、同じ読みこみをもう少し待つ（二重に読みこむと、回線がもっと詰まる）
+        // 遅いだけなら、同じ読み込みをもう少し待つ（二重に読み込むと、回線がもっと詰まる）
         if (statusEl && statusEl.textContent === waiting) {
-          statusEl.textContent = 'Python の読みこみに時間がかかっています。もう少し待ちます…';
+          statusEl.textContent = 'Python の読み込みに時間がかかっています。もう少し待ちます…';
         }
       } else {
-        // 途中で切れたときだけ、読みこみをやり直す
+        // 途中で切れたときだけ、読み込みをやり直す
         loading = start();
       }
     }
@@ -666,7 +665,7 @@ export async function bootPython({ prepare, statusEl } = {}) {
       pyodide.globals.set('js', window);
       if (prepare) await prepare(pyodide);
       if (statusEl && statusEl.textContent !== before
-          && /^Python (を準備|の読みこみに時間)/.test(statusEl.textContent)) statusEl.textContent = before;
+          && /^Python (を準備|の読み込みに時間)/.test(statusEl.textContent)) statusEl.textContent = before;
       return pyodide;
     } catch (e) {
       lastError = e;
@@ -700,7 +699,7 @@ export async function bootPython({ prepare, statusEl } = {}) {
  */
 export function makeEditorFriendly(cm, label) {
   if (label) cm.setOption('screenReaderLabel', label);
-  // 行のはじめの空白の中で Backspace を押したら、1 字ではなく 1 段（4 文字）もどす。
+  // 行のはじめの空白の中で Backspace を押したら、1 字ではなく 1 段（4 文字）戻す。
   // 1 字ずつだと、中身から出るつもりで 1 回押したとき空白が 3 つ残り、エラーになる
   cm.addKeyMap({
     Backspace: (editor) => {
@@ -714,8 +713,8 @@ export function makeEditorFriendly(cm, label) {
       return undefined;
     },
   });
-  // コードを書きかえたら、前のエラーに向けた「押せば直る」案内は合わなくなるので消す
-  // （読むだけの表記のように、プログラムが書きかえる setValue では消さない）
+  // コードを書き換えたら、前のエラーに向けた「押せば直る」案内は合わなくなるので消す
+  // （読むだけの表記のように、プログラムが書き換える setValue では消さない）
   cm.on('change', (_, change) => {
     if (change.origin === 'setValue') return;
     for (const id of ['fix-note', 'tip-note']) {
@@ -743,7 +742,7 @@ export function bindRunShortcut(button) {
   const mac = /Mac|iPhone|iPad/.test(navigator.platform || navigator.userAgent);
   const hint = mac ? '⌘+Enter' : 'Ctrl+Enter';
   button.title = button.title ? `${button.title}（${hint}）` : `実行（${hint}）`;
-  // 状態に合わせて title を書きかえる画面が、もとの説明に戻せるように
+  // 状態に合わせて title を書き換える画面が、もとの説明に戻せるように
   button.dataset.hint = button.title;
   button.setAttribute('aria-keyshortcuts', mac ? 'Meta+Enter' : 'Control+Enter');
   document.addEventListener('keydown', (e) => {
@@ -814,7 +813,7 @@ const CODE_ZOOMS = [80, 90, 100, 115, 130, 150, 175, 200, 250, 300, 400];
 
 /**
  * 区画の見出しに「− 100% ＋」を置く（コード・ブロック・実行結果で同じ形にする）
- * 真ん中の「100%」を押すと元の大きさにもどる。大きさはページをまたいで覚える
+ * 真ん中の「100%」を押すと元の大きさに戻る。大きさはページをまたいで覚える
  * @param {HTMLElement} tools ボタンを置く場所（区画の見出しの道具の列）
  * @param {object} options
  * @param {string} options.storageKey 覚えておく名前
@@ -841,7 +840,7 @@ export function addZoomButtons(tools, { storageKey, what, onApply }) {
     return b;
   };
   const smaller = make('−', `${what}を小さくする`);
-  const value = make('', `${what}を元の大きさ（100%）にもどす`);
+  const value = make('', `${what}を元の大きさ（100%）に戻す`);
   value.classList.add('code-zoom-value');
   const larger = make('＋', `${what}を大きくする`);
   group.append(smaller, value, larger);
@@ -881,7 +880,7 @@ export function addZoomButtons(tools, { storageKey, what, onApply }) {
 
 /**
  * コードの区画の見出しに「− 100% ＋」を置き、エディタの字を大きく・小さくする（全ページで同じ大きさを覚える）
- * @param {object[]} editors CodeMirror（いっしょに大きさを変えるもの）
+ * @param {object[]} editors CodeMirror（同時に大きさを変えるもの）
  * @param {HTMLElement} tools ボタンを置く場所（区画の見出しの道具の列）
  */
 export function addCodeZoom(editors, tools) {
@@ -891,7 +890,7 @@ export function addCodeZoom(editors, tools) {
     what: 'コードの字',
     onApply: (zoom) => {
       for (const cm of editors) {
-        // .CodeMirror の字の大きさ（--text-sm）に倍率をかける。字下げの塗りやまとまりの罫は ch で決めているので、いっしょに大きくなる
+        // .CodeMirror の字の大きさ（--text-sm）に倍率をかける。字下げの塗りやまとまりの罫は ch で決めているので、同時に大きくなる
         cm.getWrapperElement().style.fontSize = zoom === 100 ? '' : `calc(var(--text-sm) * ${zoom / 100})`;
         cm.refresh();
       }
@@ -900,7 +899,7 @@ export function addCodeZoom(editors, tools) {
 }
 
 /**
- * 実行結果の区画の見出しに「− 100% ＋」を置く。結果の字も、エラーの案内も、いっしょに大きくする
+ * 実行結果の区画の見出しに「− 100% ＋」を置く。結果の字も、エラーの案内も、同時に大きくする
  * @param {HTMLElement} body 実行結果の中身（.panel-body）
  * @param {HTMLElement} tools ボタンを置く場所
  */

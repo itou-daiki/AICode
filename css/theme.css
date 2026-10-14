@@ -1630,6 +1630,25 @@ button.indent-demo-line:focus-visible { outline: 2px solid var(--c-mark); outlin
   border-top: 1px solid var(--c-rule);
 }
 .symbol-bar-keys { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; }
+.symbol-bar-keys[hidden] { display: none; }
+/* 記号のボタンを出し入れする 1 つのボタン */
+.symbol-toggle {
+  display: inline-flex;
+  align-items: center;
+  min-height: 30px;
+  padding: 0 var(--sp-3);
+  margin-bottom: 4px;
+  border: 1px solid var(--c-rule);
+  border-radius: var(--radius, 4px);
+  background: var(--c-paper);
+  color: var(--c-ink);
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+  cursor: pointer;
+}
+.symbol-toggle[aria-expanded="false"] { margin-bottom: 0; }
+.symbol-toggle:hover { background: var(--c-paper-3); }
+@media (pointer: coarse) { .symbol-toggle { min-height: 40px; } }
 /* 画面のキーボードの上に出しているとき：1 列にして、横にすべらせて選ぶ */
 .symbol-bar.is-docked {
   position: fixed;

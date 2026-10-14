@@ -294,9 +294,9 @@ function valueBody(expr) {
       case 'sum': return `${args[0]} の合計`;
       // max(リスト) は「最大値」、max(a, b) は「大きいほう」、3 つ以上なら「いちばん大きいもの」
       case 'max': return args.length === 1 ? `${args[0]} の最大値`
-        : args.length === 2 ? `${args.join(' と ')} の大きいほう` : `${args.join(' と ')} でいちばん大きいもの`;
+        : args.length === 2 ? `${args.join(' と ')} の大きいほう` : `${args.join(' と ')} で最も大きいもの`;
       case 'min': return args.length === 1 ? `${args[0]} の最小値`
-        : args.length === 2 ? `${args.join(' と ')} の小さいほう` : `${args.join(' と ')} でいちばん小さいもの`;
+        : args.length === 2 ? `${args.join(' と ')} の小さいほう` : `${args.join(' と ')} で最も小さいもの`;
       case 'abs': return `${args[0]} の絶対値`;
       // Python の round は「偶数への丸め」（round(2.5) は 2）なので、四捨五入とは書かない
       case 'round': return args.length >= 2
@@ -346,7 +346,7 @@ function methodValue({ target, action, args: rawArgs }) {
     case 'upper': return a.length ? null : `${t} を大文字にしたもの`;
     case 'lower': return a.length ? null : `${t} を小文字にしたもの`;
     case 'strip': return a.length ? null : `${t} の前後の空白を取ったもの`;
-    case 'replace': return a.length === 2 ? `${t} の ${a[0]} を ${a[1]} に置きかえたもの` : null;
+    case 'replace': return a.length === 2 ? `${t} の ${a[0]} を ${a[1]} に置き換えたもの` : null;
     case 'split':
       if (!a.length) return `${t} を空白で区切ったリスト`;
       return a.length === 1 ? `${t} を ${a[0]} で区切ったリスト` : null;
@@ -381,13 +381,13 @@ function sketchNamesIn(text) {
 export const SKETCH_NAMES = {
   mouseX: 'マウスの x 座標', mouse_x: 'マウスの x 座標',
   mouseY: 'マウスの y 座標', mouse_y: 'マウスの y 座標',
-  pmouseX: '1 コマ前のマウスの x 座標', pmouseY: '1 コマ前のマウスの y 座標',
+  pmouseX: '1 フレーム前のマウスの x 座標', pmouseY: '1 フレーム前のマウスの y 座標',
   mouseIsPressed: 'マウスのボタンが押されている', mouse_is_pressed: 'マウスのボタンが押されている',
   keyIsPressed: 'キーが押されている', key_is_pressed: 'キーが押されている',
   key: '押されたキー', keyCode: '押されたキーの番号',
   width: 'キャンバスの幅', 'p5.width': 'キャンバスの幅',
   height: 'キャンバスの高さ', 'p5.height': 'キャンバスの高さ',
-  frameCount: 'コマ数', frame_count: 'コマ数',
+  frameCount: 'フレーム数', frame_count: 'フレーム数',
   PI: 'π', TWO_PI: '2π', HALF_PI: 'π/2', QUARTER_PI: 'π/4',
 };
 
@@ -419,12 +419,12 @@ function valueOfSketch(name, a) {
     case 'lerp': return a.length >= 3 ? `${a[0]} から ${a[1]} へ ${a[2]} の割合だけ進んだ数` : null;
     case 'map':
     case 'map_value': return a.length >= 5
-      ? `${a[0]} を ${a[1]}〜${a[2]} から ${a[3]}〜${a[4]} に置きかえた数` : null;
-    case 'constrain': return a.length >= 3 ? `${a[0]} を ${a[1]} 以上 ${a[2]} 以下におさめた数` : null;
+      ? `${a[0]} を ${a[1]}〜${a[2]} から ${a[3]}〜${a[4]} に置き換えた数` : null;
+    case 'constrain': return a.length >= 3 ? `${a[0]} を ${a[1]} 以上 ${a[2]} 以下に収めた数` : null;
     case 'dist': return a.length >= 4 ? `(${a[0]}, ${a[1]}) と (${a[2]}, ${a[3]}) の距離` : null;
     case 'millis': return '始めてからのミリ秒';
     case 'color': return `色 ${colourWords(a)}`;
-    case 'frame_rate': return a.length ? null : '今の 1 秒あたりのコマ数';
+    case 'frame_rate': return a.length ? null : '今の 1 秒あたりのフレーム数';
     case 'text_width': return `${a[0]} の幅`;
     default: return null;
   }
@@ -611,7 +611,7 @@ function statementBody(statement) {
   if (compound) {
     const [, name, op, rest] = compound;
     const amount = humanizeValue(rest);
-    if (op === '+') return isTextValue(rest) ? `${name} のうしろに ${amount} をつなげる` : `${name} を ${amount} 増やす`;
+    if (op === '+') return isTextValue(rest) ? `${name} の後ろに ${amount} をつなげる` : `${name} を ${amount} 増やす`;
     if (op === '-') return `${name} を ${amount} 減らす`;
     if (op === '*') return `${name} を ${amount} 倍にする`;
     if (op === '/') return `${name} を ${amount} で割る`;
@@ -634,7 +634,7 @@ function statementBody(statement) {
     if (selfAdd && selfAdd[1] === name && findTop(rest, selfAdd[2]) > 0 && !hasLogic(selfAdd[3])) {
       const tail = selfAdd[3];
       const plain = findTop(tail, '+') === -1 && findTop(tail, '-') <= 0;
-      if (selfAdd[2] === '+' && isTextValue(tail)) return `${name} のうしろに ${humanizeValue(tail)} をつなげる`;
+      if (selfAdd[2] === '+' && isTextValue(tail)) return `${name} の後ろに ${humanizeValue(tail)} をつなげる`;
       if (selfAdd[2] === '+') return `${name} を ${humanizeValue(tail)} 増やす`;
       if (plain) return `${name} を ${humanizeValue(tail)} 減らす`;
     }
@@ -682,18 +682,18 @@ function statementBody(statement) {
     if (method) {
       const [, target, action] = method;
       const args = call.args.map(humanizeValue);
-      if (target === 'random' && action === 'shuffle' && args.length === 1) return `${args[0]} の順番をランダムに並べかえる`;
+      if (target === 'random' && action === 'shuffle' && args.length === 1) return `${args[0]} の順番をランダムに並べ替える`;
       if (target === 'time' && action === 'sleep' && args.length === 1) return `${args[0]} 秒待つ`;
       switch (action) {
         case 'append': return `${target} に ${args[0]} を追加する`;
         case 'remove': return `${target} から ${args[0]} を取り除く`;
         case 'insert': return `${target} の ${args[0]} 番目に ${args[1]} を入れる`;
         case 'sort': return call.args.some(arg => /^reverse\s*=\s*True$/.test(arg))
-          ? `${target} を大きい順に並べかえる` : `${target} を並べかえる`;
+          ? `${target} を大きい順に並べ替える` : `${target} を並べ替える`;
         case 'reverse': return `${target} を逆順にする`;
         case 'clear': return `${target} を空にする`;
         case 'pop': return args.length ? `${target} から ${args[0]} 番目を取り出す` : `${target} の最後を取り出す`;
-        case 'extend': return `${target} のうしろに ${args[0]} をつなげる`;
+        case 'extend': return `${target} の後ろに ${args[0]} をつなげる`;
         default: return `${target}.${action}(${call.args.join(', ')}) を呼び出す`;
       }
     }
@@ -705,11 +705,11 @@ function statementBody(statement) {
 
   if (/^return\b/.test(text)) {
     const value = text.slice(6).trim();
-    return value ? `${humanizeValue(value)} を返す` : '呼び出し元にもどる';
+    return value ? `${humanizeValue(value)} を返す` : '呼び出し元に戻る';
   }
   if (text === 'pass') return '何もしない';
-  if (text === 'break') return 'くり返しを抜ける';
-  if (text === 'continue') return '次のくり返しへ';
+  if (text === 'break') return '繰り返しを抜ける';
+  if (text === 'continue') return '次の繰り返しへ';
 
   return text;
 }
@@ -734,11 +734,11 @@ function humanizePrint(rawArgs) {
   if (!shown.length && end !== null && /^(['"])\1$/.test(end)) return '何も表示しない';
   let text = shown.length ? `${shown.join(' と ')} を表示する` : '空の行を表示する';
   if (sep !== null && shown.length > 1) {
-    text = `${shown.join(' と ')} を、あいだに ${humanizeValue(sep)} をはさんで表示する`;
+    text = `${shown.join(' と ')} を、間に ${humanizeValue(sep)} をはさんで表示する`;
   }
   if (end !== null) {
     if (/^(['"])\1$/.test(end)) return `${text.replace(/する$/, '')}し、改行しない`;
-    return `${text.replace(/する$/, '')}し、うしろに ${humanizeValue(end)} をつける`;
+    return `${text.replace(/する$/, '')}し、後ろに ${humanizeValue(end)} をつける`;
   }
   return text;
 }
@@ -760,9 +760,9 @@ function humanizePrint(rawArgs) {
 function colourWords(a) {
   // 数 1 つなら明るさ。'red' や '#ff0000'、color(...) を入れた変数なら、そのまま色として読む
   if (a.length === 1) return /^-?[\d.]+$/.test(a[0]) ? `${a[0]}（明るさ）` : a[0];
-  if (a.length === 2) return `${a[0]}（明るさ・すけ具合 ${a[1]}）`;
+  if (a.length === 2) return `${a[0]}（明るさ・透明度 ${a[1]}）`;
   if (a.length === 3) return `赤${a[0]} 緑${a[1]} 青${a[2]}`;
-  if (a.length >= 4) return `赤${a[0]} 緑${a[1]} 青${a[2]}（すけ具合 ${a[3]}）`;
+  if (a.length >= 4) return `赤${a[0]} 緑${a[1]} 青${a[2]}（透明度 ${a[3]}）`;
   return 'もとの色';
 }
 
@@ -802,35 +802,35 @@ function humanizeDrawing(action, a) {
     // --- キャンバスとアニメーション ---
     case 'create_canvas':
     case 'size': return `横 ${a[0]} 縦 ${a[1]} のキャンバスを作る`;
-    case 'frame_rate': return `1 秒に ${a[0]} コマ描くようにする`;
-    case 'no_loop': return 'draw() のくり返しを止める';
-    case 'loop': return 'draw() のくり返しを再開する';
+    case 'frame_rate': return `1 秒に ${a[0]} フレーム描くようにする`;
+    case 'no_loop': return 'draw() の繰り返しを止める';
+    case 'loop': return 'draw() の繰り返しを再開する';
     case 'redraw': return 'draw() を 1 回だけ動かす';
-    case 'clear': return 'キャンバスを消す';
+    case 'clear': return 'キャンバスを消去する';
     case 'save_canvas': return 'キャンバスを画像で保存する';
     // --- かたち ---
-    case 'circle': return `中心 (${a[0]}, ${a[1]}) に直径 ${a[2]} の円をかく`;
+    case 'circle': return `中心 (${a[0]}, ${a[1]}) に直径 ${a[2]} の円を描く`;
     case 'ellipse': return a.length === 3
-      ? `中心 (${a[0]}, ${a[1]}) に直径 ${a[2]} の円をかく`
-      : `中心 (${a[0]}, ${a[1]}) に 横 ${a[2]} 縦 ${a[3]} の楕円をかく`;
-    case 'rect': return `(${a[0]}, ${a[1]}) から 幅 ${a[2]} 高さ ${a[3]} の四角をかく`;
-    case 'square': return `(${a[0]}, ${a[1]}) から 一辺 ${a[2]} の正方形をかく`;
-    case 'triangle': return `(${a[0]}, ${a[1]}) (${a[2]}, ${a[3]}) (${a[4]}, ${a[5]}) の三角形をかく`;
-    case 'quad': return `(${a[0]}, ${a[1]}) (${a[2]}, ${a[3]}) (${a[4]}, ${a[5]}) (${a[6]}, ${a[7]}) の四角形をかく`;
-    case 'line': return `(${a[0]}, ${a[1]}) から (${a[2]}, ${a[3]}) へ線をひく`;
-    case 'point': return `(${a[0]}, ${a[1]}) に点をうつ`;
+      ? `中心 (${a[0]}, ${a[1]}) に直径 ${a[2]} の円を描く`
+      : `中心 (${a[0]}, ${a[1]}) に 横 ${a[2]} 縦 ${a[3]} の楕円を描く`;
+    case 'rect': return `(${a[0]}, ${a[1]}) から 幅 ${a[2]} 高さ ${a[3]} の四角を描く`;
+    case 'square': return `(${a[0]}, ${a[1]}) から 一辺 ${a[2]} の正方形を描く`;
+    case 'triangle': return `(${a[0]}, ${a[1]}) (${a[2]}, ${a[3]}) (${a[4]}, ${a[5]}) の三角形を描く`;
+    case 'quad': return `(${a[0]}, ${a[1]}) (${a[2]}, ${a[3]}) (${a[4]}, ${a[5]}) (${a[6]}, ${a[7]}) の四角形を描く`;
+    case 'line': return `(${a[0]}, ${a[1]}) から (${a[2]}, ${a[3]}) へ線を引く`;
+    case 'point': return `(${a[0]}, ${a[1]}) に点を打つ`;
     case 'arc': return a.length >= 6
       ? `中心 (${a[0]}, ${a[1]}) に 横 ${a[2]} 縦 ${a[3]} の弧を 角度 ${a[4]} から ${a[5]} までかく`
-      : `中心 (${a[0]}, ${a[1]}) に弧をかく`;
-    case 'bezier': return `(${a[0]}, ${a[1]}) から (${a[6]}, ${a[7]}) へベジェ曲線をひく`;
-    case 'curve': return `(${a[2]}, ${a[3]}) から (${a[4]}, ${a[5]}) へ曲線をひく`;
-    case 'polygon': return '多角形をかく';
-    case 'begin_shape': return '形の頂点を集めはじめる';
-    case 'vertex': return `頂点 (${a[0]}, ${a[1]}) を足す`;
-    case 'curve_vertex': return `曲線の頂点 (${a[0]}, ${a[1]}) を足す`;
-    case 'bezier_vertex': return 'ベジェ曲線の頂点を足す';
-    case 'quadratic_vertex': return '2 次曲線の頂点を足す';
-    case 'end_shape': return a.length && /CLOSE/i.test(a[0]) ? '集めた頂点で、閉じた形をかく' : '集めた頂点で形をかく';
+      : `中心 (${a[0]}, ${a[1]}) に弧を描く`;
+    case 'bezier': return `(${a[0]}, ${a[1]}) から (${a[6]}, ${a[7]}) へベジェ曲線を引く`;
+    case 'curve': return `(${a[2]}, ${a[3]}) から (${a[4]}, ${a[5]}) へ曲線を引く`;
+    case 'polygon': return '多角形を描く';
+    case 'begin_shape': return '形の頂点を集め始める';
+    case 'vertex': return `頂点 (${a[0]}, ${a[1]}) を追加する`;
+    case 'curve_vertex': return `曲線の頂点 (${a[0]}, ${a[1]}) を追加する`;
+    case 'bezier_vertex': return 'ベジェ曲線の頂点を追加する';
+    case 'quadratic_vertex': return '2 次曲線の頂点を追加する';
+    case 'end_shape': return a.length && /CLOSE/i.test(a[0]) ? '集めた頂点で、閉じた形を描く' : '集めた頂点で形を描く';
     // --- いろと線 ---
     case 'background': return `背景を ${colourWords(a)} にする`;
     case 'fill': return `塗り色を ${colourWords(a)} にする`;
@@ -848,22 +848,22 @@ function humanizeDrawing(action, a) {
     case 'text': return `(${a[1]}, ${a[2]}) に ${a[0]} を書く`;
     case 'text_size': return `文字の大きさを ${a[0]} にする`;
     case 'text_align': return a.length >= 2
-      ? `文字のそろえ方を 横 ${a[0]} 縦 ${a[1]} にする`
-      : `文字のそろえ方を ${a[0]} にする`;
+      ? `文字の揃え方を 横 ${a[0]} 縦 ${a[1]} にする`
+      : `文字の揃え方を ${a[0]} にする`;
     case 'text_leading': return `文字の行の間を ${a[0]} にする`;
     // --- 位置と向き ---
     case 'push': return '今の状態を保存する';
-    case 'pop': return '保存した状態にもどす';
+    case 'pop': return '保存した状態に戻す';
     case 'translate': return `原点を (${a[0]}, ${a[1]}) に動かす`;
     case 'rotate': return `${a[0]} だけ回転する`;
     case 'scale': return `横 ${a[0]} 倍 縦 ${a[1]} 倍に拡大する`;
-    case 'reset_matrix': return '移動・回転・拡大を元にもどす';
+    case 'reset_matrix': return '移動・回転・拡大を元に戻す';
     case 'angle_mode': return `角度の単位を ${a[0]} にする`;
     case 'rect_mode': return `四角の位置の決め方を ${a[0]} にする`;
     case 'ellipse_mode': return `円の位置の決め方を ${a[0]} にする`;
     // --- 乱数 ---
-    case 'random_seed': return `乱数のたねを ${a[0]} にする`;
-    case 'noise_seed': return `なめらかな乱数のたねを ${a[0]} にする`;
+    case 'random_seed': return `乱数の種を ${a[0]} にする`;
+    case 'noise_seed': return `なめらかな乱数の種を ${a[0]} にする`;
     default: return null;
   }
 }
@@ -903,8 +903,8 @@ export function humanizeDefHead(head) {
 /** p5.js が決まったときに呼ぶ関数と、呼ばれるとき */
 const SKETCH_HANDLERS = {
   setup: '最初に 1 回だけ動く',
-  draw: 'くり返し動く',
+  draw: '繰り返し動く',
   mousePressed: 'マウスを押したときに動く', mouse_pressed: 'マウスを押したときに動く',
-  mouseReleased: 'マウスをはなしたときに動く', mouse_released: 'マウスをはなしたときに動く',
+  mouseReleased: 'マウスを離したときに動く', mouse_released: 'マウスを離したときに動く',
   keyPressed: 'キーを押したときに動く', key_pressed: 'キーを押したときに動く',
 };

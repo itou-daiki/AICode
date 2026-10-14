@@ -1,7 +1,7 @@
-// module/blocks.js - ブロックモードの画面まわり
+// module/blocks.js - ブロックモードの画面周り
 //
 // コード ⇄ ブロック ⇄ フローチャートの同期は module/workbench.js が受け持つ。
-// このファイルは「実行」「1行ずつ実行（ステップ実行）」「画面の切り替え」を担当する。
+// このファイルは「実行」「ステップ実行」「画面の切り替え」を担当する。
 
 import { createWorkbench } from './workbench.js';
 import { recordTrace, namesInLine } from './stepper.js';
@@ -22,7 +22,7 @@ import { noticeCommonMistakes } from './pyfix.js';
 import { toKtph } from './ktph.js';
 import { setIconLabel } from './icons.js';
 import { attachSymbolBar } from './symbolbar.js';
-// AI は任意だが、キーの保存欄はこの画面にもあるので読みこんでおく
+// AI は任意だが、キーの保存欄はこの画面にもあるので読み込んでおく
 import './ai.js';
 
 const STORAGE_KEY = 'easycode_blocks_workspace_v2';
@@ -44,7 +44,7 @@ let stageTabs = null;
 
 let isWaitingForInput = false;
 let inputCallback = null;
-/** 「下の欄に答えを打って」のお知らせを、このページを開いてから出したか */
+/** 「下の欄に答えを打って」の通知を、このページを開いてから出したか */
 let inputHintShown = false;
 
 /** ステップ実行の状態 */
@@ -104,7 +104,7 @@ function createCustomInput() {
     container.classList.add('is-flash');
     if (!inputHintShown) {
       inputHintShown = true;
-      toast('下の欄に答えを打って Enter を押しましょう', 4000);
+      toast('下の欄に答えを打って Enter を押してください', 4000);
     }
     updateStepInputs();
     $('runtime-input').focus();
@@ -120,7 +120,7 @@ async function runCode() {
   const code = bench.getCode();
 
   if (!code.trim()) {
-    output.textContent = '実行するコードがありません。ブロックを置くか、コードを書いてみましょう。';
+    output.textContent = '実行するコードがありません。ブロックを置くか、コードを書いてください。';
     return;
   }
 
@@ -135,7 +135,7 @@ async function runCode() {
   button.disabled = true;
 
   try {
-    // input() はブラウザの入力欄で受けるので、await に置きかえて動かす。
+    // input() はブラウザの入力欄で受けるので、await に置き換えて動かす。
     // 行の数は変えないので、エラーの行番号はずれない。
     if (code.includes('input(')) {
       pyodide.globals.set('custom_input', createCustomInput());
@@ -199,11 +199,11 @@ function applyFix(code, line) {
   const at = Math.max(0, Math.min(line - 1, bench.editor.lineCount() - 1));
   bench.editor.setCursor({ line: at, ch: bench.editor.getLine(at).length });
   bench.editor.focus();
-  toast('コードを直しました。もう一度「実行」を押してみましょう', 3600);
+  toast('コードを直しました。もう一度「実行」を押してください', 3600);
 }
 
 /* ============================================================
- * 2. 1行ずつ実行（ステップ実行。Python Tutor 風）
+ * 2. ステップ実行（Python Tutor 風）
  * ========================================================== */
 
 /** 実行のときに打った値。次のステップ実行に引きつぐ */
@@ -211,7 +211,7 @@ const typedInputs = [];
 
 /**
  * input() を使うコードのときだけ、ステップ実行用の欄を出す。
- * 実行中に値を聞いているあいだは、入力欄が 2 つ並んで
+ * 実行中に値を聞いている間は、入力欄が 2 つ並んで
  * 「どちらに書くのか」が分からなくなるので引っこめる。
  */
 function updateStepInputs() {
@@ -236,13 +236,13 @@ async function startStepMode() {
 
   // ステップ実行は「先に最後まで走らせて記録する」しくみなので、
   // 途中で入力を聞くことができない。input() の値はこの欄に先に書いてもらう。
-  // 書かずに始めると空文字で進んでしまい、いちばん分かりにくいつまずきになる。
+  // 書かずに始めると空文字で進んでしまい、最も分かりにくいつまずきになる。
   const inputCount = (code.match(/\binput\(/g) || []).length;
   if (inputCount > 0 && inputs.length === 0) {
     updateStepInputs();
     const box = $('step-input-values');
     box.focus();
-    toast('input() が使われています。使う値を先にこの欄へ書いてから、もう一度「1行ずつ実行」を押してください。');
+    toast('input() が使われています。使う値を先にこの欄へ書いてから、もう一度「ステップ実行」を押してください。');
     return;
   }
 
@@ -262,14 +262,14 @@ async function startStepMode() {
     step.index = 0;
     step.active = true;
     showFix(null);
-    // ステップ実行のあいだは、まとまりの罫をカーソルではなく「次に動く行」に合わせる
+    // ステップ実行の間は、まとまりの罫をカーソルではなく「次に動く行」に合わせる
     bench.blockScope.pause(true);
     step.error = trace.error;
     step.truncated = trace.truncated;
 
     step.missingInput = Boolean(trace.missing_input);
 
-    // ステップ実行の間は2画面にする（終わったら元の分け方にもどす）
+    // ステップ実行の間は2画面にする（終わったら元の分け方に戻す）
     maximize.reset();
     layoutBeforeStep = layout;
     document.body.classList.add('step-mode');
@@ -283,7 +283,7 @@ async function startStepMode() {
 
     // 「戻り方」が分かるように、実行ボタン自体も終了ボタンに変える
     const stepButton = $('step-btn');
-    setIconLabel(stepButton, 'stop', '1行ずつ実行をやめる');
+    setIconLabel(stepButton, 'stop', 'ステップ実行をやめる');
     stepButton.classList.remove('btn-mark');
     stepButton.classList.add('btn-danger');
 
@@ -294,7 +294,7 @@ async function startStepMode() {
     toast(`${trace.steps.length} 回ぶんの動きを記録しました。← → で移動、Esc でやめる`, 3200);
   } catch (error) {
     console.error('ステップ実行に失敗:', error);
-    output.textContent = '1行ずつ実行がうまくいきませんでした: ' + error.message;
+    output.textContent = 'ステップ実行に失敗しました: ' + error.message;
   } finally {
     button.disabled = false;
   }
@@ -312,7 +312,7 @@ function exitStepMode() {
   }
 
   const stepButton = $('step-btn');
-  setIconLabel(stepButton, 'step', '1行ずつ実行');
+  setIconLabel(stepButton, 'step', 'ステップ実行');
   stepButton.classList.remove('btn-danger');
   stepButton.classList.add('btn-mark');
 
@@ -343,10 +343,10 @@ function showStep(index) {
 
   const info = describeStep(step.list, step.index, { error: step.error, truncated: step.truncated });
   // 値が足りないと、input() は空文字のまま進む。
-  // 「なぜか変数がからっぽ」に見えるので、理由を出力といっしょに見せる。
+  // 「なぜか変数がからっぽ」に見えるので、理由を出力と同時に見せる。
   const before = step.missingInput
     ? '入力の値が足りませんでした。足りない分は空文字で進んでいます。\n'
-      + '   左下の欄に値を書き足して、もう一度「1行ずつ実行」を押してください。\n\n'
+      + '   左下の欄に値を書き足して、もう一度「ステップ実行」を押してください。\n\n'
     : '';
   let after = '';
   if (isLast) {
@@ -360,11 +360,11 @@ function showStep(index) {
   const lineText = line ? bench.editor.getLine(line - 1) : '';
   const { order, history } = variableHistory(step.list, step.index);
   renderVariables($('step-vars'), current.vars, info.baseVars, namesInLine(lineText), { order, history });
-  // いま実行した行の後ろに、その行がしたことを書く。次に動く行のまとまりには罫を引く
+  // 今実行した行の後ろに、その行がしたことを書く。次に動く行のまとまりには罫を引く
   annotateStep(bench.editor, info.done, explainLine(step.list, step.index, info, (n) => bench.editor.getLine(n - 1) || ''));
   showBlockAt(bench.editor, line || info.done, { busyLine: info.done });
 
-  // コードには「いま実行した行」と「次に実行する行」を、フローチャートとブロックには次の行を光らせる。
+  // コードには「今実行した行」と「次に実行する行」を、フローチャートとブロックには次の行を光らせる。
   // 関数を呼び出したところでは、呼び出した行はまだ終わっていないので「実行した行」の印はつけない
   markStepLines(bench.editor, { done: info.doneKind === 'call' ? null : info.done, next: line });
   bench.highlightFlowLine(line);
@@ -414,18 +414,18 @@ function setupControls() {
 
   $('clear-btn').addEventListener('click', async () => {
     const ok = await confirmDialog({
-      title: 'すべて消しますか？',
+      title: '全消去しますか？',
       message: 'ブロックとコードの両方が消えます。消したあと、出てくる「元に戻す」を押せば戻せます。',
-      okLabel: 'すべて消す',
+      okLabel: '全消去する',
     });
     if (!ok) return;
     exitStepMode();
-    // 消す前のコードを控えておき、お知らせの「元に戻す」で戻せるようにする
+    // 消す前のコードを控えておき、通知の「元に戻す」で戻せるようにする
     const before = bench.getCode();
     bench.clearAll();
     $('output').textContent = '';
     showCommonNotes([]);
-    toast('すべて消しました', 10000, {
+    toast('全消去しました', 10000, {
       label: '元に戻す',
       onClick: () => {
         bench.setCode(before);
@@ -449,8 +449,8 @@ function setupControls() {
 
   $('flow-refresh').addEventListener('click', () => bench.renderFlowchart(true));
 
-  // いま書いているコードを、共通テストの表記で見せる。
-  // ふだんの Python が、試験ではどう書かれるのかを見くらべられる。
+  // 今書いているコードを、共通テストの表記で見せる。
+  // 通常の Python が、試験ではどう書かれるのかを見比べられる。
   $('flow-ktph').addEventListener('click', () => {
     const button = $('flow-ktph');
     const showing = button.classList.toggle('is-on');
@@ -460,7 +460,7 @@ function setupControls() {
 
     // コードを直した直後は、図の描き直しが控えている。
     // それが後から走ると、せっかく出した表記を上書きしてしまうので、
-    // 先に済ませてから差しかえる。
+    // 先に済ませてから差し替える。
     if (bench.scheduleFlowchart && bench.scheduleFlowchart.cancel) {
       bench.scheduleFlowchart.cancel();
     }
@@ -497,9 +497,9 @@ $('flow-zoom-in').addEventListener('click', () => bench.zoomFlowchart(1.25));
   $('flow-language').addEventListener('click', (e) => {
     const japanese = !bench.isFlowJapanese();
     bench.setFlowJapanese(japanese);
-    setIconLabel(e.currentTarget, 'notation', japanese ? 'やさしい日本語' : 'コードのまま');
+    setIconLabel(e.currentTarget, 'notation', japanese ? '日本語表記' : 'コード表記');
     e.currentTarget.classList.toggle('is-on', japanese);
-    toast(japanese ? 'やさしい日本語で書きます' : 'コードのまま書きます');
+    toast(japanese ? '日本語で表記します' : 'コードのまま表記します');
   });
   $('output-clear').addEventListener('click', () => { $('output').textContent = ''; showCommonNotes([]); });
 
@@ -513,11 +513,9 @@ $('flow-zoom-in').addEventListener('click', () => bench.zoomFlowchart(1.25));
   });
   historyButton('code-undo', false);
   historyButton('code-redo', true);
-  $('code-indent').addEventListener('click', () => {
-    toast(bench.autoIndent() ? '字下げをそろえました' : 'すでに字下げは整っています');
-  });
+  // 「整形」1 つで、字下げも空白も整える（ボタンが多いと迷うので分けない）
   $('code-format').addEventListener('click', () => {
-    toast(bench.formatCode() ? 'コードを整えました' : 'すでに整っています');
+    toast(bench.formatCode() ? 'インデントと空白を整えました' : 'すでに整っています');
   });
   $('code-copy').addEventListener('click', async () => {
     try {
@@ -596,13 +594,13 @@ async function init() {
     addOutputZoom($('output-body') || $('output').parentElement, $('output-clear').parentElement);
     bindRunShortcut($('run-btn'));
 
-    // はじめて開いた人には、何から始めればよいかを出力欄で一言だけ伝える。
-    // 同じ説明はヒントの「はじめての人へ」にもあり、あとから読み返せる
+    // 初めて開いた人には、何から始めればよいかを出力欄で一言だけ伝える。
+    // 同じ説明はヒントの「初めての人へ」にもあり、あとから読み返せる
     if (!safeStorage.get(FIRST_VISIT_KEY)) {
       $('output').textContent =
-        'ようこそ。ブロックの区画の道具箱からブロックを置くと、Python のコードが同時にできあがります。\n'
-        + '①「実行」で動かす　②「1行ずつ実行」で 1 行ずつ確かめる　③ 図の区画で流れを見る\n'
-        + '書いたものは、このブラウザに自動で保存されます。（この説明は、ヒントの「はじめての人へ」でまた読めます）';
+        'ようこそ。ブロックの区画の道具箱からブロックを置くと、Python のコードが同時に生成されます。\n'
+        + '①「実行」で動かす　②「ステップ実行」で 1 行ずつ確かめる　③ 図の区画で流れを見る\n'
+        + '書いたものは、このブラウザに自動で保存されます。（この説明は、ヒントの「初めての人へ」でまた読めます）';
       $('welcome-box').open = true;
       safeStorage.set(FIRST_VISIT_KEY, '1');
     }
@@ -652,7 +650,7 @@ async function init() {
       fitButton.classList.remove('is-on');
     }
     const flowButton = $('flow-language');
-    setIconLabel(flowButton, 'notation', bench.isFlowJapanese() ? 'やさしい日本語' : 'コードのまま');
+    setIconLabel(flowButton, 'notation', bench.isFlowJapanese() ? '日本語表記' : 'コード表記');
     flowButton.classList.toggle('is-on', bench.isFlowJapanese());
     setupRuntimeInput();
 
@@ -669,14 +667,14 @@ async function init() {
     return;
   }
 
-  // 画面は先に使えるようにして、Python は後ろで読みこむ（そのあいだもブロックやコードは書ける）
+  // 画面は先に使えるようにして、Python は後ろで読み込む（その間もブロックやコードは書ける）
   loader.style.display = 'none';
   try {
     pyodide = await bootPython({ statusEl: $('output') });
     $('run-btn').disabled = false;
     $('step-btn').disabled = false;
   } catch (error) {
-    console.error('Python を読みこめませんでした:', error);
+    console.error('Python を読み込めませんでした:', error);
   }
 }
 

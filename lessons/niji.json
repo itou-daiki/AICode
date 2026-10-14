@@ -43,7 +43,7 @@
           "type": "code",
           "title": "階乗（自分を呼ぶ関数）",
           "difficulty": 3,
-          "description": "n の階乗（1 × 2 × … × n）を返す関数 `kaijo(n)` を作りなさい。0 の階乗は 1 とします。\n\nくり返しでも、自分自身を呼ぶ形（再帰）でもかまいません。",
+          "description": "n の階乗（1 × 2 × … × n）を返す関数 `kaijo(n)` を作りなさい。0 の階乗は 1 とします。\n\n繰り返しでも、自分自身を呼ぶ形（再帰）でもかまいません。",
           "template": "def kaijo(n):\n    # ここに書く\n    pass\n\nn = int(input())\nprint(kaijo(n))\n",
           "tests": [
             {
@@ -98,9 +98,9 @@
           "solution": "def fib(n):\n    a = 1\n    b = 1\n    for i in range(2, n):\n        a, b = b, a + b\n    return b if n >= 2 else a\n\nn = int(input())\nprint(fib(n))\n",
           "hint": [
             "前の 2 つを覚えておけば、順に進められます。",
-            "変数を 2 つ使って `a, b = b, a + b` と入れかえていきます。"
+            "変数を 2 つ使って `a, b = b, a + b` と入れ替えていきます。"
           ],
-          "explanation": "再帰で書くと同じ計算を何度もするので、n が大きいと遅くなります。くり返しで 2 つの変数を進める方が速く終わります。"
+          "explanation": "再帰で書くと同じ計算を何度もするので、n が大きいと遅くなります。繰り返しで 2 つの変数を進める方が速く終わります。"
         },
         {
           "id": "gcd-func",
@@ -129,10 +129,10 @@
           ],
           "solution": "def gcd(a, b):\n    while b != 0:\n        a, b = b, a % b\n    return a\n\na = int(input())\nb = int(input())\nprint(gcd(a, b))\n",
           "hint": [
-            "大きい方を、あまりに置きかえ続けます。",
-            "`a, b = b, a % b` をくり返し、b が 0 になったときの a が答えです。"
+            "大きい方を、余りに置き換え続けます。",
+            "`a, b = b, a % b` を繰り返し、b が 0 になったときの a が答えです。"
           ],
-          "explanation": "a と b を「b と a%b」に置きかえ続けると、b が 0 になったときの a が最大公約数です。"
+          "explanation": "a と b を「b と a%b」に置き換え続けると、b が 0 になったときの a が最大公約数です。"
         }
       ]
     },
@@ -145,7 +145,7 @@
           "type": "code",
           "title": "回文かどうか",
           "difficulty": 3,
-          "description": "文字列を 1 行受け取り、前から読んでも後ろから読んでも同じなら `Yes`、ちがえば `No` と表示しなさい。",
+          "description": "文字列を 1 行受け取り、前から読んでも後ろから読んでも同じなら `Yes`、違えば `No` と表示しなさい。",
           "template": "s = input()\n# ここに書く\n",
           "tests": [
             {
@@ -167,7 +167,7 @@
           ],
           "solution": "s = input()\nif s == s[::-1]:\n    print(\"Yes\")\nelse:\n    print(\"No\")\n",
           "hint": [
-            "文字列を逆さまにしたものと見くらべます。",
+            "文字列を逆さまにしたものと見比べます。",
             "`s[::-1]` で逆順の文字列が作れます。"
           ],
           "explanation": "`s[::-1]` は文字列を逆順にしたものです。1 文字の文字列は、逆にしても同じなので回文です。"
@@ -177,7 +177,7 @@
           "type": "code",
           "title": "文字の出てくる回数",
           "difficulty": 3,
-          "description": "文字列を 1 行受け取り、いちばん多く出てくる文字と、その回数を空白で区切って表示しなさい。\n\n同じ回数のものが複数あるときは、**先に出てきた方** を答えます。",
+          "description": "文字列を 1 行受け取り、最も多く出てくる文字と、その回数を空白で区切って表示しなさい。\n\n同じ回数のものが複数あるときは、**先に出てきた方** を答えます。",
           "template": "s = input()\n# 辞書を使うと数えやすい\n",
           "tests": [
             {
@@ -223,10 +223,10 @@
           ],
           "solution": "s = input()\nkotae = \"\"\ni = 0\nwhile i < len(s):\n    kosu = 1\n    while i + kosu < len(s) and s[i + kosu] == s[i]:\n        kosu = kosu + 1\n    kotae = kotae + s[i] + str(kosu)\n    i = i + kosu\nprint(kotae)\n",
           "hint": [
-            "同じ文字が何個続くかを、内側のくり返しで数えます。",
+            "同じ文字が何個続くかを、内側の繰り返しで数えます。",
             "数えたぶんだけ、位置をまとめて飛ばします。"
           ],
-          "explanation": "内側のくり返しで「同じ文字が何個続くか」を数え、その分だけ位置を進めます。"
+          "explanation": "内側の繰り返しで「同じ文字が何個続くか」を数え、その分だけ位置を進めます。"
         },
         {
           "id": "caesar",
@@ -299,7 +299,7 @@
           "type": "code",
           "title": "二分探索を関数にする",
           "difficulty": 4,
-          "description": "小さい順にならんだ配列 `Data` から値 `atai` をさがし、その添字を返す関数 `sagasu(Data, atai)` を作りなさい。見つからなければ `-1` を返します。\n\n入力の 1 行目がさがす値です。",
+          "description": "小さい順にならんだ配列 `Data` から値 `atai` を探し、その添字を返す関数 `sagasu(Data, atai)` を作りなさい。見つからなければ `-1` を返します。\n\n入力の 1 行目がさがす値です。",
           "template": "Data = [3, 18, 29, 33, 48, 52, 62, 77, 89, 97]\n\ndef sagasu(Data, atai):\n    # ここに書く\n    pass\n\natai = int(input())\nprint(sagasu(Data, atai))\n",
           "tests": [
             {
@@ -329,9 +329,9 @@
         {
           "id": "transpose",
           "type": "code",
-          "title": "表の行と列を入れかえる",
+          "title": "表の行と列を入れ替える",
           "difficulty": 4,
-          "description": "3 行 2 列の表 `Hyo` の行と列を入れかえて（2 行 3 列にして）、1 行ずつ表示しなさい。\n\n各行は空白区切りで表示します。",
+          "description": "3 行 2 列の表 `Hyo` の行と列を入れ替えて（2 行 3 列にして）、1 行ずつ表示しなさい。\n\n各行は空白区切りで表示します。",
           "template": "Hyo = [[1, 2], [3, 4], [5, 6]]\n# 行と列を入れかえて表示しよう\n",
           "tests": [
             {
@@ -341,17 +341,17 @@
           ],
           "solution": "Hyo = [[1, 2], [3, 4], [5, 6]]\nfor j in range(0, 2):\n    gyo = \"\"\n    for i in range(0, 3):\n        if i > 0:\n            gyo = gyo + \" \"\n        gyo = gyo + str(Hyo[i][j])\n    print(gyo)\n",
           "hint": [
-            "`Hyo[i][j]` の i と j を、回す順番だけ入れかえます。",
+            "`Hyo[i][j]` の i と j を、回す順番だけ入れ替えます。",
             "外側を列（j）、内側を行（i）にします。"
           ],
-          "explanation": "`Hyo[i][j]` の i と j を回す順番を入れかえるだけで、行と列が入れかわります。"
+          "explanation": "`Hyo[i][j]` の i と j を回す順番を入れ替えるだけで、行と列が入れ替わります。"
         },
         {
           "id": "bracket-check",
           "type": "code",
           "title": "かっこの対応を調べる",
           "difficulty": 4,
-          "description": "`(` と `)` だけからなる文字列を受け取り、かっこが正しく対応していれば `Yes`、していなければ `No` と表示しなさい。\n\n正しいとは、閉じかっこが先に来ず、最後に数がそろっていることです。",
+          "description": "`(` と `)` だけからなる文字列を受け取り、かっこが正しく対応していれば `Yes`、していなければ `No` と表示しなさい。\n\n正しいとは、閉じかっこが先に来ず、最後に数が揃っていることです。",
           "template": "s = input()\n# 開いた数を数えよう\n",
           "tests": [
             {

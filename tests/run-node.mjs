@@ -294,14 +294,14 @@ const SAY = [
   ['age = int(input("年は？"))', '「年は？」と聞いて、整数にして age に入れる'],
   ['s = input()', 'キーボードから入力して s に入れる'],
   ['scores.append(80)', 'scores に 80 を追加する'],
-  ['scores.sort()', 'scores を並べかえる'],
+  ['scores.sort()', 'scores を並べ替える'],
   ['return x', 'x を返す'],
-  ['return', '呼び出し元にもどる'],
+  ['return', '呼び出し元に戻る'],
   ['pass', '何もしない'],
-  ['break', 'くり返しを抜ける'],
-  ['continue', '次のくり返しへ'],
+  ['break', '繰り返しを抜ける'],
+  ['continue', '次の繰り返しへ'],
   ['x = 200 + 130 * cos(t)', 'x に 200 + 130 * cos(t) を入れる'],
-  ['p5.circle(200, 200, 50)', '中心 (200, 200) に直径 50 の円をかく'],
+  ['p5.circle(200, 200, 50)', '中心 (200, 200) に直径 50 の円を描く'],
   ['p5.fill(255, 0, 0)', '塗り色を 赤255 緑0 青0 にする'],
   ['p5.no_stroke()', '輪郭をやめる'],
 ];
@@ -316,12 +316,12 @@ const SAY_FIXED = [
   ['x //= 2', 'x を 2 で割った商にする'],
   ['x %= 3', 'x を 3 で割ったあまりにする'],
   // 文字をつなぐのは「増やす」ではない
-  ['s = s + "!"', 's のうしろに「!」をつなげる'],
-  ['s += "!"', 's のうしろに「!」をつなげる'],
+  ['s = s + "!"', 's の後ろに「!」をつなげる'],
+  ['s += "!"', 's の後ろに「!」をつなげる'],
   // end= は表示するものではない
   ['print("*", end="")', '「*」を表示し、改行しない'],
-  ['print(i, end=" ")', 'i を表示し、うしろに「 」をつける'],
-  ['print(a, b, sep=",")', 'a と b を、あいだに「,」をはさんで表示する'],
+  ['print(i, end=" ")', 'i を表示し、後ろに「 」をつける'],
+  ['print(a, b, sep=",")', 'a と b を、間に「,」をはさんで表示する'],
   // 何を渡したかが消えない
   ['greet("たろう")', '関数 greet を呼び出す（「たろう」を渡す）'],
   ['x = round(3.14159, 2)', 'x に 3.14159 を小数第 2 位までに丸めた数 を入れる'],
@@ -331,8 +331,8 @@ const SAY_FIXED = [
   ['x = x - y if c else z', 'x に x - y if c else z を入れる'],
   ['x = x + 1 if c else 0', 'x に x + 1 if c else 0 を入れる'],
   // 文字を作る式をつなぐのも「つなげる」
-  ['s += str(n)', 's のうしろに n を文字にしたもの をつなげる'],
-  ["s += 'a' + 'b'", 's のうしろに「a」と「b」をつなげる'],
+  ['s += str(n)', 's の後ろに n を文字にしたもの をつなげる'],
+  ["s += 'a' + 'b'", 's の後ろに「a」と「b」をつなげる'],
   ["s = 'a' + 'b'", 's に「a」と「b」を入れる'],
   ['print(end="")', '何も表示しない'],
   ['print(a, file=sys.stderr)', 'a を表示する'],
@@ -619,13 +619,13 @@ section('描画の言いかえ');
   setSketchMode(true);
   const cases = [
     ['background(250)', '背景を 250（明るさ） にする'],
-    ['background(250, 120)', '背景を 250（明るさ・すけ具合 120） にする'],
+    ['background(250, 120)', '背景を 250（明るさ・透明度 120） にする'],
     ['background(30, 90, 200)', '背景を 赤30 緑90 青200 にする'],
-    ['background(30, 90, 200, 120)', '背景を 赤30 緑90 青200（すけ具合 120） にする'],
+    ['background(30, 90, 200, 120)', '背景を 赤30 緑90 青200（透明度 120） にする'],
     ['fill(200)', '塗り色を 200（明るさ） にする'],
     ['stroke(0)', '線の色を 0（明るさ） にする'],
-    ['circle(200, 200, 100)', '中心 (200, 200) に直径 100 の円をかく'],
-    ['p5.circle(200, 200, 100)', '中心 (200, 200) に直径 100 の円をかく'],
+    ['circle(200, 200, 100)', '中心 (200, 200) に直径 100 の円を描く'],
+    ['p5.circle(200, 200, 100)', '中心 (200, 200) に直径 100 の円を描く'],
     ['strokeWeight(4)', '線の太さを 4 にする'],
     ['stroke_weight(4)', '線の太さを 4 にする'],
   ];
@@ -639,15 +639,15 @@ section('描画の言いかえ');
     ['create_canvas(400, 400)', '横 400 縦 400 のキャンバスを作る'],
     ['createCanvas(400, 400)', '横 400 縦 400 のキャンバスを作る'],
     ['size(400, 400)', '横 400 縦 400 のキャンバスを作る'],
-    ['frameRate(30)', '1 秒に 30 コマ描くようにする'],
-    ['noLoop()', 'draw() のくり返しを止める'],
-    ['ellipse(100, 100, 50)', '中心 (100, 100) に直径 50 の円をかく'],
+    ['frameRate(30)', '1 秒に 30 フレーム描くようにする'],
+    ['noLoop()', 'draw() の繰り返しを止める'],
+    ['ellipse(100, 100, 50)', '中心 (100, 100) に直径 50 の円を描く'],
     ['fill("red")', '塗り色を「red」にする'],
     ['fill(c)', '塗り色を c にする'],
-    ['textAlign(CENTER, CENTER)', '文字のそろえ方を 横 中央 縦 中央 にする'],
+    ['textAlign(CENTER, CENTER)', '文字の揃え方を 横 中央 縦 中央 にする'],
     ['angleMode(DEGREES)', '角度の単位を 度 にする'],
-    ['vertex(10, 20)', '頂点 (10, 20) を足す'],
-    ['endShape(CLOSE)', '集めた頂点で、閉じた形をかく'],
+    ['vertex(10, 20)', '頂点 (10, 20) を追加する'],
+    ['endShape(CLOSE)', '集めた頂点で、閉じた形を描く'],
     ['global x, d', '外の変数 x, d を使う'],
     ['x = random(400)', 'x に 0 以上 400 未満のランダムな数 を入れる'],
     ['x = random(10, 20)', 'x に 10 以上 20 未満のランダムな数 を入れる'],
@@ -657,18 +657,18 @@ section('描画の言いかえ');
   equal('スケッチの言いかえ: マウスの条件', humanizeCondition('mouseIsPressed'), 'マウスのボタンが押されている？');
   // 式の中の名前も日本語にする（式の形は変えない）
   equal('スケッチの言いかえ: 式の中の width', humanizeStatement('circle(width / 2, height / 2, 50)'),
-    '中心 (キャンバスの幅 / 2, キャンバスの高さ / 2) に直径 50 の円をかく');
+    '中心 (キャンバスの幅 / 2, キャンバスの高さ / 2) に直径 50 の円を描く');
   equal('スケッチの言いかえ: 条件の中の式', humanizeCondition('mouseX > width / 2'), 'マウスの x 座標 は キャンバスの幅 / 2 より大きい？');
   equal('スケッチの言いかえ: 文字列の中は変えない', humanizeValue('"width" + 1'), '「width」と 1');
   // 自分で作った引数やループの名前は、p5.js の値と読みちがえない
   setSketchMode(true, 'def bar(x, height):\n    rect(x, 0, 10, height * 2)\nfor key in d:\n    t = d[key] + 1\n');
   equal('スケッチの言いかえ: 引数の height はそのまま', humanizeStatement('rect(x, 0, 10, height * 2)'),
-    '(x, 0) から 幅 10 高さ height * 2 の四角をかく');
+    '(x, 0) から 幅 10 高さ height * 2 の四角を描く');
   equal('スケッチの言いかえ: ループの key はそのまま', humanizeValue('d[key] + 1'), 'd[key] + 1');
   equal('スケッチの言いかえ: 渡す引数の名前はそのまま', humanizeStatement('f(width=3)'), '関数 f を呼び出す（width=3 を渡す）');
   setSketchMode(true);
   equal('スケッチの言いかえ: setup の見出し', humanizeDefHead('setup()'), '関数 setup（最初に 1 回だけ動く）');
-  equal('スケッチの言いかえ: draw の見出し', humanizeDefHead('draw()'), '関数 draw（くり返し動く）');
+  equal('スケッチの言いかえ: draw の見出し', humanizeDefHead('draw()'), '関数 draw（繰り返し動く）');
   setSketchMode(false);
   // ほかの画面では、push や size は自分で作った関数かもしれない
   equal('スケッチ以外: push は関数の呼び出し', humanizeStatement('push(stack, 3)'), '関数 push を呼び出す（stack、3 を渡す）');
@@ -910,7 +910,7 @@ section('ktph（共通テスト用プログラム表記）');
       'x = 0',
       '関数 setup():  # 最初に 1 回だけ動く',
       '⎿ キャンバスを作る(400, 400)',
-      '関数 draw():  # くり返し動く',
+      '関数 draw():  # 繰り返し動く',
       '｜ 外の変数 x を使う',
       '｜ 背景色を決める(220)',
       '｜ 円を描く(x, 200, 50)',
@@ -1226,8 +1226,8 @@ section('字下げのまとまりと、ステップの注釈');
   equal('注釈: 条件が成り立つ', note(3), 'n > 2 は 成り立つ → 中を実行');
   equal('注釈: 値が変わった', note(4), 'total が 0 → 3 になった');
   equal('注釈: for の 2 回目', note(5), 'n に 1 が入った（2 回目）');
-  equal('注釈: 条件が成り立たない', note(6), 'n > 2 は 成り立たない → とばす');
-  equal('注釈: くり返しの終わり', note(7), 'くり返しを終えた → for の外へ');
+  equal('注釈: 条件が成り立たない', note(6), 'n > 2 は 成り立たない → 飛ばす');
+  equal('注釈: くり返しの終わり', note(7), '繰り返しを終えた → for の外へ');
   // if が成り立たず else に進む（else の行は記録に出てこない）
   {
     const L = ['a = 0', 'if a:', '    x = 1', 'else:', '    y = 2'];
@@ -1361,7 +1361,7 @@ section('字下げのまとまりと、ステップの注釈');
   equal('字下げをそろえる: 同じく前後にそろえる', autoIndent(sketch).split('\n')[5], '    circle(200, 150, 150)');
   equal('字下げをそろえる: 浅く書いたコメントで、下の行を外に出さない', autoIndent('def f():\n    if a:\n        x()\n  # c\n    y()').split('\n')[4], '    y()');
   const culprit = suggestFix(sketch, { type: 'IndentationError', message: 'unexpected indent', line: 7 });
-  equal('字下げ: エラーは次の行でも、原因の行を直す', culprit && culprit.label, '6 行目を 4 文字にそろえる');
+  equal('字下げ: エラーは次の行でも、原因の行を直す', culprit && culprit.label, '6 行目を 4 文字に揃える');
   const h = variableHistory(steps, 7);
   equal('変数: 出てきた順', h.order.join(','), 'total,n');
   equal('変数: 値の移りかわり', h.history.total.join('→'), '0→3');
@@ -1540,13 +1540,13 @@ section('フローチャートの言いかえ（かっこ・つなげた比較�
   // よく使うメソッドと関数
   equal('メソッド: isdigit', humanizeCondition('s.isdigit()'), 's が数字だけでできている？');
   equal('メソッド: upper', humanizeStatement('t = s.upper()'), 't に s を大文字にしたもの を入れる');
-  equal('メソッド: replace', humanizeValue('s.replace("a", "b")'), 's の「a」を「b」に置きかえたもの');
+  equal('メソッド: replace', humanizeValue('s.replace("a", "b")'), 's の「a」を「b」に置き換えたもの');
   equal('メソッド: join', humanizeValue('",".join(Words)'), 'Words を「,」でつないだ文字');
   equal('メソッド: split', humanizeValue('s.split(",")'), 's を「,」で区切ったリスト');
   equal('メソッド: find', humanizeValue('s.find("a")'), 's の中で「a」が最初に見つかる位置');
   equal('メソッド: startswith', humanizeCondition('s.startswith("a")'), 's が「a」で始まる？');
   equal('関数: random.choice', humanizeValue('random.choice(Data)'), 'Data からランダムに選んだ 1 つ');
-  equal('関数: random.shuffle', humanizeStatement('random.shuffle(Data)'), 'Data の順番をランダムに並べかえる');
+  equal('関数: random.shuffle', humanizeStatement('random.shuffle(Data)'), 'Data の順番をランダムに並べ替える');
   equal('関数: pow', humanizeValue('pow(2, 10)'), '2 の 10 乗');
   equal('関数: sorted の大きい順', humanizeValue('sorted(a, reverse=True)'), 'a を大きい順に並べたもの');
   equal('関数: time.sleep', humanizeStatement('time.sleep(2)'), '2 秒待つ');
@@ -1559,8 +1559,8 @@ section('フローチャートの言いかえ（かっこ・つなげた比較�
   const two = labels('x = 1; y = 2');
   check('図: ; で並べた文は 2 つの図形', two.includes('x に 1 を入れる') && two.includes('y に 2 を入れる'), `\n  ${two.join(' / ')}`);
   const forever = pythonToMermaid('while True:\n    n = int(input())\n    if n == 0:\n        break\n    continue\nprint(n)').definition;
-  check('図: while True は「ずっとくり返す」', forever.includes('{{"ずっとくり返す"}}'), `\n${forever}`);
-  check('図: break と continue の言葉', forever.includes('"くり返しを抜ける"') && forever.includes('"次のくり返しへ"'), `\n${forever}`);
+  check('図: while True は「ずっと繰り返す」', forever.includes('{{"ずっと繰り返す"}}'), `\n${forever}`);
+  check('図: break と continue の言葉', forever.includes('"繰り返しを抜ける"') && forever.includes('"次の繰り返しへ"'), `\n${forever}`);
   check('図: 抜けないくり返しには終了を置かない', !pythonToMermaid('while True:\n    pass').definition.includes('終了'));
 
   // ステップの注釈
@@ -1570,8 +1570,8 @@ section('フローチャートの言いかえ（かっこ・つなげた比較�
   {
     const L = ['for i in [1, 2]:', '    if i == 1:', '        continue', '    break', 'print(i)'];
     const st = [S(1, {}), S(2, { i: 1 }), S(3, { i: 1 }), S(1, { i: 1 }), S(2, { i: 2 }), S(4, { i: 2 }), S(5, { i: 2 })];
-    equal('注釈: continue', noteOf(L, st, 3), '次のくり返しへ（for の行にもどる）');
-    equal('注釈: break は抜けた先の行', noteOf(L, st, 6), 'くり返しを抜けた → 5 行目へ');
+    equal('注釈: continue', noteOf(L, st, 3), '次の繰り返しへ（for の行に戻る）');
+    equal('注釈: break は抜けた先の行', noteOf(L, st, 6), '繰り返しを抜けた → 5 行目へ');
   }
   {
     const L = ['x = int(input("点数: "))', 'print()', 'print(x)'];

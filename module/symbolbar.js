@@ -2,7 +2,7 @@
 //
 // キーボードに慣れていない人は、: や ( や " がどのキーにあるのかで手が止まる。
 // よく使う記号を大きなボタンにして、押せばカーソルの位置に入るようにする。
-// 字下げ（1 段下げる・もどす）と改行もボタンにしておく。
+// 字下げ（1 段下げる・戻す）と改行もボタンにしておく。
 // ボタンを押してもエディタからカーソルが外れないので、そのまま続けて打てる。
 //
 // 01 コーディング・03 スケッチで使う。02 レッスンからも同じ形で使える。
@@ -23,7 +23,7 @@ const SYMBOLS = [
   [']', ']', '閉じ角かっこ'],
   ['_', '_', 'アンダーバー。名前の中で、ことばをつなぎます'],
   ['=', '=', 'イコール 1 つ。左の名前に右の値を入れます'],
-  ['==', '==', 'イコール 2 つ。同じかどうかをくらべます'],
+  ['==', '==', 'イコール 2 つ。同じかどうかを比べます'],
   ['+', '+', 'たす'],
   ['-', '-', 'ひく'],
   ['*', '*', 'かける'],
@@ -37,8 +37,8 @@ const SYMBOLS = [
 /** 字下げと改行のボタン [見た目, CodeMirror の命令, 説明] */
 const ACTIONS = [
   ['→ 1 段下げる', 'indentMore', 'カーソルのある行を、4 文字ぶん右へ下げます'],
-  ['← 1 段もどす', 'indentLess', 'カーソルのある行を、4 文字ぶん左へもどします'],
-  ['↵ 改行', 'newlineAndIndent', '次の行へ進みます（: のあとなら、自動で 1 段下がります）'],
+  ['← 1 段戻す', 'indentLess', 'カーソルのある行を、4 文字ぶん左へもどします'],
+  ['↵ 改行', 'newlineAndIndent', '次の行へ進みます（: の後なら、自動で 1 段下がります）'],
 ];
 
 /** 日本語のキーボード（JIS 配列）での打ち方 */
@@ -105,7 +105,7 @@ function makeGuide() {
     list.appendChild(item);
   }
   const note = document.createElement('p');
-  note.textContent = '日本語入力がオンのときは「半角/全角」キー（Mac・Chromebook は「英数」）で切りかえます。';
+  note.textContent = '日本語入力がオンのときは「半角/全角」キー（Mac・Chromebook は「英数」）で切り替えます。';
   guide.append(list, note);
   return guide;
 }
@@ -159,7 +159,24 @@ export function attachSymbolBar(cm, container) {
   });
   keys.appendChild(help);
 
-  bar.append(keys, guide);
+  // ふだんは「記号」ボタン 1 つだけにして、押したときに記号を並べる（ボタンが多いと画面がごちゃごちゃする）
+  const toggle = document.createElement('button');
+  toggle.type = 'button';
+  toggle.className = 'symbol-toggle';
+  toggle.setAttribute('aria-expanded', 'false');
+  toggle.title = '押すと、: ( ) " などの記号のボタンが並びます';
+  const showKeys = (open) => {
+    keys.hidden = !open;
+    if (!open) guide.hidden = true;
+    toggle.setAttribute('aria-expanded', String(open));
+    toggle.textContent = open ? '記号 ▴ 閉じる' : '記号 ▾ : ( ) " など';
+    cm.refresh();
+  };
+  toggle.addEventListener('mousedown', (e) => e.preventDefault());
+  toggle.addEventListener('click', () => showKeys(keys.hidden));
+  showKeys(false);
+
+  bar.append(toggle, keys, guide);
   container.appendChild(bar);
   dockAboveKeyboard(cm, bar, container, guide);
   cm.refresh();
@@ -167,7 +184,7 @@ export function attachSymbolBar(cm, container) {
 }
 
 /**
- * iPad などで画面のキーボードが出ているあいだは、記号ボタンの列をキーボードのすぐ上に出す。
+ * iPad などで画面のキーボードが出ている間は、記号ボタンの列をキーボードのすぐ上に出す。
  * そのままだとエディタの下にある列がキーボードに隠れて、打っている最中に使えない。
  * （キーボードの分だけ visualViewport が小さくなることで、出ているかどうかを知る）
  * @param {object} cm

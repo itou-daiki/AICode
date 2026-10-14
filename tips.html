@@ -60,12 +60,12 @@
     .topic h3 { margin: var(--sp-4) 0 var(--sp-2); font-size: var(--text-base); }
     .topic p, .topic li { line-height: 1.85; }
     .topic code { font-family: var(--font-mono); background: var(--c-paper-2); padding: 0 0.25em; }
-    /* 生徒の頭の中（やりがちな考え方）と、ほんとうのところ */
+    /* 生徒の頭の中（やりがちな考え方）と、実際のところ */
     .think, .truth { margin: var(--sp-2) 0; padding: var(--sp-2) var(--sp-3); }
     .think { border: 1px dashed var(--c-ink-3); background: var(--c-paper-2); }
-    .think::before { content: 'こう考えてしまいがち'; display: block; font-size: var(--text-2xs); font-weight: 700; color: var(--c-ink-3); }
+    .think::before { content: '陥りやすい考え方'; display: block; font-size: var(--text-2xs); font-weight: 700; color: var(--c-ink-3); }
     .truth { border: 1px solid var(--c-mark); background: var(--c-mark-faint); }
-    .truth::before { content: 'ほんとうは'; display: block; font-size: var(--text-2xs); font-weight: 700; color: var(--c-mark-deep); }
+    .truth::before { content: '実際は'; display: block; font-size: var(--text-2xs); font-weight: 700; color: var(--c-mark-deep); }
     .demo-slot { margin: var(--sp-3) 0; }
     .demo-label { margin: var(--sp-3) 0 var(--sp-1); font-size: var(--text-xs); font-weight: 700; color: var(--c-ink-2); }
 
@@ -131,7 +131,7 @@
     <main>
       <div class="page-intro">
         <h1>つまずき解説</h1>
-        <p>プログラミングをはじめたばかりの人が、よくつまずくところを集めました。どの例も「▶ 動かす」で 1 行ずつ動かせます。いま動いている行には朱の印がつき、その行が入っているまとまりには朱の線が引かれます。書き方を切りかえて、動き方のちがいを見くらべてください。</p>
+        <p>プログラミングを始めたばかりの人が、よくつまずくところを集めました。どの例も「▶ 動かす」で 1 行ずつ動かせます。今動いている行には朱の印がつき、その行が入っているまとまりには朱の線が引かれます。書き方を切り替えて、動き方の違いを見比べてください。</p>
       </div>
 
       <section class="topic" id="finder">
@@ -142,75 +142,75 @@
             <h3>エラーが出て、意味が分からない</h3>
             <ul>
               <li><a href="#errors">エラーメッセージの読み方</a></li>
-              <li><a href="#indent">IndentationError → 字下げ</a></li>
+              <li><a href="#indent">IndentationError → インデント</a></li>
               <li><a href="#quote">NameError → 引用符と名前</a></li>
               <li><a href="#input">TypeError（str と int）→ input()</a></li>
               <li><a href="#fullwidth">invalid character → 全角</a></li>
             </ul>
           </div>
           <div class="finder-card">
-            <h3>動くけれど、答えがちがう</h3>
+            <h3>動くけれど、答えが違う</h3>
             <ul>
-              <li><a href="#indent">表示される回数がおかしい → 字下げ</a></li>
+              <li><a href="#indent">表示される回数がおかしい → インデント</a></li>
               <li><a href="#reset">合計が合わない → 0 に戻している</a></li>
               <li><a href="#input">5 と 3 で 53 になる → input()</a></li>
               <li><a href="#range">1 つ多い・少ない → range と番号</a></li>
-              <li><a href="#swap">入れかえたのに同じ値 → 入れかえ</a></li>
+              <li><a href="#swap">入れ替えたのに同じ値 → 入れ替え</a></li>
             </ul>
           </div>
           <div class="finder-card">
             <h3>何も表示されない・None と出る</h3>
             <ul>
               <li><a href="#return">関数を呼んでいない・return が無い</a></li>
-              <li><a href="#indent">if の中身がとばされている</a></li>
+              <li><a href="#indent">if の中身が飛ばされている</a></li>
             </ul>
           </div>
           <div class="finder-card">
             <h3>いつまでも終わらない</h3>
             <ul>
-              <li><a href="#loop">止まらないくり返し</a></li>
+              <li><a href="#loop">止まらない繰り返し</a></li>
             </ul>
           </div>
         </div>
       </section>
 
       <section class="topic" id="indent">
-        <h2><span class="lane">01</span>字下げ（インデント）とまとまり</h2>
-        <p class="think">空白は見た目をそろえるためのもので、あってもなくても同じ。</p>
-        <p class="truth">Python では、行のはじめの空白が「どこまでが中身か」を決めます。字下げを 1 つ変えるだけで、動き方が変わります。</p>
+        <h2><span class="lane">01</span>インデント（字下げ）とまとまり</h2>
+        <p class="think">空白は見た目を揃えるためのもので、あってもなくても同じ。</p>
+        <p class="truth">Python では、行のはじめの空白が「どこまでが中身か」を決めます。インデントを 1 つ変えるだけで、動き方が変わります。</p>
 
         <h3>「:」で終わる行が見出し、その下で 4 文字下げた行が中身</h3>
-        <p>if・for・while・def の行は「:」で終わります。この行を「見出し」（まとまりの頭）と呼ぶことにします。その下で 4 文字下げた行が中身です。中身は、字下げを戻した行の手前までつづきます。</p>
+        <p>if・for・while・def の行は「:」で終わります。この行を「見出し」（まとまりの頭）と呼ぶことにします。その下で 4 文字下げた行が中身です。中身は、インデントを戻した行の手前までつづきます。</p>
         <div class="demo-slot" data-demo="indent-basic"></div>
 
-        <h3>if の中身は、条件が成り立たないと、とばされる</h3>
-        <p>x の値を切りかえて動かしてみましょう。中身の行はとばされることがありますが、外の行はいつも動きます。</p>
+        <h3>if の中身は、条件が成り立たないと、飛ばされる</h3>
+        <p>x の値を切り替えて動かしてください。中身の行は飛ばされることがありますが、外の行はいつも動きます。</p>
         <div class="demo-slot" data-demo="indent-if"></div>
 
-        <h3>1 行の字下げで、表示される回数が変わる</h3>
+        <h3>1 行のインデントで、表示される回数が変わる</h3>
         <p>print(total) が for の中身か外かで、何回表示されるかが変わります。</p>
         <div class="demo-slot" data-demo="indent-compare"></div>
 
         <h3>入れ子：中にまた見出しがあれば、さらに 4 文字</h3>
-        <p>for の中の for の中身は、合わせて 8 文字下げます。「---」をどの深さに置くかで、表示される回数を見くらべましょう。内側のくり返しは、外側の 1 回ごとに最後まで回ります。</p>
+        <p>for の中の for の中身は、合わせて 8 文字下げます。「---」をどの深さに置くかで、表示される回数を見比べてください。内側の繰り返しは、外側の 1 回ごとに最後まで回ります。</p>
         <div class="demo-slot" data-demo="indent-nested"></div>
 
         <h3>関数の中身は、呼んだときだけ動く</h3>
         <p>def で作っただけでは、中身は動きません。呼んだときに中身へ移り、終わると呼んだ行にもどります。</p>
         <div class="demo-slot" data-demo="indent-def"></div>
 
-        <h3>まちがい探し</h3>
+        <h3>間違い探し</h3>
         <div class="demo-slot" data-demo="indent-quiz"></div>
 
         <h3>自分で書いて確かめる</h3>
-        <p>書いているうちに、カーソルのある行が「どのまとまりの中か」を下に表示します。見出しの行のおわりに <code>:</code> を書いて Enter を押すと、次の行は自動で 4 文字下がります。まとまりを終えるときは、行のはじめで Backspace を 1 回押すと 1 段もどります。（Tab キーで 4 文字下げ、Shift + Tab で 1 段もどすこともできます）</p>
+        <p>書いているうちに、カーソルのある行が「どのまとまりの中か」を下に表示します。見出しの行の終わりに <code>:</code> を書いて Enter を押すと、次の行は自動で 4 文字下がります。まとまりを終えるときは、行のはじめで Backspace を 1 回押すと 1 段もどります。（Tab キーで 4 文字下げ、Shift + Tab で 1 段戻すこともできます）</p>
         <div class="demo-slot" data-demo="playground"></div>
 
-        <h3>よくあるまちがい</h3>
+        <h3>よくある間違い</h3>
         <ul>
-          <li>見出しの行のおわりの「:」を書きわすれる。</li>
-          <li>中身を下げわすれる（IndentationError）。中身が何も無いときは <code>pass</code> と書きます。</li>
-          <li>同じまとまりの中で 4 文字の行と 2 文字の行をまぜる（IndentationError）。この教材では 4 文字ずつにそろえます。</li>
+          <li>見出しの行の終わりの「:」を書き忘れる。</li>
+          <li>中身を下げ忘れる（IndentationError）。中身が何も無いときは <code>pass</code> と書きます。</li>
+          <li>同じまとまりの中で 4 文字の行と 2 文字の行を混ぜる（IndentationError）。この教材では 4 文字ずつに揃えます。</li>
           <li>全角の空白で下げる。全角の空白は使えません（エディタでは打つと半角に直ります）。</li>
         </ul>
       </section>
@@ -218,42 +218,42 @@
       <section class="topic" id="assign">
         <h2><span class="lane">02</span>「=」は「入れる」、「==」は「同じか」</h2>
         <p class="think"><code>x = x + 1</code> は、数学なら成り立たない式だからおかしい。</p>
-        <p class="truth">Python の <code>=</code> は「右がわを計算して、その値を左の変数に入れる」という命令です。両がわが等しいという意味ではありません。</p>
+        <p class="truth">Python の <code>=</code> は「右側を計算して、その値を左の変数に入れる」という命令です。両側が等しいという意味ではありません。</p>
         <div class="demo-slot" data-demo="assign"></div>
-        <h3>「同じか」をくらべるときは ==</h3>
-        <p>if の条件で <code>=</code> を書くと、書き方のまちがい（SyntaxError）になります。書き方のまちがいは動かす前に見つかるので、1 行目も動きません。</p>
+        <h3>「同じか」を比べるときは ==</h3>
+        <p>if の条件で <code>=</code> を書くと、書き方の間違い（SyntaxError）になります。書き方の間違いは動かす前に見つかるので、1 行目も動きません。</p>
         <div class="demo-slot" data-demo="equal"></div>
       </section>
 
       <section class="topic" id="swap">
-        <h2><span class="lane">03</span>変数の入れかえで、値が消える</h2>
-        <p class="think"><code>a = b</code> のあとに <code>b = a</code> と書けば、a と b が入れかわる。</p>
-        <p class="truth">変数に入れなおすと、前の値は上書きされて消えます。先に入れた値をどこかにとっておかないと、入れかえられません。</p>
+        <h2><span class="lane">03</span>変数の入れ替えで、値が消える</h2>
+        <p class="think"><code>a = b</code> の後に <code>b = a</code> と書けば、a と b が入れ替わる。</p>
+        <p class="truth">変数に入れ直すと、前の値は上書きされて消えます。先に入れた値をどこかに取っておかないと、入れ替えられません。</p>
         <div class="demo-slot" data-demo="swap"></div>
       </section>
 
       <section class="topic" id="input">
         <h2><span class="lane">04</span>input() で受け取った値は文字列</h2>
         <p class="think">5 と打てば、数の 5 が入る。</p>
-        <p class="truth"><code>input()</code> は、打たれた字をいつも「文字列」として返します。見た目が数でも文字列です。計算やくらべる前に <code>int()</code> で数にします。</p>
+        <p class="truth"><code>input()</code> は、打たれた字をいつも「文字列」として返します。見た目が数でも文字列です。計算や比べる前に <code>int()</code> で数にします。</p>
         <div class="demo-slot" data-demo="input"></div>
         <ul>
           <li>文字列どうしの <code>+</code> は「つなげる」です（<code>'5' + '3'</code> は <code>'53'</code>）。</li>
-          <li>文字列と数は、<code>+</code> でつなぐことも <code>&lt;</code> でくらべることもできません（TypeError）。</li>
+          <li>文字列と数は、<code>+</code> でつなぐことも <code>&lt;</code> で比べることもできません（TypeError）。</li>
           <li><code>==</code> はエラーにならないので気づきにくいところです。<code>'5' == 5</code> は、文字列と数なので False になります。</li>
           <li>小数を受け取るときは <code>float(input())</code> です。</li>
         </ul>
       </section>
 
       <section class="topic" id="quote">
-        <h2><span class="lane">05</span>引用符の有無と、名前の打ちまちがい</h2>
+        <h2><span class="lane">05</span>引用符の有無と、名前の入力ミス</h2>
         <p class="think"><code>print(さくら)</code> と書けば、さくら と表示される。</p>
-        <p class="truth">引用符（<code>" "</code> か <code>' '</code>）でかこんだものが文字そのものです。かこまないと、Python は「変数の名前」だと思って中身を探します。</p>
+        <p class="truth">引用符（<code>" "</code> か <code>' '</code>）で囲んだものが文字そのものです。囲まないと、Python は「変数の名前」だと思って中身を探します。</p>
         <div class="demo-slot" data-demo="quote"></div>
-        <h3>名前は 1 字ちがえば別のもの</h3>
+        <h3>名前は 1 字違えば別のもの</h3>
         <ul>
           <li><code>Print</code> と <code>print</code>、<code>Total</code> と <code>total</code> は別の名前です（大文字と小文字を区別します）。</li>
-          <li><code>totl</code> のような打ちまちがいも別の名前なので、NameError になります。エラーに出た名前と、作ったときの名前を 1 字ずつ見くらべましょう。</li>
+          <li><code>totl</code> のような入力ミスも別の名前なので、NameError になります。エラーに出た名前と、作ったときの名前を 1 字ずつ見比べてください。</li>
           <li>変数は、使う行より上で作っておく必要があります。</li>
         </ul>
       </section>
@@ -261,38 +261,38 @@
       <section class="topic" id="range">
         <h2><span class="lane">06</span>range は終わりの数を含まない、番号は 0 から</h2>
         <p class="think"><code>range(1, 5)</code> は 1 から 5 まで。リストの 1 番目は <code>a[1]</code>。</p>
-        <p class="truth"><code>range(はじめ, おわり)</code> は、おわりの数の「1 つ手前まで」です。リストの番号は 0 から数えるので、最初は <code>a[0]</code>、最後は <code>a[len(a) - 1]</code> です。</p>
+        <p class="truth"><code>range(開始, 終了)</code> は、終了の数の「1 つ手前まで」です。リストの番号は 0 から数えるので、最初は <code>a[0]</code>、最後は <code>a[len(a) - 1]</code> です。</p>
         <div class="demo-slot" data-demo="range"></div>
         <ul>
-          <li><code>range(5)</code> は 0, 1, 2, 3, 4 の 5 個です。「5 回くり返す」ときに使います。</li>
+          <li><code>range(5)</code> は 0, 1, 2, 3, 4 の 5 個です。「5 回繰り返す」ときに使います。</li>
           <li>長さ 3 のリストで <code>a[3]</code> と書くと、番号が無いので IndexError になります。</li>
         </ul>
       </section>
 
       <section class="topic" id="reset">
-        <h2><span class="lane">07</span>くり返しの中で、合計を 0 に戻してしまう</h2>
+        <h2><span class="lane">07</span>繰り返しの中で、合計を 0 に戻してしまう</h2>
         <p class="think">合計を使うところの近くに <code>total = 0</code> を書いておけばよい。</p>
-        <p class="truth"><code>total = 0</code> がくり返しの中にあると、くり返すたびに 0 に戻ります。合計の準備は、くり返しの前に 1 回だけ書きます。</p>
+        <p class="truth"><code>total = 0</code> が繰り返しの中にあると、繰り返すたびに 0 に戻ります。合計の準備は、繰り返しの前に 1 回だけ書きます。</p>
         <div class="demo-slot" data-demo="reset"></div>
       </section>
 
       <section class="topic" id="return">
-        <h2><span class="lane">08</span>print と return はちがう</h2>
+        <h2><span class="lane">08</span>print と return は違う</h2>
         <p class="think">関数の中で print すれば、その値が関数の答えになる。</p>
         <p class="truth">print は画面に表示するだけです。関数の答え（呼んだところで使える値）は return で返します。return が無い関数の値は None です。</p>
         <div class="demo-slot" data-demo="return"></div>
         <ul>
-          <li>def で作っただけでは、中身は動きません。何も表示されないときは、関数を呼んでいるか確かめましょう。</li>
+          <li>def で作っただけでは、中身は動きません。何も表示されないときは、関数を呼んでいるか確かめてください。</li>
           <li>return の行まで来ると、関数はそこで終わります。下に書いた行は動きません。</li>
         </ul>
       </section>
 
       <section class="topic" id="loop">
-        <h2><span class="lane">09</span>止まらないくり返し</h2>
+        <h2><span class="lane">09</span>止まらない繰り返し</h2>
         <p class="think">while の条件を書けば、いつか終わる。</p>
-        <p class="truth">while は、条件が成り立つあいだずっとくり返します。中身のどこかで条件に使う変数を変えないと、いつまでも終わりません。変える行の字下げもたいせつです。</p>
+        <p class="truth">while は、条件が成り立つ間ずっと繰り返します。中身のどこかで条件に使う変数を変えないと、いつまでも終わりません。変える行のインデントも重要です。</p>
         <div class="demo-slot" data-demo="loop"></div>
-        <p>この教材では、10 秒たっても終わらないプログラムは止めます。止まったら、条件に使っている変数が中身で変わっているかを見ましょう。</p>
+        <p>この教材では、10 秒経っても終わらないプログラムは止めます。止まったら、条件に使っている変数が中身で変わっているかを確認してください。</p>
       </section>
 
       <section class="topic" id="fullwidth">
@@ -310,28 +310,28 @@
       <section class="topic" id="errors">
         <h2><span class="lane">11</span>エラーメッセージの読み方</h2>
         <p class="think">英語のエラーが出たら、どこが悪いのか分からない。</p>
-        <p class="truth">見るところは 3 つです。「何行目か」「エラーの種類」「その説明」。この教材では、日本語の案内もいっしょに出ます。</p>
+        <p class="truth">見るところは 3 つです。「何行目か」「エラーの種類」「その説明」。この教材では、日本語の案内も一緒に出ます。</p>
         <div class="error-anatomy">× <b>3 行目</b>でエラーが起きました       ← ① どの行か
    print(totl)                      ← その行のコード
 <b>NameError</b>: name 'totl' is not defined ← ② 種類 ③ 説明（totl という名前が無い）
 → 「totl」という名前は、まだ作られていません。…   ← この教材の案内</div>
         <ul>
-          <li>かっこの閉じわすれは「'(' was never closed」と出て、開いたかっこのある行が示されます。その行から下で、閉じるかっこを書きわすれたところを探します。</li>
-          <li>エラーの行より上に原因があることもあります。たとえば NameError のときは、上で変数を作った行の名前の打ちまちがいを疑います。</li>
+          <li>かっこの閉じ忘れは「'(' was never closed」と出て、開いたかっこのある行が示されます。その行から下で、閉じるかっこを書き忘れたところを探します。</li>
+          <li>エラーの行より上に原因があることもあります。例えば NameError のときは、上で変数を作った行の名前の入力ミスを疑います。</li>
           <li>「全角を半角に直す」のようなボタンが出たら、押すと直ります。</li>
-          <li>よく出る種類：SyntaxError（書き方）、IndentationError（字下げ）、NameError（名前が無い）、TypeError（種類が合わない）、IndexError（番号が無い）、ZeroDivisionError（0 で割った）。</li>
+          <li>よく出る種類：SyntaxError（書き方）、IndentationError（インデント）、NameError（名前が無い）、TypeError（種類が合わない）、IndexError（番号が無い）、ZeroDivisionError（0 で割った）。</li>
         </ul>
       </section>
 
       <section class="topic" id="tips">
         <h2><span class="lane">12</span>確かめ方のコツ</h2>
         <ul>
-          <li><strong>1 行ずつ実行して追う。</strong>01 コーディングの「1行ずつ実行」なら、1 行ごとに変数の値と、その行がしたことが見られます。</li>
-          <li><strong>print で途中の値を見る。</strong>くり返しの中に <code>print(i, total)</code> を 1 行足すと、毎回の値が分かります。確かめ終わったら消します。</li>
+          <li><strong>1 行ずつ実行して追う。</strong>01 コーディングの「ステップ実行」なら、1 行ごとに変数の値と、その行がしたことが見られます。</li>
+          <li><strong>print で途中の値を見る。</strong>繰り返しの中に <code>print(i, total)</code> を 1 行足すと、毎回の値が分かります。確かめ終わったら消します。</li>
           <li><strong>小さく書いて、こまめに動かす。</strong>10 行書いてから動かすより、2〜3 行ごとに動かした方が、どこでおかしくなったか分かります。</li>
-          <li><strong>自分で答えを予想してから動かす。</strong>予想とちがったところが、考えちがいのあるところです。</li>
+          <li><strong>自分で答えを予想してから動かす。</strong>予想とちがったところが、考え違いのあるところです。</li>
           <li><strong>動いていたところまで戻す。</strong>分からなくなったら「元に戻す」で、動いていたところまで戻してやり直します。</li>
-          <li><strong>フローチャートで流れを見る。</strong>くり返しや条件の流れが、図で分かります。</li>
+          <li><strong>フローチャートで流れを見る。</strong>繰り返しや条件の流れが、図で分かります。</li>
         </ul>
       </section>
     </main>

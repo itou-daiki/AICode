@@ -19,7 +19,7 @@ export function indentBasicSteps() {
       set('n', n); step(0, `n に ${n} が入った（${n} 回目）→ 中身へ`);
       show(n); step(1, `${n} を表示した（中身なので、くり返すたびに動く）`);
     }
-    step(0, 'もう入れる値が無い → くり返しを終えて、外へ');
+    step(0, 'もう入れる値が無い → 繰り返しを終えて、外へ');
     show('おわり'); step(2, '「おわり」を表示した（外なので、終わってから 1 回だけ）');
   });
 }
@@ -47,7 +47,7 @@ export function indentTrace(inside) {
       set('total', get('total') + n); step(2, `total が ${get('total') - n} + ${n} = ${get('total')} になった`);
       if (inside) { show(get('total')); step(3, `${get('total')} を表示した（中身なので、くり返すたびに動く）`); }
     }
-    step(1, 'もう入れる値が無い → くり返しを終えて、外へ');
+    step(1, 'もう入れる値が無い → 繰り返しを終えて、外へ');
     if (!inside) { show(get('total')); step(3, `${get('total')} を表示した（外なので、終わってから 1 回だけ）`); }
   });
 }
@@ -62,10 +62,10 @@ export function indentNestedSteps(depth) {
         show(`${i} ${j}`); step(2, `${i} ${j} を表示した`);
         if (depth === 2) { show('---'); step(3, '--- を表示した（内側の中身）'); }
       }
-      step(1, '内側のくり返しを終えた → 外側の中身にもどる');
+      step(1, '内側の繰り返しを終えた → 外側の中身にもどる');
       if (depth === 1) { show('---'); step(3, '--- を表示した（外側の中身。内側が終わるたびに 1 回）'); }
     }
-    step(0, '外側のくり返しも終えた');
+    step(0, '外側の繰り返しも終えた');
     if (depth === 0) { show('---'); step(3, '--- を表示した（どちらの for の外。最後に 1 回だけ）'); }
   });
 }
@@ -106,7 +106,7 @@ export function equalSteps(mistake) {
   if (mistake) {
     return record(({ step, fail }) => {
       fail("SyntaxError: invalid syntax. Maybe you meant '==' or ':=' instead of '='?");
-      step(1, 'この行で書き方のまちがいが見つかった。見つかるのは動かす前なので、1 行目も動いていない');
+      step(1, 'この行で構文エラーが見つかった。見つかるのは動かす前なので、1 行目も動いていない');
     });
   }
   return record(({ set, show, step }) => {
@@ -181,7 +181,7 @@ export function quoteSteps(mistake) {
 }
 
 /* ============================================================
- * くり返しの中で 0 に戻す
+ * 繰り返しの中で 0 に戻す
  * ========================================================== */
 
 export function resetSteps(inside) {
@@ -192,17 +192,17 @@ export function resetSteps(inside) {
         set('total', 0); step(1, 'total を 0 に戻した（くり返すたびに、ここで消える）');
         set('total', n); step(2, `total が 0 + ${n} = ${n} になった`);
       }
-      step(0, 'くり返しを終えた');
+      step(0, '繰り返しを終えた');
       show(get('total')); step(3, `${get('total')} を表示した（最後の 1 回分しか残っていない）`);
       return;
     }
-    set('total', 0); step(0, 'total に 0 を入れた（くり返しの前に 1 回だけ）');
+    set('total', 0); step(0, 'total に 0 を入れた（繰り返しの前に 1 回だけ）');
     for (const n of [2, 4, 6]) {
       set('n', n); step(1, `n に ${n} が入った → 中身へ`);
       set('total', get('total') + n); step(2, `total が ${get('total') - n} + ${n} = ${get('total')} になった`);
     }
-    step(1, 'くり返しを終えた');
-    show(get('total')); step(3, `${get('total')} を表示した（ぜんぶ足した合計）`);
+    step(1, '繰り返しを終えた');
+    show(get('total')); step(3, `${get('total')} を表示した（すべて足した合計）`);
   });
 }
 
@@ -230,7 +230,7 @@ export function returnSteps(kind) {
 }
 
 /* ============================================================
- * 止まらないくり返し
+ * 止まらない繰り返し
  * ========================================================== */
 
 export function loopSteps(kind) {
@@ -242,7 +242,7 @@ export function loopSteps(kind) {
         show(get('i')); step(2, `${get('i')} を表示した`);
         set('i', get('i') + 1); step(3, `i を 1 ふやした（i が ${get('i')} になった）`);
       }
-      step(1, 'i < 3 は成り立たない（i は 3）→ くり返しを終える');
+      step(1, 'i < 3 は成り立たない（i は 3）→ 繰り返しを終える');
       return;
     }
     for (let k = 0; k < 3; k++) {
@@ -251,7 +251,7 @@ export function loopSteps(kind) {
       if (kind === 'outside') step(1, 'i = i + 1 は while の外なので、ここでは動かない。条件にもどる');
     }
     fail('……i がずっと 0 なので、i < 3 がいつまでも成り立つ。この教材では 10 秒で止めます');
-    step(1, 'i が変わらないので、くり返しが終わらない');
+    step(1, 'i が変わらないので、繰り返しが終わらない');
   });
 }
 
@@ -324,7 +324,7 @@ export const DEMOS = {
         question: '2. 合計を、最後に 1 回だけ表示したい。',
         rows: [r('total = 0'), r('for n in [1, 2, 3]:'), r('total = total + n', 1), r('print(total)', 1)],
         answer: 3,
-        explain: 'print(total) が for の中身になっているので、1・3・6 と毎回表示されます。字下げを戻して外に出します。',
+        explain: 'print(total) が for の中身になっているので、1・3・6 と毎回表示されます。インデントを戻して外に出します。',
         fixed: 'total = 0\nfor n in [1, 2, 3]:\n    total = total + n\nprint(total)',
       }),
       createQuiz({
@@ -338,8 +338,8 @@ export const DEMOS = {
         question: '4. 正の数の合計を、最後に 1 回だけ表示したい。',
         rows: [r('total = 0'), r('for n in [3, -1, 2]:'), r('if n > 0:', 1), r('total = total + n', 2), r('print(total)', 0, { odd: 2 })],
         answer: 4,
-        explain: 'print(total) が 2 文字下げで、0 文字（外）とも 4 文字（for の中身）ともそろっていません。'
-          + '上のどの行ともそろわない字下げは IndentationError になります。外に出すなら 0 文字にします。',
+        explain: 'print(total) が 2 文字下げで、0 文字（外）とも 4 文字（for の中身）とも揃っていません。'
+          + '上のどの行とも揃わないインデントは IndentationError になります。外に出すなら 0 文字にします。',
         fixed: 'total = 0\nfor n in [3, -1, 2]:\n    if n > 0:\n        total = total + n\nprint(total)',
       }),
     );
@@ -393,7 +393,7 @@ export const DEMOS = {
     speed: 700,
     variants: [
       { label: 'i を ふやさない', rows: [r('i = 0'), r('while i < 3:'), r('print(i)', 1)], steps: loopSteps('none') },
-      { label: 'ふやす行が外にある', rows: [r('i = 0'), r('while i < 3:'), r('print(i)', 1), r('i = i + 1', 0, { note: '← 字下げが無い' })], steps: loopSteps('outside') },
+      { label: 'ふやす行が外にある', rows: [r('i = 0'), r('while i < 3:'), r('print(i)', 1), r('i = i + 1', 0, { note: '← インデントが無い' })], steps: loopSteps('outside') },
       { label: '中で i をふやす', rows: [r('i = 0'), r('while i < 3:'), r('print(i)', 1), r('i = i + 1', 1)], steps: loopSteps('ok') },
     ],
   }),

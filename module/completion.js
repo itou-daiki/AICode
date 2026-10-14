@@ -43,7 +43,7 @@ export class CodeCompletionEngine {
     this.items = [];
     this.replaceLength = 0;
     this.selectedIndex = 0;
-    // 候補一覧を矢印キーで選んだか。選んでいなければ Enter はふつうの改行にする
+    // 候補一覧を矢印キーで選んだか。選んでいなければ Enter は通常の改行にする
     this.navigated = false;
 
     this.inlineWidget = null;

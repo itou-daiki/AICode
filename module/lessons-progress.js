@@ -24,12 +24,12 @@ function read(key, fallback) {
   }
 }
 
-/** 書く。書けなければ safeStorage が一度だけ知らせ、ページを開いているあいだは覚えておく */
+/** 書く。書けなければ safeStorage が一度だけ知らせ、ページを開いている間は覚えておく */
 function write(key, data) {
   return safeStorage.set(key, JSON.stringify(data));
 }
 
-/** 進み具合をぜんぶ読む */
+/** 進み具合をすべて読む */
 export function loadProgress() {
   const data = read(PROGRESS_KEY, {});
   // 壊れた記録や古い形でも止まらないよう、足りないところを補う
@@ -63,7 +63,7 @@ export function markSolved(ref) {
 /**
  * 挑んだ回数を数える
  * @param {string} ref
- * @param {boolean} [ok] 今回正解したか。はじめて答えたときだけ「1 回目の正誤」として残す
+ * @param {boolean} [ok] 今回正解したか。初めて答えたときだけ「1 回目の正誤」として残す
  */
 export function markTried(ref, ok) {
   const progress = loadProgress();
@@ -165,7 +165,7 @@ export function lastOpened() {
   return loadProgress().last || '';
 }
 
-/** 模試の成績をぜんぶ読む */
+/** 模試の成績をすべて読む */
 export function loadResults() {
   const data = read(RESULTS_KEY, {});
   const sets = data.sets && typeof data.sets === 'object' && !Array.isArray(data.sets) ? data.sets : {};
@@ -197,7 +197,7 @@ export function bestMock(setId) {
   return history.reduce((best, row) => (row.score > best.score ? row : best), history[0]);
 }
 
-/** 進み具合をぜんぶ消す */
+/** 進み具合をすべて消す */
 export function clearProgress() {
   safeStorage.remove(PROGRESS_KEY);
   safeStorage.remove(RESULTS_KEY);
@@ -219,7 +219,7 @@ export function exportProgress() {
 }
 
 /**
- * 書き出した記録を読みこんで、いまの記録に足しあわせる（消しはしない）
+ * 書き出した記録を読み込んで、いまの記録に足しあわせる（消しはしない）
  * @param {string} text
  * @returns {{solved: number, drafts: number}} 新しく増えた数
  */

@@ -1,9 +1,9 @@
 {
   "title": "Hello World",
-  "description": "プログラミングの第一歩！「Hello, World!」と出力してみましょう。",
+  "description": "プログラミングの最初の一歩として、「Hello, World!」と出力してください。",
   "input": "",
   "expected": "Hello, World!",
   "template": "# print関数を使って「Hello, World!」と出力してください\n",
   "solution": "print(\"Hello, World!\")\n",
-  "hint": "`print()` のかっこの中に、`\"` で囲んで文字を書きます。"
+  "hint": "`print()` の括弧の中に、`\"` で囲んで文字列を書きます。"
 }

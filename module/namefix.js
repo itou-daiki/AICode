@@ -124,19 +124,19 @@ export function suggestName(name, code) {
   defined.delete(name);
   const caseOnly = closest(name, targets);
   if (caseOnly) return caseOnly;
-  // 打ちまちがい（prnt → print）は、自分で作った名前と、組み込みの関数・スケッチの名前だけから探す。
+  // 入力ミス（prnt → print）は、自分で作った名前と、組み込みの関数・スケッチの名前だけから探す。
   // メソッド名やキーワードまで入れると、score → sort、rand → and のように別のものに「直して」しまう
   return closeTypo(name, [...defined, ...TYPO_TARGETS, ...extraNames]);
 }
 
-/** 打ちまちがいの直し先にしてよい組み込みの名前（関数と、よく使うモジュール） */
+/** 入力ミスの直し先にしてよい組み込みの名前（関数と、よく使うモジュール） */
 const TYPO_TARGETS = [
   ...BUILTINS.map(b => (Array.isArray(b) ? b[0] : b.label)),
   'True', 'False', 'None', ...KNOWN_MODULES,
 ].filter(n => n && !['and', 'or', 'in', 'is', 'not'].includes(n));
 
 /**
- * 1〜2 字の打ちまちがい（抜け・多い・ちがう字・となりの入れかわり）で、1 つに決まる名前を探す
+ * 1〜2 字の入力ミス（抜け・多い・ちがう字・となりの入れかわり）で、1 つに決まる名前を探す
  * 短い名前は 1 字まで、6 字以上の名前は 2 字まで。候補が 2 つ以上なら、決めずに null
  * @param {string} name
  * @param {string[]} candidates
@@ -155,7 +155,7 @@ export function closeTypo(name, candidates) {
     // list1・sum1・inputs のように、言葉のうしろに数や s を足しただけの名前は、自分で付けた別の名前とみなす
     if (name.toLowerCase().startsWith(candidate.toLowerCase()) && /^(\d+|s)$/i.test(name.slice(candidate.length))) continue;
     // 短い名前で 1 字だけ「ちがう字」（point と print）は、別の言葉のことが多いので候補にしない。
-    // 抜け・多い・入れかわり（prnt、pritn）は打ちまちがいとみなす
+    // 抜け・多い・入れかわり（prnt、pritn）は入力ミスとみなす
     const sameLetters = [...name.toLowerCase()].sort().join('') === [...candidate.toLowerCase()].sort().join('');
     if (d === 1 && name.length === candidate.length && name.length < 6 && !sameLetters) continue;
     // 2 字ちがいは、はじめの字が同じときだけ（lenhgt → length はよいが、point → int は別の言葉）
@@ -165,7 +165,7 @@ export function closeTypo(name, candidates) {
   return best && !tie ? best : null;
 }
 
-/** 打ちまちがいの距離（となりの 2 字の入れかわりも 1 回と数える） */
+/** 入力ミスの距離（となりの 2 字の入れかわりも 1 回と数える） */
 function typoDistance(a, b) {
   const d = Array.from({ length: a.length + 1 }, (_, i) => [i, ...Array(b.length).fill(0)]);
   for (let j = 1; j <= b.length; j++) d[0][j] = j;

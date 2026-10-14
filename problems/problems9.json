@@ -1,12 +1,12 @@
 {
   "title": "if文の複数条件",
-  "description": "入力された点数 score によって評価を出力します。80点以上なら「優」、60点以上なら「良」、それ以外は「可」と出力してください。\n\nいくつかの点数で確かめます。",
+  "description": "入力された点数 score によって評価を出力します。80点以上なら「優」、60点以上なら「良」、それ以外は「可」と出力してください。\n\n複数の点数で確認します。",
   "input": "75",
   "expected": "良",
   "template": "# 点数を受け取る\nscore = int(input())\n\n# if-elif-else文を使って判定\n",
   "solution": "score = int(input())\nif score >= 80:\n    print(\"優\")\nelif score >= 60:\n    print(\"良\")\nelse:\n    print(\"可\")\n",
   "hint": [
-    "上から順に調べます。いちばん厳しい条件（80 以上）から書きます。",
+    "上から順に調べます。一番厳しい条件（80 以上）から書きます。",
     "80 以上 → 60 以上 → それ以外、の順に `if` `elif` `else` を並べます。"
   ],
   "tests": [

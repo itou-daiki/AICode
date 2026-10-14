@@ -36,10 +36,10 @@ export const SKETCH_WORDS = {
   circle: '円を描く', ellipse: '楕円を描く', rect: '長方形を描く', square: '正方形を描く',
   triangle: '三角形を描く', quad: '四角形を描く', line: '線を引く', point: '点を打つ', arc: '弧を描く',
   begin_shape: '形を始める', vertex: '頂点を加える', end_shape: '形を終える',
-  text: '文字を描く', text_size: '文字の大きさを決める', text_align: '文字のそろえ方を決める',
+  text: '文字を描く', text_size: '文字の大きさを決める', text_align: '文字の揃え方を決める',
   push: '設定を保存する', pop: '設定を戻す', translate: '原点を移す', rotate: '回転する', scale: '拡大する',
-  reset_matrix: '移動と回転を戻す', clear: 'キャンバスを消す',
-  frame_rate: 'コマ数を決める', no_loop: '繰り返しを止める', loop: '繰り返しを再開する',
+  reset_matrix: '移動と回転を戻す', clear: 'キャンバスを消去する',
+  frame_rate: 'フレーム数を決める', no_loop: '繰り返しを止める', loop: '繰り返しを再開する',
   angle_mode: '角度の単位を決める', rect_mode: '長方形の置き方を決める', ellipse_mode: '楕円の置き方を決める',
   random: '乱数', noise: 'なめらかな乱数', dist: '距離',
 };
@@ -47,9 +47,9 @@ export const SKETCH_WORDS = {
 /** setup / draw などの、p5.js が決まったときに呼ぶ関数（表記では行の終わりに説明を添える） */
 const SKETCH_HANDLERS = {
   setup: '最初に 1 回だけ動く',
-  draw: 'くり返し動く',
+  draw: '繰り返し動く',
   mouse_pressed: 'マウスを押したときに動く',
-  mouse_released: 'マウスをはなしたときに動く',
+  mouse_released: 'マウスを離したときに動く',
   key_pressed: 'キーを押したときに動く',
 };
 

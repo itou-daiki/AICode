@@ -34,7 +34,7 @@ export function describeStep(steps, index, { error = null, truncated = false } =
 
   let doneKind = previous ? 'done' : null;
   let done = previous ? previous.line : null;
-  let base = previous;      // 変数をくらべる相手
+  let base = previous;      // 変数を比べる相手
   let callee = null;
 
   if (previous && afterError) {
@@ -276,7 +276,7 @@ export function explainLine(steps, index, info, getLine) {
 
   const forMatch = text.match(/^(?:async\s+)?for\s+(.+?)\s+in\s+(.+):$/);
   if (forMatch) {
-    if (!goesInside) return 'くり返しを終えた → for の外へ';
+    if (!goesInside) return '繰り返しを終えた → for の外へ';
     const names = forMatch[1].split(',').map(n => n.trim().replace(/[()]/g, '')).filter(Boolean);
     // 何回目のくり返しか。外のくり返しの中にあるときは、この for に入りなおしたところから数える
     let end = info.done;
@@ -296,7 +296,7 @@ export function explainLine(steps, index, info, getLine) {
     }
     const vars = current.vars || {};
     const what = names.filter(n => vars[n]).map(n => `${n} に ${short(vars[n].repr, 16)}`).join('、');
-    return what ? `${what} が入った（${count} 回目）` : `${count} 回目のくり返し`;
+    return what ? `${what} が入った（${count} 回目）` : `${count} 回目の繰り返し`;
   }
 
   const condMatch = text.match(/^(if|elif|while)\s+(.+):$/);
@@ -306,16 +306,16 @@ export function explainLine(steps, index, info, getLine) {
     if (goesInside) return `${shown} は 成り立つ → 中を実行`;
     if (branch === 'else') return `${shown} は 成り立たない → else の中へ`;
     if (branch === 'elif' || /^\s*elif\b/.test(nextText)) return `${shown} は 成り立たない → 次の elif へ`;
-    return word === 'while' ? `${shown} は 成り立たない → くり返しを終える` : `${shown} は 成り立たない → とばす`;
+    return word === 'while' ? `${shown} は 成り立たない → 繰り返しを終える` : `${shown} は 成り立たない → 飛ばす`;
   }
   const defMatch = text.match(/^(?:async\s+)?def\s+([\p{L}_][\p{L}\p{N}_]*)/u);
   if (defMatch) return `関数 ${defMatch[1]} を作った（中はまだ動かない）`;
 
   // break / continue は、次にどこへ進んだかを言う
-  if (text === 'break') return info.next ? `くり返しを抜けた → ${info.next} 行目へ` : 'くり返しを抜けた';
+  if (text === 'break') return info.next ? `繰り返しを抜けた → ${info.next} 行目へ` : '繰り返しを抜けた';
   if (text === 'continue') {
     const head = String(nextText).trim().match(/^(for|while)\b/);
-    return `次のくり返しへ（${head ? head[1] : 'for/while'} の行にもどる）`;
+    return `次の繰り返しへ（${head ? head[1] : 'for/while'} の行に戻る）`;
   }
 
   const parts = [];

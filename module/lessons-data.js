@@ -67,7 +67,7 @@ async function loadReferenced(path, base) {
 }
 
 /**
- * 模試のセットを、参照先の問題に置きかえる
+ * 模試のセットを、参照先の問題に置き換える
  * @param {object} set moshi.json の 1 セット
  * @param {object} courses { コースid: コース } の形
  * @returns {{id: string, title: string, entries: {ref: string, points: number, problem: object}[]}}
@@ -102,7 +102,7 @@ export function findByRef(courses, ref) {
  * 問題の形をそろえる（古い形の問題も受け取れるようにする）
  *
  * 既存の problems/*.json は { title, description, input, expected, template } なので、
- * それを code 型の問題に読みかえる。
+ * それを code 型の問題に読み替える。
  *
  * @param {object} raw
  * @param {string} [courseId]
@@ -126,7 +126,7 @@ export function normalizeProblem(raw, courseId = '', lessonId = '') {
 
   if (!problem.view) problem.view = courseId === 'kyotsu' ? 'ktph' : 'python';
 
-  // 古い形（input / expected が 1 組だけ）を tests に読みかえる
+  // 古い形（input / expected が 1 組だけ）を tests に読み替える
   if (problem.type === 'code' && !Array.isArray(problem.tests)) {
     problem.tests = problem.expected === undefined
       ? []
@@ -157,7 +157,7 @@ export function findBlankKeys(program) {
 }
 
 /**
- * 【ア】を選んだ中身に置きかえる
+ * 【ア】を選んだ中身に置き換える
  *
  * 選んでいない空欄は【ア】のまま残す（どこが空いているか分かるように）。
  * @param {string} program

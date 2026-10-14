@@ -293,10 +293,10 @@ function jsWhy(line) {
   const t = line.trim();
   if (/\+\+|--/.test(t)) return 'x++ のような書き方は、Python では使えません。x += 1 と書きます。';
   if (/^else\s+if\b/.test(t)) return 'else if は、Python では elif と書きます。';
-  if (/;\s*$/.test(t)) return 'Python では、行のおわりに ; は書きません。';
+  if (/;\s*$/.test(t)) return 'Python では、行末に ; は書きません。';
   if (/\b(true|false|null)\b/.test(t)) return 'Python では、True・False・None のように最初を大文字で書きます。';
   if (/&&|\|\|/.test(t)) return '「かつ」は and、「または」は or と書きます。';
-  if (/===|!==/.test(t)) return '「同じか」は ==、「ちがうか」は != と書きます。';
+  if (/===|!==/.test(t)) return '「同じか」は ==、「違うか」は != と書きます。';
   if (/^\/\//.test(t)) return 'Python のメモ（コメント）は # で書きます。';
   if (/console\.log/.test(t)) return '画面に出すのは print( ) です。';
   return 'これはほかの言語（JavaScript）の書き方です。Python の書き方に直します。';
@@ -421,7 +421,7 @@ export function suggestSyntaxFix(code, error) {
         const fixed = [...lines];
         fixed[at] = lines[i].match(/^\s*/)[0] + line.trim();
         return {
-          label: `${follower[2]} の字下げを ${i + 1} 行目にそろえる`,
+          label: `${follower[2]} のインデントを ${i + 1} 行目に揃える`,
           why: `${follower[2]} は、組になる ${lines[i].trim().split(/\s|:/)[0]} と同じ深さ（同じ列）に書きます。中身と同じだけ下げると、どれと組か分からなくなります。`,
           code: fixed.join('\n'),
           line: error.line,
@@ -442,7 +442,7 @@ export function suggestSyntaxFix(code, error) {
       fixed[at] = `${m[1]}print(${m[2]})${comment}`;
       return {
         label: 'print の中身を ( ) で囲む',
-        why: 'print のうしろの中身は ( ) で囲みます。print("こんにちは") のように書きます。',
+        why: 'print の後ろの中身は ( ) で囲みます。print("こんにちは") のように書きます。',
         code: fixed.join('\n'),
         line: error.line,
       };
@@ -456,8 +456,8 @@ export function suggestSyntaxFix(code, error) {
       const fixed = [...lines];
       fixed[at] = fixedLine;
       return {
-        label: '文字のおわりに引用符を足す',
-        why: '文字のおわりの引用符がありません。はじめと同じ引用符（" なら "、\' なら \'）で閉じます。',
+        label: '文字の終わりに引用符を追加する',
+        why: '文字の終わりの引用符がありません。最初と同じ引用符（" なら "、\' なら \'）で閉じます。',
         code: fixed.join('\n'),
         line: error.line,
       };
@@ -475,8 +475,8 @@ export function suggestSyntaxFix(code, error) {
     // 行のおわりの : の手前に入れる（if (x > 0: なら if (x > 0):）
     fixed[at] = body.endsWith(':') ? `${body.slice(0, -1)}${close}:${comment}` : `${body}${close}${comment}`;
     return {
-      label: `行のおわりに ${close} を足す`,
-      why: `${opened[1]} を閉じる ${close} がありません。開いた数と閉じた数をそろえます。`,
+      label: `行末に ${close} を追加する`,
+      why: `${opened[1]} を閉じる ${close} がありません。開いた数と閉じた数を揃えます。`,
       code: fixed.join('\n'),
       line: error.line,
     };
@@ -490,8 +490,8 @@ export function suggestSyntaxFix(code, error) {
       const fixed = [...lines];
       fixed[at] = line.slice(0, index) + line.slice(index + 1);
       return {
-        label: `多い ${extra[1]} を 1 つ消す`,
-        why: `${extra[1]} が多すぎます。開いた ( の数と、閉じた ) の数をそろえます。`,
+        label: `多い ${extra[1]} を 1 つ削除する`,
+        why: `${extra[1]} が多すぎます。開いた ( の数と、閉じた ) の数を揃えます。`,
         code: fixed.join('\n'),
         line: error.line,
       };
@@ -518,8 +518,8 @@ export function suggestSyntaxFix(code, error) {
     const fixed = [...lines];
     fixed[at] = line.replace(/\s*$/, ':');
     return {
-      label: '行のおわりに : を足す',
-      why: 'def や if、for の行は、おわりに「:」（コロン）が要ります。',
+      label: '行末に : を追加する',
+      why: 'def や if、for の行は、終わりに「:」（コロン）が要ります。',
       code: fixed.join('\n'),
       line: error.line,
     };
@@ -531,7 +531,7 @@ export function suggestSyntaxFix(code, error) {
     fixed[at] = outsideStrings(line, s => s.replace(/(?<![=!<>])=(?!=)/, '=='));
     return {
       label: '= を == に直す',
-      why: '「同じか」をくらべるときは == です。= は「入れる」の意味になります。',
+      why: '「同じか」を比べるときは == です。= は「入れる」の意味になります。',
       code: fixed.join('\n'),
       line: error.line,
     };
@@ -581,7 +581,7 @@ export function noticeSilentMistakes(code) {
       && body.slice(resetAt + 1).some(l => new RegExp(`^\\s+${name}\\s*(\\+=|-=|\\*=|=\\s*${name}\\b)`).test(l) && depthOf(l) === top);
     if (moved) {
       notes.push(`draw() の中で ${name} を毎回同じ値に戻しているので、${name} は動きません。`
-        + `「${name} = …」の最初の 1 行は、draw() の外（いちばん上）に置きます。`);
+        + `「${name} = …」の最初の 1 行は、draw() の外（一番上）に置きます。`);
     }
   }
 
@@ -590,8 +590,8 @@ export function noticeSilentMistakes(code) {
   const hasSetupBg = /def\s+setup[\s\S]*?\bbackground\s*\(/.test(code.split(/def\s+draw/)[0] || '');
   const movesSomething = body.some(l => /\+=|-=|=\s*\w+\s*[-+]/.test(l)) || /\bframeCount\b|\bmouseX\b/.test(body.join('\n'));
   if (!hasBgInDraw && hasSetupBg && movesSomething) {
-    notes.push('background() が setup() にしかないので、前のコマの絵が消えず、跡が残ります。'
-      + '図形だけを動かしたいときは background() を draw() のはじめに置きます。');
+    notes.push('background() が setup() にしかないので、前のフレームの絵が消えず、跡が残ります。'
+      + '図形だけを動かしたいときは background() を draw() の最初に置きます。');
   }
 
   // setup()・draw() の外に描く命令がある（最初に 1 回だけ動き、すぐ消されてしまう）
@@ -599,7 +599,7 @@ export function noticeSilentMistakes(code) {
   const outside = lines.find(l => drawCall.test(l));
   if (outside) {
     notes.push(`${outside.trim().split('(')[0]}() が setup()・draw() の外にあります。外の行は最初に 1 回だけ動き、そのあと background() などで消えてしまいます。`
-      + 'draw() の中（4 文字下げた行）に入れましょう。');
+      + 'draw() の中（4 文字下げた行）に入れてください。');
   }
 
   // setup() の中でマウスやキーの値を使っている（最初の 1 回しか読まれない）
@@ -611,7 +611,7 @@ export function noticeSilentMistakes(code) {
       setupBody.push(lines[i]);
     }
     if (setupBody.some(l => /\b(mouseX|mouseY|mouse_x|mouse_y|mouseIsPressed|keyIsPressed)\b/.test(l))) {
-      notes.push('setup() は最初に 1 回だけ動くので、マウスやキーの値はそのときのもの（はじめは 0）しか使われません。動かしたいときは draw() に書きます。');
+      notes.push('setup() は最初に 1 回だけ動くので、マウスやキーの値はそのときのもの（最初は 0）しか使われません。動かしたいときは draw() に書きます。');
     }
   }
   return notes;
@@ -654,11 +654,11 @@ export function noticeCommonMistakes(code) {
     // 「x =+ 1」：= の前に空白があり、= のすぐあとに + か -（x = -1 のように = のあとに空白があるのは、ふつうの負の数）
     const flip = l.match(/^\s*([A-Za-z_]\w*)\s+=([+-])(?!=)/);
     if (flip) {
-      notes.push(`${no} 行目：「${flip[1]} =${flip[2]} …」は「${flip[1]} に ${flip[2]}… を入れる」の意味です。ふやす・へらすなら「${flip[1]} ${flip[2]}= …」と書きます。`);
+      notes.push(`${no} 行目：「${flip[1]} =${flip[2]} …」は「${flip[1]} に ${flip[2]}… を入れる」の意味です。増やす・減らすなら「${flip[1]} ${flip[2]}= …」と書きます。`);
     }
     const bare = l.trim();
     if (defined.has(bare)) {
-      notes.push(`${no} 行目：関数 ${bare} を動かすには、うしろに ( ) をつけて「${bare}()」と書きます。`);
+      notes.push(`${no} 行目：関数 ${bare} を動かすには、後ろに ( ) をつけて「${bare}()」と書きます。`);
     }
     const raw = lines[i].slice(0, (() => { const k = scanLine(lines[i]).indexOf('comment'); return k < 0 ? lines[i].length : k; })());
     const or = raw.match(/([A-Za-z_]\w*)\s*==\s*([^\s]+)\s+or\s+(-?\d+(?![\d.\w])|"[^"]*"|'[^']*')(?!\s*[=!<>])/);

@@ -3,7 +3,7 @@
 //
 //   record(fn)      … 例のプログラムを 1 行ずつ動かした記録を、手で書いた手順から作る
 //   createPlayer()  … 記録を 1 行ずつ再生する（いまの行・まとまりの罫・変数・表示が動く）
-//   createQuiz()    … まちがっている行を押して当てる問題
+//   createQuiz()    … 間違っている行を押して当てる問題
 //
 // 例のプログラムは、Pyodide を読まずに、決まった動きを手で書いておく（ページをすぐ開けるように）。
 // そのぶん、記録の中身が Python の動きと食いちがわないよう、tests/run-node.mjs で確かめる。
@@ -81,7 +81,7 @@ export function codeView(rows, { current = -1, scope = true, onPick = null, pick
       line.addEventListener('click', () => onPick(index));
       line.dataset.index = String(index);
       // 読み上げでも字下げの深さが分かるように、文字数を添える
-      line.setAttribute('aria-label', `${index + 1} 行目（字下げ ${widthOf(row)} 文字）: ${row.code}`);
+      line.setAttribute('aria-label', `${index + 1} 行目（インデント ${widthOf(row)} 文字）: ${row.code}`);
     }
     line.className = 'indent-demo-line';
     const inScope = block && block.end > block.head && index >= block.head && index <= block.end;
@@ -109,7 +109,7 @@ export function codeView(rows, { current = -1, scope = true, onPick = null, pick
     if (widthOf(row)) {
       const hidden = document.createElement('span');
       hidden.className = 'sr-only';
-      hidden.textContent = `（字下げ ${widthOf(row)} 文字）`;
+      hidden.textContent = `（インデント ${widthOf(row)} 文字）`;
       code.appendChild(hidden);
     }
     for (let level = 0; level < (row.depth || 0); level++) {
@@ -276,11 +276,11 @@ export function createPlayer({ variants, hint = '「▶ 動かす」で、1 行�
  * ========================================================== */
 
 /**
- * まちがっている行を当てる問題
+ * 間違っている行を当てる問題
  * @param {object} options
  * @param {string} options.question 問い（何をしたいプログラムか）
  * @param {object[]} options.rows コード
- * @param {number} options.answer まちがっている行（0 から）
+ * @param {number} options.answer 間違っている行（0 から）
  * @param {string} options.explain 当てたときの説明
  * @param {string} [options.fixed] 直したあとのコード（説明のあとに見せる）
  */
@@ -325,7 +325,7 @@ export function createQuiz({ question, rows, answer, explain, fixed = '' }) {
       }
     } else {
       p.className = 'quiz-ng';
-      p.textContent = `${index + 1} 行目は、このままで正しい行です。ほかの行を見てみましょう。`;
+      p.textContent = `${index + 1} 行目は、このままで正しい行です。ほかの行を見てみてください。`;
       feedback.appendChild(p);
     }
     draw();
@@ -336,7 +336,7 @@ export function createQuiz({ question, rows, answer, explain, fixed = '' }) {
   draw();
   const how = document.createElement('p');
   how.className = 'quiz-how';
-  how.textContent = 'まちがっていると思う行を押してください。';
+  how.textContent = '間違っていると思う行を押してください。';
   wrap.append(q, how, area, feedback);
   return wrap;
 }

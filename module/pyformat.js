@@ -234,7 +234,7 @@ function layout(code) {
   const statements = splitStatements(alignOutliers(code));
   const result = [];
 
-  const stack = [0];        // もとの字下げ幅の並び。長さ - 1 が深さ。
+  const stack = [0];        // もとのインデント幅の並び。長さ - 1 が深さ。
   const openers = [];       // 開いたままのブロックの見出し {level, keyword}
   let expectDeeper = false; // 直前の文が : で終わっていたか
 

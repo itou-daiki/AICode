@@ -60,7 +60,7 @@ export function findIndentOutliers(code) {
   rows.forEach((row, k) => {
     const prev = rows[k - 1];
     const next = rows[k + 1];
-    // 「:」で終わる行のすぐ下なのに、下げていない（中身を左はしに書いた）。かならずエラーになる
+    // 「:」で終わる行のすぐ下なのに、下げていない（中身を左端に書いた）。かならずエラーになる
     if (prev && prev.header && row.indent <= prev.indent) {
       const lead = `${prev.lead}${prev.lead.includes('\t') ? '\t' : '    '}`;
       found.push({ line: row.line, indent: row.indent, expected: prev.indent + 4, lead, afterHeader: true });
@@ -86,7 +86,7 @@ export function findIndentOutliers(code) {
  * @param {number} n
  */
 export function describeIndent(n) {
-  if (!n) return '0 文字（字下げなし）';
+  if (!n) return '0 文字（インデントなし）';
   if (n % 4 === 0) return `${n} 文字（スペース ${n} つ＝Tab キー ${n / 4} 回）`;
   return `${n} 文字（スペース ${n} つ）`;
 }
@@ -132,16 +132,18 @@ export function attachIndentCheck(cm) {
       chip.className = 'namefix-chip indent-chip';
       const note = document.createElement('span');
       note.className = 'indent-chip-note';
+      // 行の後ろに出すので短く書く。くわしい数（空白いくつ・Tab 何回）はマウスを重ねたときに出す
       note.textContent = f.line === 0 && f.expected === 0
-        ? '1 行目は字下げしない'
-        : f.afterHeader
-          ? '「:」の次の行は、空白 4 つ（Tab キー 1 回）下げて書きます'
-          : `この行だけ字下げが ${describeIndent(f.indent)}。前後は ${describeIndent(f.expected)}`;
+        ? '1 行目はインデントしない'
+        : f.afterHeader ? '「:」の次は 1 段下げる' : 'インデントが前後と違う';
+      chip.title = f.afterHeader
+        ? '「:」の次の行は、スペース 4 つ（Tab キー 1 回）下げて書きます'
+        : `この行のインデントは ${describeIndent(f.indent)}、前後は ${describeIndent(f.expected)}です`;
       const fix = document.createElement('button');
       fix.type = 'button';
       fix.className = 'namefix-apply';
-      fix.textContent = f.afterHeader ? '4 文字下げる' : '前後の行にそろえる';
-      fix.title = '押すと、この行の字下げを前後の行とそろえます';
+      fix.textContent = f.afterHeader ? '下げる' : '揃える';
+      fix.title = '押すと、この行のインデントを前後の行と揃えます';
       fix.addEventListener('mousedown', (e) => e.preventDefault());
       fix.addEventListener('click', () => {
         const text = cm.getLine(f.line);

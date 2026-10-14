@@ -96,12 +96,12 @@ export function createWorkbench(options) {
   attachHalfWidth(editor);
   // 字下げの段を塗り、カーソルのいるまとまりの範囲に罫を引く
   const blockScope = attachBlockScope(editor);
-  // createcanvas → createCanvas のように、大文字・小文字だけちがう名前に、押せば直る候補を出す
+  // createcanvas → createCanvas のように、大文字・小文字だけ違う名前に、押せば直る候補を出す
   registerNames(extraApi);
   attachNameFix(editor);
   // 行番号の左のつまみで、行（見出しなら中身ごと）をドラッグして動かす
   attachLineDrag(editor);
-  // その行だけ字下げが前後とちがう行に、朱の帯と「そろえる」ボタンを出す
+  // その行だけ字下げが前後と違う行に、朱の帯と「そろえる」ボタンを出す
   attachIndentCheck(editor);
 
   /* ---------- ブロックエディタ ---------- */
@@ -183,7 +183,7 @@ export function createWorkbench(options) {
     }
     if (!ok && !warnedAboutSaving) {
       warnedAboutSaving = true;
-      toast('このブラウザに保存できません。書いたものは、閉じると消えてしまいます。「共有」でリンクにして控えておきましょう。', 6000);
+      toast('このブラウザに保存できません。書いたものは、閉じると消えてしまいます。「共有」でリンクにして控えておいてください。', 6000);
     }
   }
   const save = throttle(saveNow, SAVE_MS);
@@ -191,7 +191,7 @@ export function createWorkbench(options) {
   window.addEventListener('pagehide', saveNow);
   document.addEventListener('visibilitychange', () => { if (document.hidden) saveNow(); });
 
-  /** いま保存されているコード（無ければ空） */
+  /** 今保存されているコード（無ければ空） */
   function savedCode() {
     const text = safeStorage.get(codeKey);
     if (text) return text;
@@ -409,7 +409,7 @@ export function createWorkbench(options) {
       if (content.width <= view.width && content.height <= view.height) {
         workspace.scrollCenter();
       } else {
-        // 入りきらないときに真ん中へ寄せると、左はし（ブロックの始まり）が
+        // 入りきらないときに真ん中へ寄せると、左端（ブロックの始まり）が
         // 画面の外に出て切れてしまう。読む順に合わせて左上をそろえる。
         workspace.scroll(margin - content.left, margin - content.top);
       }
@@ -438,7 +438,7 @@ export function createWorkbench(options) {
     if (flowHost) new ResizeObserver(debounce(() => fitFlowchart(), 120)).observe(flowHost);
     const blocklyHost = document.getElementById(blocklyId);
     // ResizeObserver の知らせは、大きさが決まったあとに来るので、その場で合わせ直してよい
-    // （入れ物の大きさは CSS で決まっていて、中を変えても入れ物は変わらないので、くり返しにならない）
+    // （入れ物の大きさは CSS で決まっていて、中を変えても入れ物は変わらないので、繰り返しにならない）
     const resizeBlocks = () => {
       if (!blocklyHost || !blocklyHost.offsetWidth || !blocklyHost.offsetHeight) return;
       Blockly.svgResize(workspace);
@@ -575,7 +575,7 @@ export function createWorkbench(options) {
       const saved = safeStorage.get(storageKey);
       const text = savedCode();
       if (saved) {
-        // 読みこみの出来事が後から届くと、コードがブロックから作り直されてしまう。止めておく
+        // 読み込みの出来事が後から届くと、コードがブロックから作り直されてしまう。止めておく
         Blockly.Events.disable();
         try {
           Blockly.serialization.workspaces.load(JSON.parse(saved), workspace);
@@ -608,7 +608,7 @@ export function createWorkbench(options) {
     } finally {
       syncing = false;
       restored = true;
-      // 開いた直後に「元に戻す」を押すと、コードが空になってしまう。読みこみは履歴に残さない
+      // 開いた直後に「元に戻す」を押すと、コードが空になってしまう。読み込みは履歴に残さない
       editor.clearHistory();
       workspace.clearUndo();
     }

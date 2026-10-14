@@ -55,7 +55,7 @@
       text-align: left;
     }
     .course-head:hover { border-color: var(--c-brand); background: var(--c-brand-soft); }
-    /* いま開いているコース。面は塗らず、左端の朱の太罫で示す */
+    /* 今開いているコース。面は塗らず、左端の朱の太罫で示す */
     .course-head[aria-current='true'] {
       border-color: var(--c-ink);
       box-shadow: inset 3px 0 0 var(--c-mark);
@@ -75,7 +75,7 @@
       display: flex; align-items: center; gap: var(--sp-1);
       margin: 0 0 var(--sp-2); font-size: var(--text-xs); color: var(--c-ink-2); cursor: pointer;
     }
-    /* 2 回まちがえたあとに見せる正解 */
+    /* 2 回間違えたあとに見せる正解 */
     .answer-reveal { font-weight: 600; }
     .nav-filter input { accent-color: var(--c-mark); width: 1rem; height: 1rem; margin: 0; }
     .lesson-list { display: flex; flex-direction: column; gap: 2px; margin-bottom: var(--sp-2); }
@@ -139,7 +139,7 @@
     }
     #problem-head { display: flex; align-items: center; gap: var(--sp-2); flex-wrap: wrap; flex: 0 0 auto; }
     #problem-text, #answer-area, #check-result, #ktph-note { flex: 0 0 auto; }
-    /* この画面でいちばん大きい字。投影したときの見当になる */
+    /* この画面で最も大きい字。投影したときの見当になる */
     #problem-title { margin: 0; font-size: var(--text-2xl); line-height: 1.25; letter-spacing: -0.01em; }
     #problem-text { font-size: var(--text-base); line-height: 1.8; }
     #problem-text p { margin: 0 0 var(--sp-2); }
@@ -158,7 +158,7 @@
     #problem-text pre code { padding: 0; background: none; }
 
     /* ずっと出ている「表記のきまり」。
-       .note（何かが起きたときの知らせ）とは役割がちがうので、
+       .note（何かが起きたときの知らせ）とは役割が違うので、
        同じ強さで目立たせない。落ちついた囲みだけにする。 */
     .ktph-note {
       padding: var(--sp-2) var(--sp-3);
@@ -284,7 +284,7 @@
         transparent 1px var(--pair-line, 21px));
       background-position: 0 var(--pair-top, 8px);
     }
-    /* いま光っている行だけ、左右を朱の 1 本でつなぐ */
+    /* 今光っている行だけ、左右を朱の 1 本でつなぐ */
     .pair-mark {
       position: absolute;
       left: -1px;
@@ -365,11 +365,11 @@
 <body>
   <div id="loader" class="loader">
     <div class="spinner"></div>
-    <p>読みこんでいます…</p>
+    <p>読み込んでいます…</p>
   </div>
 
   <header class="topbar">
-    <button id="toggle-nav" class="btn sidebar-toggle" aria-expanded="true" data-label="一覧"><svg viewBox="0 0 20 20" class="icon" aria-hidden="true"><path d="M3 5h14M3 10h14M3 15h14"/></svg><span class="sidebar-toggle-label">一覧を閉じる</span></button>
+    <button id="toggle-nav" class="btn sidebar-toggle" aria-expanded="true" data-label="一覧"><svg viewBox="0 0 20 20" class="icon" aria-hidden="true"><path d="M3 5h14M3 10h14M3 15h14"/></svg><span class="sidebar-toggle-label">一覧</span></button>
     <a class="brand" href="index.html">
       <span class="brand-name">easyCode<small>02 レッスン</small></span>
     </a>
@@ -430,7 +430,7 @@
             <p class="muted" style="margin:0;">別の端末で続けるときに、解けた印と書きかけをファイルにして移せます。</p>
             <div style="display:flex; gap:var(--sp-2); flex-wrap:wrap;">
               <button id="export-progress" class="btn btn-sm">ファイルに書き出す</button>
-              <button id="import-progress" class="btn btn-sm">ファイルから読みこむ</button>
+              <button id="import-progress" class="btn btn-sm">ファイルから読み込む</button>
               <input type="file" id="import-progress-file" accept="application/json,.json" hidden>
             </div>
           </div>
@@ -478,7 +478,7 @@
         <div class="expander-body stack">
           <div id="chat-messages" class="stack"></div>
           <div id="chat-input-container" class="row">
-            <input type="text" id="chat-input" placeholder="わからないことを聞いてみましょう" class="grow">
+            <input type="text" id="chat-input" placeholder="分からないことを聞いてください" class="grow">
             <button id="chat-send" class="btn btn-sm btn-mark">送信</button>
           </div>
         </div>
@@ -489,7 +489,6 @@
     <section id="work-col">
       <div class="panel" id="panel-program">
         <div class="panel-head">
-          <span class="tabs-label">表示するもの</span>
           <div class="tabs" id="program-tabs" role="tablist">
             <button type="button" data-stage="python" role="tab" aria-selected="true"><svg viewBox="0 0 20 20" class="icon" aria-hidden="true"><path d="M7 6 3 10l4 4"/><path d="m13 6 4 4-4 4"/></svg>Python</button>
             <button type="button" data-stage="ktph" role="tab" aria-selected="false"><svg viewBox="0 0 20 20" class="icon" aria-hidden="true"><path d="M4 4h12"/><path d="M6 4v12"/><path d="M9 8h7M9 12h5"/></svg>共通テスト表記</button>
@@ -500,8 +499,7 @@
             <button class="tool-btn" id="code-undo" title="元に戻す（Ctrl+Z）" aria-label="コードを元に戻す"><svg viewBox="0 0 20 20" class="icon" aria-hidden="true"><path d="M4 9h8a4 4 0 1 1 0 8H8"/><path d="M7 6 4 9l3 3"/></svg></button>
             <button class="tool-btn" id="code-redo" title="やり直す（Ctrl+Shift+Z）" aria-label="コードをやり直す"><svg viewBox="0 0 20 20" class="icon" aria-hidden="true"><path d="M16 9H8a4 4 0 1 0 0 8h4"/><path d="m13 6 3 3-3 3"/></svg></button>
             <button class="tool-btn" id="code-restore" title="この問題の最初のコードに戻します"><svg viewBox="0 0 20 20" class="icon" aria-hidden="true"><path d="M4 10a6 6 0 1 0 2-4.5"/><path d="M4 3v4h4"/></svg>最初のコード</button>
-            <button class="tool-btn" id="code-indent" title="字下げをそろえます"><svg viewBox="0 0 20 20" class="icon" aria-hidden="true"><path d="M3 5h14M7 10h10M7 15h10"/><path d="M3 8l2 2-2 2"/></svg>字下げ</button>
-            <button class="tool-btn" id="code-format" title="記号まわりの空白も整えます"><svg viewBox="0 0 20 20" class="icon" aria-hidden="true"><path d="M3 5h14M3 10h9M3 15h12"/></svg>整形</button>
+            <button class="tool-btn" id="code-format" title="インデントを 4 文字ずつに揃え、記号の前後の空白も整えます"><svg viewBox="0 0 20 20" class="icon" aria-hidden="true"><path d="M3 5h14M3 10h9M3 15h12"/></svg>整形</button>
             <button class="tool-btn panel-max" data-panel="panel-program" title="このパネルを大きく表示"><svg viewBox="0 0 20 20" class="icon" aria-hidden="true"><path d="M4 8V4h4M16 12v4h-4"/></svg></button>
           </span>
         </div>
@@ -523,9 +521,9 @@
         <div id="code-symbols"></div>
         <div class="button-group" style="display:flex; gap:var(--sp-2); padding:var(--sp-2); border-top:1px solid var(--c-line); flex-wrap:wrap;">
           <button id="run-btn" class="btn btn-run" disabled><svg viewBox="0 0 20 20" class="icon" aria-hidden="true"><path d="M6 4l10 6-10 6z"/></svg>実行</button>
-          <button id="step-btn" class="btn btn-sm"><svg viewBox="0 0 20 20" class="icon" aria-hidden="true"><path d="M5 4l7 6-7 6z"/><path d="M15 4v12"/></svg>1行ずつ実行</button>
+          <button id="step-btn" class="btn btn-sm"><svg viewBox="0 0 20 20" class="icon" aria-hidden="true"><path d="M5 4l7 6-7 6z"/><path d="M15 4v12"/></svg>ステップ実行</button>
           <button id="check-btn" class="btn btn-mark"><svg viewBox="0 0 20 20" class="icon" aria-hidden="true"><path d="M4 10l4 4 8-9"/></svg>答え合わせ</button>
-          <button id="skip-btn" class="btn btn-sm" style="display:none;" title="分からない問題をとばします（まちがいとして数えます）">この問題をとばす</button>
+          <button id="skip-btn" class="btn btn-sm" style="display:none;" title="分からない問題を飛ばします（間違いとして数えます）">この問題を飛ばす</button>
           <button id="ai-fix-code" class="btn btn-sm"><svg viewBox="0 0 20 20" class="icon" aria-hidden="true"><path d="M5 8h10v7H5z"/><path d="M10 5v3"/><path d="M7.5 11h1M11.5 11h1"/></svg>AI 修正</button>
         </div>
       </div>
@@ -546,7 +544,7 @@
               <button id="step-next" class="btn btn-mark btn-sm" title="1つ進む（→）">進む<svg viewBox="0 0 20 20" class="icon" aria-hidden="true"><path d="M6 4l10 6-10 6z"/></svg></button>
               <input type="range" id="step-slider" min="0" max="0" value="0">
               <span class="chip" id="step-label">0 / 0</span>
-              <button id="step-exit" class="btn btn-sm btn-quiet"><svg viewBox="0 0 20 20" class="icon" aria-hidden="true"><path d="M5 5h10v10H5z"/></svg>1行ずつ実行をやめる</button>
+              <button id="step-exit" class="btn btn-sm btn-quiet"><svg viewBox="0 0 20 20" class="icon" aria-hidden="true"><path d="M5 5h10v10H5z"/></svg>ステップ実行をやめる</button>
             </div>
             <div id="step-caption" class="step-caption" aria-live="polite" aria-atomic="true"></div>
             <div id="step-vars"></div>

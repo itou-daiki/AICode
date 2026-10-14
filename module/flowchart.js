@@ -332,19 +332,19 @@ function renderSimple(b, stmt, incoming, ctx) {
   const { text, line } = stmt;
 
   if (/^return\b/.test(text)) {
-    const id = b.addNode('terminator', text === 'return' ? '呼び出し元にもどる' : say(text), line);
+    const id = b.addNode('terminator', text === 'return' ? '呼び出し元に戻る' : say(text), line);
     b.connect(incoming, id);
     ctx.returns.push({ id });
     return [];
   }
   if (text === 'break') {
-    const id = b.addNode('process', 'くり返しを抜ける', line);
+    const id = b.addNode('process', '繰り返しを抜ける', line);
     b.connect(incoming, id);
     if (ctx.loop) ctx.loop.breaks.push({ id });
     return [];
   }
   if (text === 'continue') {
-    const id = b.addNode('process', '次のくり返しへ', line);
+    const id = b.addNode('process', '次の繰り返しへ', line);
     b.connect(incoming, id);
     if (ctx.loop) b.connect([{ id }], ctx.loop.continueTarget || ctx.loop.head);
     return [];
@@ -405,7 +405,7 @@ function renderLoop(b, stmt, incoming, ctx) {
   // 「いいえ」に進むことは無いので、判断のひし形にせず、くり返しの図形にする。
   // 抜けるのは break のときだけ（break が無ければ、ここで流れが終わる）
   if (!isFor && clause.head === 'True') {
-    const head = b.addNode('loop', useJapanese ? 'ずっとくり返す' : 'while True', clause.line);
+    const head = b.addNode('loop', useJapanese ? 'ずっと繰り返す' : 'while True', clause.line);
     b.connect(incoming, head);
     const loopCtx = { ...ctx, loop: { head, continueTarget: head, breaks: [] } };
     const outs = renderSequence(b, clause.body, [{ id: head }], loopCtx);

@@ -79,18 +79,18 @@ let mock = null;
 
 /** 入力欄の受けわたし */
 const inputState = { waiting: false, resolve: null };
-/** 実行中か（入力待ちのあいだも true） */
+/** 実行中か（入力待ちの間も true） */
 let running = false;
-/** 問題を開くときの書きかえ中か（このあいだは書きかけを保存しない） */
+/** 問題を開くときの書き換え中か（この間は書きかけを保存しない） */
 let loadingProblem = false;
 /** コードの字下げとまとまりの見せ方（blockscope.js） */
 let pyScope = null;
-/** いまの問題で、続けてまちがえた回数（2 回でヒントを開く） */
+/** いまの問題で、続けて間違えた回数（2 回でヒントを開く） */
 let wrongInRow = 0;
 /** 一覧で、まだ解けていない問題だけを見せるか */
 const UNSOLVED_KEY = 'easycode_lessons_unsolved_only';
 let unsolvedOnly = safeStorage.get(UNSOLVED_KEY) === '1';
-/** 一覧で、1 回目にまちがえた問題（要復習）だけを見せるか */
+/** 一覧で、1 回目に間違えた問題（要復習）だけを見せるか */
 const REVIEW_KEY = 'easycode_lessons_review_only';
 let reviewOnly = safeStorage.get(REVIEW_KEY) === '1';
 
@@ -98,7 +98,7 @@ let reviewOnly = safeStorage.get(REVIEW_KEY) === '1';
 const step = { list: [], index: 0, active: false, error: null };
 
 /* ============================================================
- * 1. かんたんな文章の組み立て
+ * 1. 簡単な文章の組み立て
  * ========================================================== */
 
 /**
@@ -181,7 +181,7 @@ function editorOptions(mode, readOnly) {
   };
 }
 
-/** 整形して書きもどす（カーソルとスクロールは保つ） */
+/** 整形して書き戻す（カーソルとスクロールは保つ） */
 function applyTransform(transform) {
   const before = editorPy.getValue();
   const after = transform(before);
@@ -228,7 +228,7 @@ function renderNav() {
   const body = $('nav-body');
   body.innerHTML = '';
 
-  // 試験前に「まだのところ」「1 回目でまちがえたところ」だけ回せるように
+  // 試験前に「まだのところ」「1 回目で間違えたところ」だけ回せるように
   const addFilter = (label, checked, onChange) => {
     const filter = document.createElement('label');
     filter.className = 'nav-filter';
@@ -243,7 +243,7 @@ function renderNav() {
     unsolvedOnly = on;
     safeStorage.set(UNSOLVED_KEY, on ? '1' : '0');
   });
-  addFilter('要復習（1 回目でまちがえた問題）', reviewOnly, (on) => {
+  addFilter('要復習（1 回目で間違えた問題）', reviewOnly, (on) => {
     reviewOnly = on;
     safeStorage.set(REVIEW_KEY, on ? '1' : '0');
   });
@@ -357,7 +357,7 @@ function kindLabel(type) {
  * ========================================================== */
 
 /** 「自由に書く」のはじめのコード */
-const FREE_START = '# 好きなように書いてみましょう\nprint("こんにちは")\n';
+const FREE_START = '# 好きなように書いてみてください\nprint("こんにちは")\n';
 
 /** その問題の最初のコード（書きかけが無いときに開くもの） */
 function originalCode(problem) {
@@ -410,7 +410,7 @@ async function openProblem(ref, options = {}) {
   const original = originalCode(problem);
   const draft = getDraft(ref);
   const stale = draft !== null && draft !== original && isDraftStale(ref, original);
-  // 開くための書きかえでは保存しない。古い書きかけは、手を入れるまで消さずに残す
+  // 開くための書き換えでは保存しない。古い書きかけは、手を入れるまで消さずに残す
   loadingProblem = true;
   try {
     editorPy.setValue(draft !== null ? draft : original);
@@ -476,7 +476,7 @@ function renderProblem(problem) {
   // ヒントと解説（模試の間は出さない）
   renderHints(problem);
 
-  // 解説は答えを言ってしまうので、読む課のほかは、正解したか 2 回まちがえたあとに出す
+  // 解説は答えを言ってしまうので、読む課のほかは、正解したか 2 回間違えたあとに出す
   const explainBox = $('explain-box');
   explainBox.style.display = !mock && problem.explanation && problem.type === 'read' ? '' : 'none';
   explainBox.open = false;
@@ -490,7 +490,7 @@ function renderProblem(problem) {
   $('check-btn').style.display = problem.type === 'read' ? 'none' : '';
   if (mock) { setIconLabel($('check-btn'), 'next', '記録して次へ'); }
   else { setIconLabel($('check-btn'), 'check', '答え合わせ'); }
-  // 模試では、分からない問題をとばせる（まちがいとして数える）
+  // 模試では、分からない問題を飛ばせる（間違いとして数える）
   $('skip-btn').style.display = mock && problem.type !== 'read' ? '' : 'none';
   updateRunAvailability();
 
@@ -580,7 +580,7 @@ function renderAnswerArea(problem) {
     if (Array.isArray(problem.choices)) {
       const list = document.createElement('div');
       list.className = 'choice-list';
-      // 見せる順は混ぜるが、選んだ値はもとの番号のまま（答え合わせは answerIndex と見くらべる）
+      // 見せる順は混ぜるが、選んだ値はもとの番号のまま（答え合わせは answerIndex と見比べる）
       choiceOrder(problem.choices.length, problemRef(problem)).forEach((index) => {
         const choice = problem.choices[index];
         const label = document.createElement('label');
@@ -630,7 +630,7 @@ function renderAnswerArea(problem) {
       empty.value = '';
       empty.textContent = '選んでください';
       select.appendChild(empty);
-      // 見せる順は混ぜるが、option の値はもとの番号のまま（gradeBlanks は answer と見くらべる）
+      // 見せる順は混ぜるが、option の値はもとの番号のまま（gradeBlanks は answer と見比べる）
       choiceOrder(blank.choices.length, `${problemRef(problem)}#${blank.key}`).forEach((index) => {
         const choice = blank.choices[index];
         const option = document.createElement('option');
@@ -679,7 +679,7 @@ function updateRunAvailability() {
   const guarded = current && (current.type === 'trace' || (mock && current.type === 'blank'));
   const locked = Boolean(guarded) && (mock || !answered);
   const title = running ? '実行が終わるまでお待ちください'
-    : (locked ? (mock ? '模試のあいだ、この問題は実行できません' : 'まず答えを書いてから実行できます') : '');
+    : (locked ? (mock ? '模試の間、この問題は実行できません' : 'まず答えを書いてから実行できます') : '');
   for (const id of ['run-btn', 'step-btn']) {
     const button = $(id);
     button.disabled = running || locked || !pyodide;
@@ -695,7 +695,7 @@ function busyNotice() {
     toast('プログラムが入力を待っています。下の入力欄に打ちこんで Enter を押すと続きます。', 4200);
     $('runtime-input').focus();
   } else {
-    toast('いま実行中です。終わるまでお待ちください。');
+    toast('今実行中です。終わるまでお待ちください。');
   }
   return true;
 }
@@ -731,7 +731,7 @@ async function runCurrent() {
     return;
   }
 
-  // 実行のあいだに問題が替わっても、動かした問題で判定する
+  // 実行の間に問題が替わっても、動かした問題で判定する
   const problem = current;
   running = true;
   updateRunAvailability();
@@ -777,7 +777,7 @@ async function runCurrent() {
       if (ok) {
         markSolved(problemRef(problem));
         renderNav();
-        showNote('check-result', 'ok', '動かせました。次に進みましょう。');
+        showNote('check-result', 'ok', '動かせました。次に進んでください。');
       }
     }
   } catch (e) {
@@ -821,7 +821,7 @@ async function checkCurrent() {
       ? picks.choice
       : ($('trace-answer') ? $('trace-answer').value : '');
     if (given === undefined || given === '') {
-      showNote('check-result', 'warn', '答えを書いてから押しましょう。');
+      showNote('check-result', 'warn', '答えを書いてから押してください。');
       return;
     }
     answered = true;
@@ -830,7 +830,7 @@ async function checkCurrent() {
     const result = gradeTrace(current, given);
     finishAnswer(ref, result.ok,
       result.ok ? '正解です。' :
-        'ちがいます。「実行」で実際に動かして、どこがちがうか確かめてみましょう。',
+        '違います。「実行」で実際に動かして、どこが違うか確かめてください。',
       { given: choices ? String(current.choices[given] ?? '') : String(given), expected: result.expected });
     return;
   }
@@ -847,7 +847,7 @@ async function checkCurrent() {
     }
     finishAnswer(ref, result.ok, result.ok
       ? '正解です。'
-      : '✕ のところを選び直しましょう。「実行」で埋めたプログラムを動かすと、どこがちがうか分かります。',
+      : '✕ のところを選び直してください。「実行」で埋めたプログラムを動かすと、どこが違うか分かります。',
     { given: describePicks(current, picks), expected: describePicks(current, correctPicks(current)) });
     return;
   }
@@ -901,7 +901,7 @@ function escapeHtml(text) {
   return String(text ?? '').replace(/[&<>]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c]));
 }
 
-/** 解説を出して開く（正解したとき・2 回まちがえたとき・模試の結果から開いたとき） */
+/** 解説を出して開く（正解したとき・2 回間違えたとき・模試の結果から開いたとき） */
 function revealExplanation() {
   if (!current || !current.explanation) return;
   const box = $('explain-box');
@@ -942,15 +942,15 @@ function finishAnswer(ref, ok, message, detail = {}) {
   if (message !== null) showNote('check-result', ok ? 'ok' : 'bad', message);
   if (ok) revealExplanation();
 
-  // 2 回続けてまちがえたら、ヒントを開いてあげる（ひとりで抱えこまないように）
+  // 2 回続けて間違えたら、ヒントを開いてあげる（一人で抱え込まないように）
   wrongInRow = ok ? 0 : wrongInRow + 1;
   const hintBox = $('hint-box');
   if (wrongInRow >= 2 && hintBox.style.display !== 'none' && !hintBox.open) {
     hintBox.open = true;
-    addToNote('下の「ヒント」を開きました。1 つずつ読んでみましょう。');
+    addToNote('下の「ヒント」を開きました。1 つずつ読んでください。');
     hintBox.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
   }
-  // 2 回まちがえたら、正解と解説も見せる（答えが分からないまま止まってしまわないように）
+  // 2 回間違えたら、正解と解説も見せる（答えが分からないまま止まってしまわないように）
   if (!ok && wrongInRow >= 2) {
     if ((current.type === 'trace' || current.type === 'blank') && detail.expected) {
       addToNote(`正解: ${detail.expected}`, 'answer-reveal');
@@ -987,7 +987,7 @@ function applyFix(code, line) {
   editorPy.setValue(code);
   editorPy.setCursor({ line: line - 1, ch: editorPy.getLine(line - 1).length });
   editorPy.focus();
-  toast('コードを直しました。もう一度「実行」を押してみましょう', 3600);
+  toast('コードを直しました。もう一度「実行」を押してください', 3600);
 }
 
 /* ============================================================
@@ -1006,7 +1006,7 @@ async function startStepMode() {
   updateRunAvailability();
   try {
     const trace = await recordTrace(pyodide, code, inputLines(current.input));
-    // 記録のあいだに問題が替わったら、古い記録は見せない
+    // 記録の間に問題が替わったら、古い記録は見せない
     if (problem !== current) return;
     if (!trace.steps.length) {
       $('output').textContent = trace.error || '記録できる処理がありませんでした。';
@@ -1025,7 +1025,7 @@ async function startStepMode() {
     showStep(0);
     $('step-next').focus();
   } catch (e) {
-    $('output').textContent = '1行ずつ実行が、うまくいきませんでした: ' + e.message;
+    $('output').textContent = 'ステップ実行に失敗しました: ' + e.message;
   } finally {
     running = false;
     updateRunAvailability();
@@ -1103,7 +1103,7 @@ function showStep(index) {
   const info = describeStep(step.list, step.index, { error: step.error, truncated: step.truncated });
   const after = step.index === step.list.length - 1 && step.error ? `\n${step.error}` : '';
   renderStepOutput($('output'), state.output || '', info.newOutput, { after });
-  // 文に引くコードは、いま見ている方（共通テスト表記か Python か）にそろえる
+  // 文に引くコードは、今見ている方（共通テスト表記か Python か）にそろえる
   const showingKtph = tabs.current() === 'ktph' && editorKtph;
   renderStepCaption($('step-caption'), info, (n) => (showingKtph
     ? (editorKtph.getLine(n - 1) || '').replace(/^[\s｜⎿]+/, '')
@@ -1119,7 +1119,7 @@ function showStep(index) {
   const lineText = info.next ? editorPy.getLine(info.next - 1) || '' : '';
   const { order, history } = variableHistory(step.list, step.index);
   renderVariables($('step-vars'), state.vars, info.baseVars, namesInLine(lineText), { order, history });
-  // いま実行した行の後ろに、その行がしたことを書く（表記の方にも同じ注釈）
+  // 今実行した行の後ろに、その行がしたことを書く（表記の方にも同じ注釈）
   const note = explainLine(step.list, step.index, info, (n) => editorPy.getLine(n - 1) || '');
   annotateStep(editorPy, info.done, note);
   annotateStep(editorKtph, info.done, note);
@@ -1200,17 +1200,17 @@ function openMockProblem() {
   syncViews();
 }
 
-/** 模試で、今の問題をとばす（まちがいとして数える） */
+/** 模試で、今の問題を飛ばす（間違いとして数える） */
 function skipMockProblem() {
   if (!mock || !current || busyNotice()) return;
   const ref = problemRef(current);
-  // とばした問題も「1 回目でまちがえた」として要復習に入れる
+  // 飛ばした問題も「1 回目で間違えた」として要復習に入れる
   markTried(ref, false);
-  mock.outcomes[ref] = { ok: false, given: '（とばした）', expected: mockExpected(current) };
+  mock.outcomes[ref] = { ok: false, given: '（飛ばした）', expected: mockExpected(current) };
   nextMockProblem();
 }
 
-/** とばした問題の正解の書き方 */
+/** 飛ばした問題の正解の書き方 */
 function mockExpected(problem) {
   if (problem.type === 'blank') return describePicks(problem, correctPicks(problem));
   if (problem.type === 'trace') return gradeTrace(problem, '').expected;
@@ -1228,7 +1228,7 @@ function finishMock() {
   const result = scoreMock(set, mock.outcomes);
   recordMock(mock.set.id, result);
 
-  // 何と答えて、正解は何だったかを並べる（どこでまちがえたかを、その場で見直せるように）
+  // 何と答えて、正解は何だったかを並べる（どこで間違えたかを、その場で見直せるように）
   const rows = result.rows.map((row) => {
     const problem = problemByRef(row.ref);
     return `<tr>
@@ -1262,7 +1262,7 @@ function finishMock() {
   $('check-btn').style.display = 'none';
   $('skip-btn').style.display = 'none';
   showNote('check-result', result.score === result.total ? 'ok' : 'warn',
-    result.score === result.total ? '全問正解です。' : 'まちがえた問題の解説を読んでみましょう。');
+    result.score === result.total ? '全問正解です。' : '間違えた問題の解説を読んでください。');
   renderNav();
   toast(`${setId} の結果を記録しました`);
 }
@@ -1378,7 +1378,7 @@ function setupAiButtons() {
       if (fixed) {
         editorPy.setValue(fixed);
         syncViews();
-        // 確かめずに書きかえたので、その場で戻せるボタンを添える
+        // 確かめずに書き換えたので、その場で戻せるボタンを添える
         toast('AI がコードを書き直しました。', 10000, { label: '元に戻す', onClick: () => editorPy.undo() });
       } else {
         showNote('check-result', 'warn', escapeHtml(ai.getLastAiError() || 'AI に直してもらえませんでした。'));
@@ -1444,7 +1444,7 @@ async function init() {
     addOutputZoom($('output-body'), $('output-clear').parentElement);
 
     editorPy.on('change', () => {
-      // コードを書きかえたら、記録と合わなくなるのでステップ実行を終える
+      // コードを書き換えたら、記録と合わなくなるのでステップ実行を終える
       if (step.active) exitStepMode();
       syncViews();
       if (current && !mock && !loadingProblem) saveDraft(problemRef(current), editorPy.getValue(), originalCode(current));
@@ -1467,7 +1467,7 @@ async function init() {
           if (stage === 'ktph' || stage === 'pair') editorKtph.refresh();
           if (stage === 'pair') drawPairMark();
           if (stage === 'flow') syncViews();
-          // ステップ実行中なら、文に引くコードと行の印を、いま見ている方に合わせ直す
+          // ステップ実行中なら、文に引くコードと行の印を、今見ている方に合わせ直す
           if (step.active) showStep(step.index);
         });
       },
@@ -1543,8 +1543,7 @@ async function init() {
       editorPy.focus();
       toast('最初のコードに戻しました');
     });
-    $('code-indent').addEventListener('click', () => { applyTransform(autoIndent); toast('字下げをそろえました'); });
-    $('code-format').addEventListener('click', () => { applyTransform(formatCode); toast('コードを整えました'); });
+    $('code-format').addEventListener('click', () => { applyTransform(formatCode); toast('インデントと空白を整えました'); });
 
     $('step-first').addEventListener('click', () => showStep(0));
     $('step-prev').addEventListener('click', () => showStep(step.index - 1));
@@ -1572,11 +1571,11 @@ async function init() {
       const ok = await confirmDialog({
         title: '記録を消しますか？',
         message: '解けた印・模試の成績・書きかけのコードが、すべて消えます。'
-          + '念のため、消す前に今の記録をファイルに書き出します（「ファイルから読みこむ」で戻せます）。',
+          + '念のため、消す前に今の記録をファイルに書き出します（「ファイルから読み込む」で戻せます）。',
         okLabel: '記録をすべて消す',
       });
       if (!ok) return;
-      // 押しまちがえても取りもどせるように、消す前に控えを保存する
+      // 押し間違えても取りもどせるように、消す前に控えを保存する
       downloadProgress('easycode-lessons-backup');
       clearProgress();
       // 開いている問題も、最初のコードに戻す（書きかけが消えたのと見た目をそろえる）
@@ -1591,7 +1590,7 @@ async function init() {
     addTipsLinks($('course-nav'), $('display-settings').closest('details'));
     $('export-progress').addEventListener('click', () => {
       downloadProgress('easycode-lessons');
-      toast('記録をファイルに書き出しました。別の端末の「ファイルから読みこむ」で続けられます', 4200);
+      toast('記録をファイルに書き出しました。別の端末の「ファイルから読み込む」で続けられます', 4200);
     });
     $('import-progress').addEventListener('click', () => $('import-progress-file').click());
     $('import-progress-file').addEventListener('change', async (e) => {
@@ -1601,7 +1600,7 @@ async function init() {
       try {
         const { solved, drafts } = importProgress(await file.text());
         renderNav();
-        toast(`記録を読みこみました（解けた印 ${solved} 個・書きかけ ${drafts} 個が増えました）`, 4200);
+        toast(`記録を読み込みました（解けた印 ${solved} 個・書きかけ ${drafts} 個が増えました）`, 4200);
       } catch (error) {
         toast(error.message, 4200);
       }
@@ -1638,16 +1637,16 @@ async function init() {
   } catch (e) {
     console.error('レッスンモードの立ち上げに失敗:', e);
     $('loader').innerHTML =
-      `<p>読み込みが、うまくいきませんでした。<br>${escapeHtml(e.message)}</p>`;
+      `<p>読み込みに失敗しました。<br>${escapeHtml(e.message)}</p>`;
     return;
   }
 
-  // 問題は先に読めるようにして、Python は後ろで読みこむ
+  // 問題は先に読めるようにして、Python は後ろで読み込む
   try {
     pyodide = await bootPython({ statusEl: $('output') });
     updateRunAvailability();
   } catch (e) {
-    console.error('Python を読みこめませんでした:', e);
+    console.error('Python を読み込めませんでした:', e);
   }
 }
 

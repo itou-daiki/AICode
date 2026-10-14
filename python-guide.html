@@ -284,7 +284,7 @@
     <div class="page-intro">
       <h1>Python プログラミングガイド</h1>
       <p>読みながら手を動かせるリファレンスです。コードの右上に出る「試す」を押すと、そのコードが 01 コーディングで開きます。</p>
-      <p>よくつまずくところ（字下げ、= と ==、input() は文字列 など）は、<a href="tips.html">つまずき解説</a>で、1 行ずつ動く例を使って説明しています。</p>
+      <p>よくつまずくところ（インデント（字下げ）、= と ==、input() は文字列 など）は、<a href="tips.html">つまずき解説</a>で、1 行ずつ動く例を使って説明しています。</p>
     </div>
 
     <div class="content-grid">
@@ -397,7 +397,7 @@ print(5 != 3)    # True
 
         <div class="warning">
           <strong>インデントに注意！</strong><br>
-          Pythonはインデント（字下げ）でコードブロックを判断します。他の言語の { } の代わりです。
+          Pythonはインデントでコードの「まとまり」を判断します。他の言語の { } の代わりです。
         </div>
       </section>
 
@@ -798,7 +798,7 @@ print("保存されたTODO:", loaded_todos)
         <div class="tip">
           <strong>Python学習のコツ</strong><br>
           • 毎日少しずつでもコードを書く<br>
-          • エラーメッセージを恐れない<br>
+          • エラーメッセージを恐れず、まず読む<br>
           • 公式ドキュメントを読む習慣をつける<br>
           • GitHubでオープンソースコードを読む<br>
           • 実際のプロジェクトを作ってみる
@@ -811,18 +811,18 @@ print("保存されたTODO:", loaded_todos)
         <p>
           大学入学共通テスト『情報Ⅰ』では、Python ではなく
           <strong>共通テスト用プログラム表記</strong>という書き方でプログラムが出ます。
-          考え方は Python と同じで、言葉が日本語になっただけです。
+          考え方は Python と同じで、表記が日本語になっただけです。
         </p>
 
         <div class="tip">
-          <strong>覚えておく 4 つのきまり</strong><br>
+          <strong>覚えておく 4 つの決まり</strong><br>
           • 配列の添字は <strong>0 から</strong>始まる<br>
           • 配列の名前は<strong>先頭が大文字</strong>（<code>Data</code>, <code>Tokuten</code>）<br>
-          • 繰り返しの「〜まで」は、<strong>その値を含む</strong>（Python の range とちがう）<br>
-          • <code>表示する(a, "は", b)</code> はカンマの間に<strong>空白が入る</strong>
+          • 繰り返しの「〜まで」は、<strong>その値を含む</strong>（Python の range とは異なる）<br>
+          • <code>表示する(a, "は", b)</code> はカンマの間に<strong>スペースが入る</strong>
         </div>
 
-        <h3>Python と見くらべる</h3>
+        <h3>Python と見比べる</h3>
         <table class="ref-table">
           <tr><th>Python</th><th>共通テスト用プログラム表記</th></tr>
           <tr><td><code>print("こんにちは")</code></td><td><code>表示する("こんにちは")</code></td></tr>
@@ -837,10 +837,10 @@ print("保存されたTODO:", loaded_todos)
           <tr><td><code>for x in range(0, 10):</code></td><td><code>x を 0 から 9 まで 1 ずつ増やしながら繰り返す:</code></td></tr>
           <tr><td><code>for i in range(9, -1, -1):</code></td><td><code>i を 9 から 0 まで 1 ずつ減らしながら繰り返す:</code></td></tr>
           <tr><td><code>Hyo[1][2]</code>（2次元）</td><td><code>Hyo[1,2]</code></td></tr>
-          <tr><td>字下げ（スペース4つ）</td><td><code>｜</code> と <code>⎿</code> でブロックの範囲を示す</td></tr>
+          <tr><td>インデント（スペース 4 つ）</td><td><code>｜</code> と <code>⎿</code> でまとまりの範囲を示す</td></tr>
         </table>
 
-        <h3>同じプログラムを見くらべる</h3>
+        <h3>同じプログラムを見比べる</h3>
         <p>合計を求めるプログラムです。左が Python、右が共通テストの表記です。</p>
 
         <div class="code-block">Data = [3, 1, 4, 1, 5]
@@ -856,21 +856,21 @@ i を 0 から 要素数(Data)-1 まで 1 ずつ増やしながら繰り返す:
 表示する(goukei)</div>
 
         <div class="tip">
-          <strong>easyCode で見くらべられます</strong><br>
+          <strong>easyCode で見比べられます</strong><br>
           レッスンモードの「共通テスト表記」タブを開くと、書いた Python が自動で表記に直ります。
-          行番号がそろっているので、見くらべながら読めます。
+          行番号が揃っているので、見比べながら読めます。
           01 コーディングと 03 スケッチでも、フローチャートの横の「共通テスト表記」ボタンで見られます。
         </div>
       </section>
     </div>
 
     <footer>
-      <h3>学習を続けよう！</h3>
+      <h3>次の学習へ</h3>
       <p>このガイドはPythonの基礎をカバーしています。さらに学習を進めるには：</p>
       <div class="nav-buttons">
-        <a href="lessons.html" class="nav-btn">02 レッスンをひらく</a>
-        <a href="index.html" class="nav-btn">01 コーディングをひらく</a>
-        <a href="drawing.html" class="nav-btn">03 スケッチをひらく</a>
+        <a href="lessons.html" class="nav-btn">02 レッスンを開く</a>
+        <a href="index.html" class="nav-btn">01 コーディングを開く</a>
+        <a href="drawing.html" class="nav-btn">03 スケッチを開く</a>
       </div>
       <p class="muted" style="margin-top: 1em;">
         Created by Dit-Lab.(Daiki ITO) — ブラウザの中で動く Python

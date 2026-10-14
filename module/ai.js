@@ -105,13 +105,13 @@ export function getLastAiError() {
 
 /** HTTP の状態から、生徒向けの説明を作る */
 function messageForStatus(status, apiMessage) {
-  if (status === 429) return 'AI の利用回数の上限に達しました。しばらく待ってから、もう一度ためしてください。';
+  if (status === 429) return 'AI の利用回数の上限に達しました。しばらく待ってから、もう一度試してください。';
   if (status === 403 || (status === 400 && /api key|API_KEY/i.test(apiMessage))) {
     return 'API キーが正しくないようです。設定でキーを確かめてください。';
   }
   if (status === 404) return 'AI のモデルが見つかりません（設定の更新が必要です）。先生に伝えてください。';
-  if (status >= 500) return 'AI のサーバーが混み合っているようです。しばらく待ってから、もう一度ためしてください。';
-  return 'AI にうまく伝わりませんでした。もう一度ためしてください。';
+  if (status >= 500) return 'AI のサーバーが混み合っているようです。しばらく待ってから、もう一度試してください。';
+  return 'AI に正しく伝わりませんでした。もう一度試してください。';
 }
 
 const BLOCKED_MESSAGE = '学校のネットワークで AI への接続が止められている可能性があります。';
@@ -149,7 +149,7 @@ async function requestGemini(prompt, maxTokens) {
       });
     } catch (e) {
       if (e && e.name === 'AbortError') {
-        throw new AiError('AI の返事が遅いため、待つのをやめました。もう一度ためしてください。', 'timeout');
+        throw new AiError('AI の返事が遅いため、待つのをやめました。もう一度試してください。', 'timeout');
       }
       throw new AiError('インターネットにつながっていないようです。', 'offline');
     }
@@ -172,7 +172,7 @@ async function requestGemini(prompt, maxTokens) {
     const text = candidate?.content?.parts?.[0]?.text;
     if (!text) {
       console.error('予期しないレスポンス形式:', data);
-      throw new AiError('AI からの返事を読み取れませんでした。もう一度ためしてください。', 'empty');
+      throw new AiError('AI からの返事を読み取れませんでした。もう一度試してください。', 'empty');
     }
     return { text, truncated: candidate.finishReason === 'MAX_TOKENS' };
   } finally {
@@ -241,7 +241,7 @@ export function hasApiKey() {
 }
 
 /**
- * Markdown をかんたんな HTML にする
+ * Markdown を簡単な HTML にする
  * @param {string} markdown
  * @returns {string}
  */
@@ -378,7 +378,7 @@ export async function fixCode(code, context = {}) {
     const { text, truncated } = await requestGemini(prompt, 1500);
     const match = text.match(/\u0060\u0060\u0060[\w+-]*[ \t]*\r?\n([\s\S]*?)\u0060\u0060\u0060/);
     if (truncated || !match || !match[1].trim()) {
-      lastError = 'AI がコードをうまく返せませんでした。もう一度ためしてください。';
+      lastError = 'AI がコードを正しく返せませんでした。もう一度試してください。';
       return null;
     }
     lastError = '';
@@ -391,7 +391,7 @@ export async function fixCode(code, context = {}) {
 }
 
 // APIキーの入力欄は、どのページでも同じ id なので、ここで面倒を見る。
-// このファイルが後から読みこまれることもあるので、その場合はすぐ動かす。
+// このファイルが後から読み込まれることもあるので、その場合はすぐ動かす。
 if (typeof document === 'undefined') {
   // DOM が無い環境（node のテスト）では何もしない
 } else if (document.readyState === 'loading') {

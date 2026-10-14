@@ -171,7 +171,7 @@ function playground(slot) {
   attachHalfWidth(cm);
   attachLineDrag(cm);
   attachIndentCheck(cm);
-  makeEditorFriendly(cm, '字下げを確かめるエディタ');
+  makeEditorFriendly(cm, 'インデントを確認するエディタ');
 
   const describe = () => {
     const lines = cm.getValue().split('\n');
@@ -181,7 +181,7 @@ function playground(slot) {
     if (!text.trim()) { where.textContent = `${line + 1} 行目：空の行`; return; }
     const chain = enclosingHeaders(lines, line);
     const indent = text.match(/^ */)[0].length;
-    where.append(document.createTextNode(`${line + 1} 行目（字下げ ${indent} 文字）：`));
+    where.append(document.createTextNode(`${line + 1} 行目（インデント ${indent} 文字）：`));
     if (!chain.length) {
       where.append(document.createTextNode('どのまとまりにも入っていない（いちばん外）'));
     } else {
@@ -193,7 +193,7 @@ function playground(slot) {
         where.appendChild(crumb);
       });
     }
-    if (indent % 4) where.append(document.createTextNode('　※ 4 文字ずつにそろっていません'));
+    if (indent % 4) where.append(document.createTextNode('　※ 4 文字ずつに揃っていません'));
   };
   const updateLink = () => { open.href = urlWithCode('index.html', cm.getValue()); };
   cm.on('cursorActivity', describe);
