@@ -1788,6 +1788,15 @@ section('見直しで見つかった、まちがった案内を出さないこ�
   check('答え: 「5」は、かぎかっこを外して 5 とみなす', sameAnswer('「5」', '5'));
 }
 
+section('中途半端なインデント（4 の倍数でない）を知らせる');
+{
+  const marks = (code) => findIndentOutliers(code).filter(f => f.partial).map(f => [f.line, f.indent, f.expected]);
+  equal('半端: 2 文字のまとまりは、そろって 4 文字に', JSON.stringify(marks('for i in range(3):\n  print(i)\n  print(2)\nprint(3)\n')), '[[1,2,4],[2,2,4]]');
+  equal('半端: 入れ子は、直したあとの深さ + 4 に', JSON.stringify(marks('for i in range(3):\n  for j in range(2):\n     print(j)\n  print(i)\n')), '[[1,2,4],[2,5,8],[3,2,4]]');
+  equal('半端: 「:」の次でなければ、上の行より深くしない', JSON.stringify(marks('x = 1\n   y = 2\n')), '[[1,3,0]]');
+  equal('半端: 4 の倍数のインデントには出さない', JSON.stringify(marks('if x:\n    a = 1\n        \n    b = 2\n')), '[]');
+}
+
 /* ============================================================
  * 6. まとめ
  * ========================================================== */

@@ -71,13 +71,40 @@ export function findIndentOutliers(code) {
       if (row.indent > 0) found.push({ line: row.line, indent: row.indent, expected: 0, lead: '' });
       return;
     }
-    if (!next || prev.header || row.header) return;
     // 前と次の行は同じ深さなのに、その行だけ浅い・深い
-    if (prev.indent === next.indent && row.indent !== prev.indent) {
+    if (next && !prev.header && !row.header && prev.indent === next.indent && row.indent !== prev.indent) {
       found.push({ line: row.line, indent: row.indent, expected: prev.indent, lead: prev.lead });
+      return;
+    }
+    // インデントが 4 の倍数になっていない（2 文字・3 文字など中途半端）。動いても読みにくく、あとでずれの元になる
+    if (row.indent % 4) {
+      // 同じ半端な深さの行が続くときは、1 つ目と同じ深さに揃える（同じまとまりの行がばらばらにならないように）
+      const before = found[found.length - 1];
+      const same = before && before.partial && before.line === prev.line && prev.indent === row.indent;
+      // 上の行も半端で直す予定なら、直したあとの深さを基準にする（「:」の次は、その深さ + 4）
+      const prevFixed = before && before.partial && before.line === prev.line ? { ...prev, indent: before.expected } : prev;
+      const expected = same ? before.expected : partialTarget(row.indent, prevFixed);
+      const lead = row.lead.includes('\t') ? '\t'.repeat(expected / 4) : ' '.repeat(expected);
+      found.push({ line: row.line, indent: row.indent, expected, lead, partial: true });
     }
   });
   return found;
+}
+
+/**
+ * 中途半端なインデントを、どの深さ（4 の倍数）に揃えるか
+ * 「:」の行の次ならその中身の深さ、ほかは近い方。ちょうど真ん中なら、上の行の深さに近い方にする
+ * @param {number} indent
+ * @param {{indent: number, header: boolean}} prev
+ */
+function partialTarget(indent, prev) {
+  if (prev.header) return prev.indent + 4;
+  const lower = Math.floor(indent / 4) * 4;
+  // 「:」の行の次でなければ、上の行より深くはできない（深くすると unexpected indent になる）
+  const upper = Math.min(lower + 4, prev.indent);
+  if (upper <= lower) return upper;
+  if (indent - lower !== upper - indent) return indent - lower < upper - indent ? lower : upper;
+  return Math.abs(prev.indent - lower) <= Math.abs(prev.indent - upper) ? lower : upper;
 }
 
 /**
@@ -121,12 +148,32 @@ export function attachIndentCheck(cm) {
     const found = findIndentOutliers(cm.getValue())
       .filter(f => !(f.line === cursor.line && cursor.ch <= f.indent));
     const signature = JSON.stringify(found);
-    if (signature === shown) return;
+    // 同じ中身で書き直されると（ブロックとの同期など）、付けた印は消えてしまう。印が残っているときだけ省く
+    const alive = marks.every(m => !m.clear || m.find());
+    if (signature === shown && alive) return;
     shown = signature;
     clear();
+    // 半端なインデントの行が 2 つ以上あるときは、印は最初の行にだけ出し、まとめて揃えられるようにする
+    // （行ごとに印が並ぶと、画面がごちゃごちゃして読めない）
+    const partials = found.filter(f => f.partial);
+    // まとめた印は、いちばん短い行の後ろに出す（狭い画面でも、ボタンが右で切れにくい）
+    const anchor = partials.reduce((best, f) => (
+      !best || cm.getLine(f.line).length < cm.getLine(best.line).length ? f : best), null);
+    const fixLines = (items) => {
+      cm.operation(() => {
+        for (const f of items) {
+          const text = cm.getLine(f.line);
+          if (text === undefined || indentOf(text) !== f.indent) continue;
+          cm.replaceRange(reindent(text, f.lead), { line: f.line, ch: 0 }, { line: f.line, ch: text.length }, 'indentfix');
+        }
+      });
+      cm.focus();
+    };
     for (const f of found) {
       const handle = cm.addLineClass(f.line, 'wrap', 'cm-indent-outlier');
       marks.push({ handle, cls: 'cm-indent-outlier' });
+      const group = f.partial && partials.length > 1;
+      if (group && f !== anchor) continue;
 
       const chip = document.createElement('span');
       chip.className = 'namefix-chip indent-chip';
@@ -135,21 +182,28 @@ export function attachIndentCheck(cm) {
       // 行の後ろに出すので短く書く。くわしい数（空白いくつ・Tab 何回）はマウスを重ねたときに出す
       note.textContent = f.line === 0 && f.expected === 0
         ? '1 行目はインデントしない'
-        : f.afterHeader ? '「:」の次は 1 段下げる' : 'インデントが前後と違う';
+        : f.afterHeader ? '「:」の次は 1 段下げる'
+          : group ? `インデント半端 ×${partials.length}`
+            : f.partial ? `インデント半端（${f.indent} 文字）` : 'インデントが前後と違う';
       chip.title = f.afterHeader
         ? '「:」の次の行は、スペース 4 つ（Tab キー 1 回）下げて書きます'
-        : `この行のインデントは ${describeIndent(f.indent)}、前後は ${describeIndent(f.expected)}です`;
+        : group
+          ? `インデントはスペース 4 つ（Tab キー 1 回）単位で揃えます。色の付いた ${partials.length} 行を、まとめて 4 文字単位に揃えます`
+        : f.partial
+          ? `インデントはスペース 4 つ（Tab キー 1 回）単位で揃えます。この行は ${f.indent} 文字なので、${f.expected} 文字に揃えます`
+          : `この行のインデントは ${describeIndent(f.indent)}、前後は ${describeIndent(f.expected)}です`;
       const fix = document.createElement('button');
       fix.type = 'button';
       fix.className = 'namefix-apply';
       fix.textContent = f.afterHeader ? '下げる' : '揃える';
-      fix.title = '押すと、この行のインデントを前後の行と揃えます';
+      fix.title = group ? `押すと、色の付いた ${partials.length} 行をまとめて 4 文字単位に揃えます`
+        : f.partial ? `押すと、この行のインデントを ${f.expected} 文字に揃えます` : '押すと、この行のインデントを前後の行と揃えます';
       fix.addEventListener('mousedown', (e) => e.preventDefault());
       fix.addEventListener('click', () => {
+        if (group) { fixLines(partials); return; }
         const text = cm.getLine(f.line);
         if (text === undefined || indentOf(text) !== f.indent) { refresh(); return; }
-        cm.replaceRange(reindent(text, f.lead), { line: f.line, ch: 0 }, { line: f.line, ch: text.length }, 'indentfix');
-        cm.focus();
+        fixLines([f]);
       });
       chip.append(note, fix);
       const box = document.createElement('span');
