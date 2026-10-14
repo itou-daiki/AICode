@@ -6,10 +6,12 @@
 export const P5_PYTHON_LIBRARY = `
 import math
 import random as _random
+import time as _ec_time
 
 # p5.js定数
 PI = math.pi
 TWO_PI = math.pi * 2
+TAU = TWO_PI
 HALF_PI = math.pi / 2
 QUARTER_PI = math.pi / 4
 
@@ -28,7 +30,28 @@ DEGREES = 'degrees'
 RADIANS = 'radians'
 RGB = 'rgb'
 HSB = 'hsb'
+HSL = 'hsl'
 CLOSE = 'CLOSE'
+# キーの番号（p5.js の keyCode と同じ値）。if keyCode == LEFT_ARROW: のように使う
+BACKSPACE = 8
+TAB = 9
+ENTER = 13
+RETURN = 13
+SHIFT = 16
+CONTROL = 17
+ALT = 18
+ESCAPE = 27
+LEFT_ARROW = 37
+UP_ARROW = 38
+RIGHT_ARROW = 39
+DOWN_ARROW = 40
+# マウスカーソルの形（cursor(HAND) のように使う）
+ARROW = 'default'
+CROSS = 'crosshair'
+HAND = 'pointer'
+MOVE = 'move'
+TEXT = 'text'
+WAIT = 'wait'
 # 線の端とつなぎ目。p5.js の SQUARE は「平らに切る」で、canvas では 'butt' にあたる
 ROUND = 'round'
 SQUARE = 'butt'
@@ -70,66 +93,170 @@ class P5:
         self.text_align_horizontal = 'left'  # left, center, right
         self.text_align_vertical = 'baseline'  # top, bottom, middle, baseline
         self.text_leading_value = 0  # 行間
+        self._text_size = 12  # p5.js の既定は 12
+        self._text_font = 'sans-serif'
 
         # 線の設定
         self.stroke_cap_style = 'round'  # p5.js の既定は ROUND
         self.stroke_join_style = 'miter'  # miter, bevel, round
 
-        # 色モード
-        self._color_mode = 'rgb'  # rgb or hsb
-        self.color_max_values = [255, 255, 255, 255]  # RGBA最大値
+        # 色モード。最大値はモードごとに覚えておく（p5.js と同じ既定値）
+        self._color_mode = 'rgb'  # rgb, hsb, hsl
+        self._color_maxes = {
+            'rgb': [255, 255, 255, 255],
+            'hsb': [360, 100, 100, 1],
+            'hsl': [360, 100, 100, 1],
+        }
+        self.color_max_values = self._color_maxes['rgb']  # いまのモードの最大値
 
-        # フレーム数とタイマー
+        # push() で保存した、Python 側の設定（色・太さ・モードなど）
+        self._style_stack = []
+
+        # フレーム数とタイマー。millis() はここからの時間を返す
         self.frame_count = 0
-        self.start_time = None
+        self.start_time = _ec_time.time()
         self._last_time = None
-        
+
+        # 線の端・文字の大きさなどを、キャンバスにも入れておく
+        self._apply_ctx_style()
+
+    def _apply_ctx_style(self):
+        """Python 側で覚えている線や文字の設定を、キャンバスに入れ直す
+
+        キャンバスの大きさを変えると、これらの設定は消えてしまうので、そのたびに呼ぶ。
+        """
+        self.ctx.lineCap = self.stroke_cap_style
+        self.ctx.lineJoin = self.stroke_join_style
+        self.ctx.font = f'{self._text_size}px {self._text_font}'
+        self.ctx.textAlign = self.text_align_horizontal
+        self.ctx.textBaseline = {'middle': 'middle', 'center': 'middle', 'top': 'top',
+                                 'bottom': 'bottom'}.get(self.text_align_vertical, 'alphabetic')
+
+    # --- 色 ---
+    def _css_check(self, text):
+        """CSS の色の文字列をキャンバスに読ませ、読めたら整えた形を、読めなければ None を返す
+
+        キャンバスは読めない色を黙って無視するので、2 つのちがう色から試して、
+        どちらからでも同じ色になったら「読めた」とみなす。
+        """
+        ctx = self.ctx
+        saved = ctx.fillStyle
+        ctx.fillStyle = '#000000'
+        ctx.fillStyle = text
+        first = ctx.fillStyle
+        ctx.fillStyle = '#ffffff'
+        ctx.fillStyle = text
+        second = ctx.fillStyle
+        ctx.fillStyle = saved
+        return str(first) if first == second else None
+
+    def _rgba(self, args, name):
+        """色の指定を (r, g, b, a) にそろえる。どれも 0〜255 の数
+
+        受けつける形（p5.js と同じ）:
+          'red' / '#ff0000' / 'rgb(255,0,0)' … CSS の色の文字列
+          color(...) で作った色、[255, 0, 0] のようなリスト
+          1 つ … 灰色、2 つ … 灰色と透明度、3 つ … 色、4 つ … 色と透明度
+        数は colorMode() で決めたモード（RGB / HSB / HSL）と最大値で読む。
+        """
+        def fail():
+            if len(args) == 1 and isinstance(args[0], str):
+                shown = args[0]
+            else:
+                shown = ', '.join(repr(a) if isinstance(a, str) else str(a) for a in args)
+            raise ValueError(
+                f"{name}() に渡した色 '{shown}' は使えません。"
+                f"{name}(255, 0, 0) や {name}('red') のように書きます"
+            )
+
+        if len(args) == 1:
+            value = args[0]
+            if isinstance(value, dict):
+                try:
+                    return (float(value['r']), float(value['g']), float(value['b']),
+                            float(value.get('a', 255)))
+                except (KeyError, TypeError, ValueError):
+                    fail()
+            if isinstance(value, (list, tuple)):
+                if not value or len(value) > 4:
+                    fail()
+                return self._rgba(tuple(value), name)
+            if isinstance(value, str):
+                css = self._css_check(value.strip())
+                if css is None:
+                    fail()
+                return _ec_parse_css(css) or fail()
+
+        if not 1 <= len(args) <= 4:
+            fail()
+        for a in args:
+            if isinstance(a, bool) or not isinstance(a, (int, float)):
+                fail()
+
+        maxes = self._color_maxes[self._color_mode]
+        clamp = lambda v: max(0.0, min(1.0, v))
+        if len(args) <= 2:
+            # 灰色。p5.js と同じく、3 つ目（明るさ）の最大値で読む
+            gray = clamp(args[0] / maxes[2])
+            alpha = clamp(args[1] / maxes[3]) if len(args) == 2 else 1.0
+            return (gray * 255, gray * 255, gray * 255, alpha * 255)
+
+        alpha = clamp(args[3] / maxes[3]) if len(args) == 4 else 1.0
+        if self._color_mode == 'rgb':
+            r, g, b = (clamp(args[i] / maxes[i]) for i in range(3))
+        else:
+            h = (args[0] / maxes[0]) % 1.0
+            s = clamp(args[1] / maxes[1])
+            v = clamp(args[2] / maxes[2])
+            if self._color_mode == 'hsl':
+                # HSL を HSB に直してから計算する
+                light = v
+                v = light + s * min(light, 1 - light)
+                s = 0.0 if v == 0 else 2 * (1 - light / v)
+            i = int(h * 6) % 6
+            f = h * 6 - int(h * 6)
+            p, q, t = v * (1 - s), v * (1 - s * f), v * (1 - s * (1 - f))
+            r, g, b = [(v, t, p), (q, v, p), (p, v, t), (p, q, v), (t, p, v), (v, p, q)][i]
+        return (r * 255, g * 255, b * 255, alpha * 255)
+
+    def _to_css(self, *args, name='fill'):
+        """fill / stroke / background に渡された色を、キャンバスが読める文字列にする"""
+        if len(args) == 1 and isinstance(args[0], str):
+            css = self._css_check(args[0].strip())
+            if css is not None:
+                return args[0].strip()
+        r, g, b, a = self._rgba(args, name)
+        r, g, b = (int(round(c)) for c in (r, g, b))
+        if a >= 255:
+            return f'rgb({r},{g},{b})'
+        return f'rgba({r},{g},{b},{round(a / 255, 4)})'
+
     def clear(self):
         """キャンバスをクリア"""
         self.ctx.clearRect(0, 0, self.width, self.height)
-        
-    def background(self, r, g=None, b=None):
-        """背景色を設定"""
-        if g is None and b is None:
-            # グレースケール
-            color = f'rgb({r},{r},{r})'
-        else:
-            color = f'rgb({r},{g},{b})'
+
+    def background(self, *args):
+        """背景色を設定（色の書き方は fill() と同じ。background(0, 20) で残像も作れる）"""
+        color = self._to_css(*args, name='background')
+        # p5.js と同じく、移動や回転に関係なく全体を塗る。塗りの色は元にもどす
+        self.ctx.save()
+        self.ctx.setTransform(1, 0, 0, 1, 0, 0)
         self.ctx.fillStyle = color
         self.ctx.fillRect(0, 0, self.width, self.height)
-        
-    def fill(self, r, g=None, b=None, a=None):
+        self.ctx.restore()
+
+    def fill(self, *args):
         """塗りつぶし色を設定"""
-        if g is None and b is None:
-            # グレースケール
-            if a is not None:
-                self.fill_color = f'rgba({r},{r},{r},{a/255})'
-            else:
-                self.fill_color = f'rgb({r},{r},{r})'
-        else:
-            if a is not None:
-                self.fill_color = f'rgba({r},{g},{b},{a/255})'
-            else:
-                self.fill_color = f'rgb({r},{g},{b})'
+        self.fill_color = self._to_css(*args, name='fill')
         self.no_fill_flag = False
 
     def no_fill(self):
         """塗りつぶしを無効にする"""
         self.no_fill_flag = True
-        
-    def stroke(self, r, g=None, b=None, a=None):
+
+    def stroke(self, *args):
         """輪郭色を設定"""
-        if g is None and b is None:
-            # グレースケール
-            if a is not None:
-                self.stroke_color = f'rgba({r},{r},{r},{a/255})'
-            else:
-                self.stroke_color = f'rgb({r},{r},{r})'
-        else:
-            if a is not None:
-                self.stroke_color = f'rgba({r},{g},{b},{a/255})'
-            else:
-                self.stroke_color = f'rgb({r},{g},{b})'
+        self.stroke_color = self._to_css(*args, name='stroke')
         self.no_stroke_flag = False
         self._stroke_set = True
 
@@ -344,9 +471,19 @@ class P5:
             self.ctx.lineWidth = self.stroke_width
             self.ctx.strokeText(str(text_string), x, y)
             
-    def text_size(self, size):
-        """テキストサイズを設定"""
-        self.ctx.font = f'{size}px Arial'
+    def text_size(self, size=None):
+        """テキストサイズを設定（引数なしなら、今の大きさを返す）"""
+        if size is None:
+            return self._text_size
+        self._text_size = size
+        self.ctx.font = f'{size}px {self._text_font}'
+
+    def text_font(self, font, size=None):
+        """文字の書体を設定（p5.js の textFont と同じ。'serif' や 'monospace' なども使える）"""
+        self._text_font = str(font)
+        if size is not None:
+            self._text_size = size
+        self.ctx.font = f'{self._text_size}px {self._text_font}'
 
     def text_align(self, horizontal, vertical='baseline'):
         """テキストの配置を設定"""
@@ -392,11 +529,25 @@ class P5:
             self.stroke_join_style = join
             self.ctx.lineJoin = join
 
-    def color_mode(self, mode, max1=255, max2=255, max3=255, max4=255):
-        """色モードを設定 ('rgb' or 'hsb')"""
-        if mode in ['rgb', 'hsb']:
-            self._color_mode = mode
-            self.color_max_values = [max1, max2, max3, max4]
+    def color_mode(self, mode, max1=None, max2=None, max3=None, max4=None):
+        """色モードを設定（RGB / HSB / HSL）
+
+        color_mode(HSB)               … 色相 0〜360、彩度・明るさ 0〜100 で読む
+        color_mode(RGB, 1)            … すべて 0〜1 で読む
+        color_mode(HSB, 360, 100, 100) … 3 つの最大値を決める
+        """
+        key = str(mode).lower()
+        if key not in self._color_maxes:
+            raise ValueError("color_mode に使えるのは RGB / HSB / HSL です")
+        maxes = self._color_maxes[key]
+        if max1 is not None and max2 is None:
+            maxes[:] = [max1, max1, max1, max1]
+        elif max1 is not None:
+            maxes[:3] = [max1, max2, max3 if max3 is not None else maxes[2]]
+            if max4 is not None:
+                maxes[3] = max4
+        self._color_mode = key
+        self.color_max_values = maxes
 
     def get_pixel(self, x, y):
         """指定位置のピクセル色を取得 [r, g, b, a]"""
@@ -421,6 +572,8 @@ class P5:
         self.ctx.setTransform(1, 0, 0, 1, 0, 0)
         self.ctx.fillStyle = 'rgb(255,255,255)'
         self.ctx.fillRect(0, 0, self.width, self.height)
+        # 大きさを変えると線の端や文字の設定も消えるので、入れ直す
+        self._apply_ctx_style()
         _easycode_sync_size()
         return None
 
@@ -430,17 +583,40 @@ class P5:
         p5.js は draw() のたびに座標系を戻すので、それに合わせている。
         こうしないと、push/pop を書き忘れた rotate がどんどん積み重なってしまう。
         """
+        # pop() を書き忘れた push() が、コマごとにたまっていかないようにする（座標系を戻す前に外す）
+        if self._style_stack:
+            for _ in self._style_stack:
+                self.ctx.restore()
+            self._style_stack = []
         self.ctx.setTransform(1, 0, 0, 1, 0, 0)
         self.ctx.globalAlpha = 1.0
         self.ctx.globalCompositeOperation = 'source-over'
 
+    # push() で一緒に保存する、Python 側の設定の名前
+    _STYLE_KEYS = (
+        'fill_color', 'stroke_color', 'stroke_width', 'no_fill_flag', 'no_stroke_flag',
+        '_stroke_set', '_rect_mode', '_ellipse_mode', '_angle_mode', '_color_mode',
+        '_text_size', '_text_font', 'text_align_horizontal', 'text_align_vertical',
+        'text_leading_value', 'stroke_cap_style', 'stroke_join_style',
+    )
+
     def push(self):
-        """現在の描画設定を保存"""
+        """現在の描画設定を保存（座標系に加えて、色・太さ・モード・文字の設定も）"""
         self.ctx.save()
-        
+        style = {k: getattr(self, k) for k in self._STYLE_KEYS}
+        style['_color_maxes'] = {k: list(v) for k, v in self._color_maxes.items()}
+        self._style_stack.append(style)
+
     def pop(self):
         """保存された描画設定を復元"""
         self.ctx.restore()
+        if not self._style_stack:
+            return
+        style = self._style_stack.pop()
+        self._color_maxes = style.pop('_color_maxes')
+        for k, v in style.items():
+            setattr(self, k, v)
+        self.color_max_values = self._color_maxes[self._color_mode]
         
     def translate(self, x, y):
         """座標系を移動"""
@@ -629,6 +805,14 @@ class P5:
             )
         self.ctx.globalCompositeOperation = blend_modes[key]
 
+    def no_cursor(self):
+        """キャンバスの上でマウスカーソルを消す（p5.js の noCursor と同じ）"""
+        self.canvas.style.cursor = 'none'
+
+    def cursor(self, kind='default'):
+        """マウスカーソルの形を決める（cursor(HAND) など。引数なしでふつうの矢印）"""
+        self.canvas.style.cursor = str(kind)
+
     def save_canvas(self, filename):
         """キャンバスを画像として保存（ブラウザのダウンロード）"""
         import js
@@ -641,7 +825,17 @@ class P5:
 
 # 乱数とノイズ
 def random(low=None, high=None):
-    """乱数を生成"""
+    """乱数を生成
+
+    random()          … 0 以上 1 未満
+    random(10)        … 0 以上 10 未満
+    random(5, 10)     … 5 以上 10 未満
+    random(['赤', '青']) … リストの中から 1 つ選ぶ（p5.js と同じ）
+    """
+    if high is None and isinstance(low, (list, tuple, str)):
+        if len(low) == 0:
+            raise ValueError('random() に空のリストを渡しました。選ぶものを 1 つ以上入れてください')
+        return _random.choice(low)
     if low is None and high is None:
         return _random.random()
     elif high is None:
@@ -657,19 +851,79 @@ def random_gaussian(mean=0, std=1):
     """ガウス分布に基づく乱数を生成"""
     return _random.gauss(mean, std)
 
-# ノイズ関数（Perlin noise の簡易実装）
-_noise_seed = 0
+# ノイズ関数（p5.js の noise と同じしくみのパーリンノイズ）
+# 4096 個の乱数の表を、なめらかにつないで値を作る。
+_PERLIN_SIZE = 4095
+_perlin = None
+_perlin_octaves = 4      # 重ねる細かさの段数
+_perlin_falloff = 0.5    # 細かい段ほど、どれだけ弱くするか
+
+
+def _perlin_fill(seed=None):
+    """ノイズのもとになる乱数の表を作る（random_seed とは別の乱数を使う）"""
+    global _perlin
+    rng = _random.Random(seed)
+    _perlin = [rng.random() for _ in range(_PERLIN_SIZE + 1)]
+
+
+def _scaled_cosine(i):
+    return 0.5 * (1.0 - math.cos(i * math.pi))
+
+
 def noise(x, y=0, z=0):
-    """Perlin noise（簡易版）"""
-    # 簡易的なノイズ実装
-    import math
-    n = (math.sin(x * 12.9898 + y * 78.233 + z * 37.719) * 43758.5453) % 1.0
-    return abs(n)
+    """パーリンノイズ（0〜1 のなめらかに変わる値。少しずつ x を変えて使う）"""
+    if _perlin is None:
+        _perlin_fill()
+    x, y, z = abs(x), abs(y), abs(z)
+    xi, yi, zi = int(x), int(y), int(z)
+    xf, yf, zf = x - xi, y - yi, z - zi
+    r = 0.0
+    ampl = 0.5
+    for _ in range(_perlin_octaves):
+        of = xi + (yi << 4) + (zi << 8)
+        rxf = _scaled_cosine(xf)
+        ryf = _scaled_cosine(yf)
+
+        n1 = _perlin[of & _PERLIN_SIZE]
+        n1 += rxf * (_perlin[(of + 1) & _PERLIN_SIZE] - n1)
+        n2 = _perlin[(of + 16) & _PERLIN_SIZE]
+        n2 += rxf * (_perlin[(of + 17) & _PERLIN_SIZE] - n2)
+        n1 += ryf * (n2 - n1)
+
+        of += 256
+        n2 = _perlin[of & _PERLIN_SIZE]
+        n2 += rxf * (_perlin[(of + 1) & _PERLIN_SIZE] - n2)
+        n3 = _perlin[(of + 16) & _PERLIN_SIZE]
+        n3 += rxf * (_perlin[(of + 17) & _PERLIN_SIZE] - n3)
+        n2 += ryf * (n3 - n2)
+
+        n1 += _scaled_cosine(zf) * (n2 - n1)
+        r += n1 * ampl
+        ampl *= _perlin_falloff
+
+        xi, yi, zi = xi << 1, yi << 1, zi << 1
+        xf, yf, zf = xf * 2, yf * 2, zf * 2
+        if xf >= 1.0:
+            xi, xf = xi + 1, xf - 1
+        if yf >= 1.0:
+            yi, yf = yi + 1, yf - 1
+        if zf >= 1.0:
+            zi, zf = zi + 1, zf - 1
+    return r
+
+
+def noise_detail(lod, falloff=None):
+    """ノイズの細かさを決める（p5.js の noiseDetail と同じ。段数と、弱くする割合）"""
+    global _perlin_octaves, _perlin_falloff
+    if lod > 0:
+        _perlin_octaves = int(lod)
+    if falloff is not None and falloff > 0:
+        _perlin_falloff = falloff
+
 
 def noise_seed(seed):
-    """ノイズのシードを設定"""
-    global _noise_seed
-    _noise_seed = seed
+    """ノイズのシードを設定（同じシードなら、毎回同じノイズになる）"""
+    _perlin_fill(seed)
 
 # 数学関数
 def map(*args):
@@ -699,14 +953,19 @@ def norm(value, start, stop):
     """値を0-1の範囲に正規化"""
     return (value - start) / (stop - start)
 
-def dist(x1, y1, x2=None, y2=None, z1=None, z2=None):
-    """2点間の距離を計算"""
-    if z1 is None:
-        # 2D距離
-        return math.sqrt((x2 - x1) ** 2 + (y2 - y1) ** 2)
-    else:
-        # 3D距離
+def dist(*args):
+    """2点間の距離を計算
+
+    dist(x1, y1, x2, y2)         … 平面の 2 点
+    dist(x1, y1, z1, x2, y2, z2) … 空間の 2 点（p5.js と同じ順）
+    """
+    if len(args) == 4:
+        x1, y1, x2, y2 = args
+        return math.hypot(x2 - x1, y2 - y1)
+    if len(args) == 6:
+        x1, y1, z1, x2, y2, z2 = args
         return math.sqrt((x2 - x1) ** 2 + (y2 - y1) ** 2 + (z2 - z1) ** 2)
+    raise TypeError('dist() には数を 4 つ（平面）か 6 つ（空間）渡します')
 
 def sq(n):
     """平方を計算"""
@@ -736,33 +995,40 @@ def floor(n):
     return math.floor(n)
 
 # 三角関数
+# p5.js と同じく、angleMode(DEGREES) のときは角度を「度」で受け取り、「度」で返す。
+def _to_rad(angle):
+    return math.radians(angle) if p5._angle_mode == 'degrees' else angle
+
+def _from_rad(angle):
+    return math.degrees(angle) if p5._angle_mode == 'degrees' else angle
+
 def sin(angle):
     """サイン"""
-    return math.sin(angle)
+    return math.sin(_to_rad(angle))
 
 def cos(angle):
     """コサイン"""
-    return math.cos(angle)
+    return math.cos(_to_rad(angle))
 
 def tan(angle):
     """タンジェント"""
-    return math.tan(angle)
+    return math.tan(_to_rad(angle))
 
 def asin(value):
     """アークサイン"""
-    return math.asin(value)
+    return _from_rad(math.asin(value))
 
 def acos(value):
     """アークコサイン"""
-    return math.acos(value)
+    return _from_rad(math.acos(value))
 
 def atan(value):
     """アークタンジェント"""
-    return math.atan(value)
+    return _from_rad(math.atan(value))
 
 def atan2(y, x):
     """2引数アークタンジェント"""
-    return math.atan2(y, x)
+    return _from_rad(math.atan2(y, x))
 
 # 角度変換
 def degrees(radians):
@@ -774,13 +1040,30 @@ def radians(degrees):
     return math.radians(degrees)
 
 # 色関連
-def color(r, g=None, b=None, a=255):
-    """色を作成（辞書として返す）"""
-    if g is None:
-        # グレースケール
-        return {'r': r, 'g': r, 'b': r, 'a': a}
-    else:
-        return {'r': r, 'g': g, 'b': b, 'a': a}
+def _ec_parse_css(css):
+    """キャンバスが整えた色の文字列（'#ff0000' や 'rgba(255, 0, 0, 0.5)'）を (r, g, b, a) にする"""
+    css = css.strip()
+    try:
+        if css.startswith('#') and len(css) == 7:
+            return (int(css[1:3], 16), int(css[3:5], 16), int(css[5:7], 16), 255)
+        if css.startswith('rgb'):
+            parts = [float(p) for p in css[css.index('(') + 1:css.rindex(')')].split(',')]
+            a = parts[3] * 255 if len(parts) == 4 else 255
+            return (parts[0], parts[1], parts[2], a)
+    except ValueError:
+        pass
+    return None
+
+
+def color(*args):
+    """色を作成（辞書として返す）
+
+    書き方は fill() と同じ。color(255, 0, 0)、color('red')、color(0, 100) など。
+    colorMode(HSB) のときは、色相・彩度・明るさとして読む。
+    """
+    r, g, b, a = p5._rgba(args, 'color')
+    clean = lambda v: int(round(v)) if abs(v - round(v)) < 1e-9 else v
+    return {'r': clean(r), 'g': clean(g), 'b': clean(b), 'a': clean(a)}
 
 def red(col):
     """色から赤成分を取得"""
@@ -821,8 +1104,9 @@ def lerp_color(c1, c2, amt):
 import datetime
 
 def millis():
-    """プログラム開始からのミリ秒"""
-    return int(datetime.datetime.now().timestamp() * 1000)
+    """プログラムを動かし始めてからのミリ秒（p5.js の millis と同じ）"""
+    start = p5.start_time or _ec_time.time()
+    return (_ec_time.time() - start) * 1000
 
 def second():
     """現在の秒"""
@@ -901,25 +1185,61 @@ def _easycode_sync_size():
     """width と height を、今のキャンバスの大きさに合わせる
 
     p5.js では width / height がそのまま使えるので、こちらでも同じにする。
+    windowWidth / windowHeight も、ここではキャンバスの大きさにしておく。
     """
-    globals()['width'] = p5.width
-    globals()['height'] = p5.height
+    for name in ('width', 'windowWidth', 'window_width'):
+        globals()[name] = p5.width
+    for name in ('height', 'windowHeight', 'window_height'):
+        globals()[name] = p5.height
+
+
+# いま押されているキーの番号。drawing.js から _ec_set_keys などで入れる
+_ec_keys_down = set()
+
+
+def _ec_key_down(code):
+    """キーが押されたことを覚える（drawing.js から呼ぶ）"""
+    _ec_keys_down.add(int(code))
+
+
+def _ec_key_up(code):
+    """キーが離されたことを覚える（drawing.js から呼ぶ）"""
+    _ec_keys_down.discard(int(code))
+
+
+def _ec_set_keys(codes):
+    """いま押されているキーの番号を、まとめて入れ直す（drawing.js から毎コマ呼ぶ）"""
+    _ec_keys_down.clear()
+    _ec_keys_down.update(int(c) for c in codes)
+
+
+def key_is_down(code):
+    """そのキーが今押されているか（p5.js の keyIsDown と同じ。keyIsDown(LEFT_ARROW) など）"""
+    return int(code) in _ec_keys_down
 
 
 # p5.js と同じ名前で使えるようにしておく値。
 # マウスとキーの値は、draw() のたびに drawing.js から入れ直される。
-width = p5.width
-height = p5.height
+# frame_count のような snake_case のつづりも、p5.js のつづりと同じ値を入れておく。
+# （ただの変数なので、drawing.js が毎コマ両方を入れ直す）
+_easycode_sync_size()
+frame_count = 0
+delta_time = 0
 mouseX = 0
 mouseY = 0
 mouse_x = 0
 mouse_y = 0
 pmouseX = 0
 pmouseY = 0
+pmouse_x = 0
+pmouse_y = 0
 mouseIsPressed = False
 mouse_is_pressed = False
+mouseButton = LEFT  # LEFT / RIGHT / CENTER
+mouse_button = LEFT
 key = ''
 keyCode = 0
+key_code = 0
 keyIsPressed = False
 key_is_pressed = False
 p5._looping = True

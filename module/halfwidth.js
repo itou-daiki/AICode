@@ -8,18 +8,34 @@
 // Python は全角の（ ）や ： を「invalid character」としか言わない。
 // 生徒はどこが悪いのか見つけられないので、打った時点で直し、直せないものは目に見える形で示す。
 
-import { toHalfWidth } from './pyfix.js';
+import { toHalfWidth, scanLine } from './pyfix.js';
 import { toast, safeStorage } from './ui.js';
 
 const AUTO_KEY = 'easycode_auto_halfwidth';
 let autoOn = safeStorage.get(AUTO_KEY) !== '0';
 let told = false;
+let toldKana = false;
+
+/** ひらがなのあとに英字が続く名前（ぷりんt）。日本語入力がオンのまま英語を打ったときの形 */
+const KANA_TYPED = /[\u3041-\u309F]+[A-Za-z]+[\w\u3041-\u309F]*/g;
 
 /**
  * 全角に印をつける重ね書き。半角に直したときに変わる字だけに印をつける
  * （直し方と印のつけ方を同じ toHalfWidth で決めるので、食いちがわない）。
  * CodeMirror の重ね書きは状態を持てないので、行ごとの結果を 1 つだけ覚えて使い回す。
  */
+let kanaLine = null;
+let kanaMemo = [];
+/** その行の、日本語入力のまま打った名前の範囲 [はじめ, おわり] */
+function kanaRanges(line) {
+  if (line !== kanaLine) {
+    kanaLine = line;
+    const kinds = scanLine(line);
+    kanaMemo = [...line.matchAll(KANA_TYPED)].filter(m => kinds[m.index] === 'code').map(m => [m.index, m.index + m[0].length]);
+  }
+  return kanaMemo;
+}
+
 let memoLine = null;
 let memoFixed = '';
 function fixedOf(line) {
@@ -30,6 +46,9 @@ function fixedOf(line) {
 const fullWidthOverlay = {
   token(stream) {
     const line = stream.string;
+    // 日本語入力のまま打った名前（ぷりんt）は、まとめて印をつける
+    const kana = kanaRanges(line).find(r => stream.pos >= r[0] && stream.pos < r[1]);
+    if (kana) { stream.pos = kana[1]; return 'fullwidth'; }
     const fixed = fixedOf(line);
     if (line[stream.pos] !== fixed[stream.pos]) {
       stream.next();
@@ -37,7 +56,8 @@ const fullWidthOverlay = {
     }
     // 次に印をつける字の手前まで、まとめて進める
     let next = stream.pos + 1;
-    while (next < line.length && line[next] === fixed[next]) next++;
+    const starts = kanaRanges(line).map(r => r[0]);
+    while (next < line.length && line[next] === fixed[next] && !starts.includes(next)) next++;
     stream.pos = next;
     return null;
   },
@@ -74,7 +94,27 @@ function fixLine(cm, line) {
   return changed.map(i => text[i]);
 }
 
+/** 文字列とコメントの外に、日本語入力のまま打った名前があるか */
+function kanaTyped(text) {
+  const kinds = scanLine(text);
+  for (const m of text.matchAll(KANA_TYPED)) {
+    if (kinds[m.index] === 'code') return m[0];
+  }
+  return '';
+}
+
 function fixLines(cm, from, to) {
+  // 日本語入力がオンのまま打った名前（ぷりんt）は、直せないので知らせる（1 回だけ）
+  if (!toldKana) {
+    for (let line = from; line <= to; line++) {
+      const word = kanaTyped(cm.getLine(line) || '');
+      if (word) {
+        toldKana = true;
+        toast(`「${word}」と打たれています。日本語入力がオンのようです。キーボードの『半角/全角』（Mac・Chromebook は『英数』）で切りかえてから打ちましょう。`, 7000);
+        break;
+      }
+    }
+  }
   if (!autoOn) return;
   const fixed = [];
   for (let line = from; line <= to; line++) fixed.push(...fixLine(cm, line));

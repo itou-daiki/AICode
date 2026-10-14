@@ -200,7 +200,8 @@ const PAIRS = {
 export function alignOutliers(code) {
   let text = code;
   for (let round = 0; round < 5; round++) {
-    const found = findIndentOutliers(text);
+    // 「:」の次の行の下げわすれは、このあとの字下げの組み直しが正しく直すので、ここでは触らない
+    const found = findIndentOutliers(text).filter(f => !f.afterHeader);
     if (!found.length) break;
     const lines = text.split('\n');
     for (const f of found) lines[f.line] = reindent(lines[f.line], f.lead);

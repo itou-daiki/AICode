@@ -197,5 +197,17 @@
  "n = (5).bit_length()",
  "for i, v in enumerate(Data, 1):\n    print(i, v)",
  "x = 1  # 合計 # を数える",
- "s = \"a#b\"  # 文字の # はコメントではない"
+ "s = \"a#b\"  # 文字の # はコメントではない",
+ "Data = [3, 5]\nfor data in Data:\n    print(data)",
+ "Total = 0\ntotal = 1\nprint(Total, total)",
+ "import time\ntime.sleep(1)",
+ "x = round(3.7)",
+ "for i in range(n, 0, -2):\n    print(i)",
+ "for i in range(len(Data)):\n    Data[i] += 1",
+ "x = 1\n\nprint(x)",
+ "print(a, b, c, sep=\"-\")",
+ "print(\"*\", end=\"\")",
+ "print(a, b, c, d)",
+ "s = \"It's\"",
+ "if 0 <= x <= 10:\n    print(x)"
 ]

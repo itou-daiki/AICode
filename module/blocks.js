@@ -1,7 +1,7 @@
 // module/blocks.js - ブロックモードの画面まわり
 //
 // コード ⇄ ブロック ⇄ フローチャートの同期は module/workbench.js が受け持つ。
-// このファイルは「実行」「ステップ実行」「画面の切り替え」を担当する。
+// このファイルは「実行」「1行ずつ実行（ステップ実行）」「画面の切り替え」を担当する。
 
 import { createWorkbench } from './workbench.js';
 import { recordTrace, namesInLine } from './stepper.js';
@@ -13,13 +13,15 @@ import { showBlockAt } from './blockscope.js';
 import {
   confirmDialog, toast, initSidebar, initTabs, initMaximize,
   takeCodeFromUrl, makeShareUrl, showShareDialog, showFix, safeStorage, bootPython,
-  makeEditorFriendly, bindRunShortcut, addTextSizeControl, addCodeZoom,
+  makeEditorFriendly, bindRunShortcut, addTextSizeControl, addCodeZoom, addBlocksZoom, addOutputZoom,
 } from './ui.js';
 import { addHalfWidthControl } from './halfwidth.js';
 import { addTipsLinks } from './tipslinks.js';
 import { runUserCode, explainError, suggestFix } from './pyrun.js';
+import { noticeCommonMistakes } from './pyfix.js';
 import { toKtph } from './ktph.js';
 import { setIconLabel } from './icons.js';
+import { attachSymbolBar } from './symbolbar.js';
 // AI は任意だが、キーの保存欄はこの画面にもあるので読みこんでおく
 import './ai.js';
 
@@ -42,6 +44,8 @@ let stageTabs = null;
 
 let isWaitingForInput = false;
 let inputCallback = null;
+/** 「下の欄に答えを打って」のお知らせを、このページを開いてから出したか */
+let inputHintShown = false;
 
 /** ステップ実行の状態 */
 const step = { list: [], index: 0, active: false, error: null, truncated: false };
@@ -64,6 +68,7 @@ function setupRuntimeInput() {
     const value = input.value;
     input.value = '';
     container.style.display = 'none';
+    container.classList.remove('is-asking', 'is-flash');
     typedInputs.push(value);
     updateStepInputs();
     isWaitingForInput = false;
@@ -90,7 +95,17 @@ function createCustomInput() {
     if (question) $('output').textContent += question;
     $('runtime-input-label').textContent = question || '値を入力';
 
-    $('runtime-input-container').style.display = 'flex';
+    const container = $('runtime-input-container');
+    container.style.display = 'flex';
+    // どこに打てばよいか分かるように、欄を目立たせて 1 回だけ光らせる
+    container.classList.add('is-asking');
+    container.classList.remove('is-flash');
+    void container.offsetWidth;
+    container.classList.add('is-flash');
+    if (!inputHintShown) {
+      inputHintShown = true;
+      toast('下の欄に答えを打って Enter を押しましょう', 4000);
+    }
     updateStepInputs();
     $('runtime-input').focus();
   });
@@ -112,6 +127,7 @@ async function runCode() {
   output.textContent = '';
   // 前のエラーに向けた案内は、動かしなおしたら消す
   showFix(null);
+  showCommonNotes([]);
   $('runtime-input-container').style.display = 'none';
   isWaitingForInput = false;
   inputCallback = null;
@@ -131,8 +147,10 @@ async function runCode() {
       if (output.textContent) output.textContent += '\n';
       output.textContent += explainError(result.error, code);
       showFix(suggestFix(code, result.error), applyFix, result.error);
-    } else if (!output.textContent) {
-      output.textContent = '(出力なし)';
+    } else {
+      if (!output.textContent) output.textContent = '(出力なし)';
+      // エラーにはならないが、思ったとおりに動かないかもしれない書き方を、出力の下に小さく書く
+      showCommonNotes(noticeCommonMistakes(code));
     }
   } catch (error) {
     console.error('実行エラー:', error);
@@ -140,6 +158,7 @@ async function runCode() {
   } finally {
     button.disabled = false;
     $('runtime-input-container').style.display = 'none';
+    $('runtime-input-container').classList.remove('is-asking', 'is-flash');
     isWaitingForInput = false;
     inputCallback = null;
     // 実行で打った値を、ステップ実行の欄に写しておく（打ち直さなくてよい）
@@ -147,6 +166,24 @@ async function runCode() {
     if (typedInputs.length && box && !box.value.trim()) box.value = typedInputs.join('\n');
     updateStepInputs();
   }
+}
+
+/**
+ * 出力の下に「気づいたこと」を出す（空の配列なら消す）
+ * @param {string[]} notes
+ */
+function showCommonNotes(notes) {
+  $('common-notes')?.remove();
+  if (!notes.length) return;
+  const box = document.createElement('div');
+  box.id = 'common-notes';
+  box.className = 'note is-warn common-notes';
+  for (const text of notes) {
+    const p = document.createElement('p');
+    p.textContent = text;
+    box.appendChild(p);
+  }
+  $('output').after(box);
 }
 
 /**
@@ -166,7 +203,7 @@ function applyFix(code, line) {
 }
 
 /* ============================================================
- * 2. ステップ実行（Python Tutor 風）
+ * 2. 1行ずつ実行（ステップ実行。Python Tutor 風）
  * ========================================================== */
 
 /** 実行のときに打った値。次のステップ実行に引きつぐ */
@@ -205,7 +242,7 @@ async function startStepMode() {
     updateStepInputs();
     const box = $('step-input-values');
     box.focus();
-    toast('input() が使われています。使う値を先にこの欄へ書いてから、もう一度押してください。');
+    toast('input() が使われています。使う値を先にこの欄へ書いてから、もう一度「1行ずつ実行」を押してください。');
     return;
   }
 
@@ -246,7 +283,7 @@ async function startStepMode() {
 
     // 「戻り方」が分かるように、実行ボタン自体も終了ボタンに変える
     const stepButton = $('step-btn');
-    setIconLabel(stepButton, 'stop', 'ステップ終了');
+    setIconLabel(stepButton, 'stop', '1行ずつ実行をやめる');
     stepButton.classList.remove('btn-mark');
     stepButton.classList.add('btn-danger');
 
@@ -254,10 +291,10 @@ async function startStepMode() {
     // ← → で進めるように、キーを受け取れるボタンへフォーカスを移す。
     // （エディタにフォーカスが残っていると、矢印キーはカーソル移動になってしまう）
     $('step-next').focus();
-    toast(`${trace.steps.length} ステップを記録しました。← → で移動、Esc で終了`, 3200);
+    toast(`${trace.steps.length} 回ぶんの動きを記録しました。← → で移動、Esc でやめる`, 3200);
   } catch (error) {
     console.error('ステップ実行に失敗:', error);
-    output.textContent = 'ステップ実行にしくじりました: ' + error.message;
+    output.textContent = '1行ずつ実行がうまくいきませんでした: ' + error.message;
   } finally {
     button.disabled = false;
   }
@@ -275,7 +312,7 @@ function exitStepMode() {
   }
 
   const stepButton = $('step-btn');
-  setIconLabel(stepButton, 'step', 'ステップ実行');
+  setIconLabel(stepButton, 'step', '1行ずつ実行');
   stepButton.classList.remove('btn-danger');
   stepButton.classList.add('btn-mark');
 
@@ -309,12 +346,12 @@ function showStep(index) {
   // 「なぜか変数がからっぽ」に見えるので、理由を出力といっしょに見せる。
   const before = step.missingInput
     ? '入力の値が足りませんでした。足りない分は空文字で進んでいます。\n'
-      + '   左下の欄に値を書き足して、もう一度ステップ実行してください。\n\n'
+      + '   左下の欄に値を書き足して、もう一度「1行ずつ実行」を押してください。\n\n'
     : '';
   let after = '';
   if (isLast) {
     if (step.error) after += `\nエラー: ${step.error}`;
-    if (step.truncated) after += '\n（ステップ数が上限に達したため、記録を途中で止めました）';
+    if (step.truncated) after += '\n（記録できる回数の上限に達したため、記録を途中で止めました）';
   }
   renderStepOutput($('output'), current.output || '', info.newOutput, { before, after });
   renderStepCaption($('step-caption'), info, (n) => bench.editor.getLine(n - 1) || '');
@@ -378,19 +415,28 @@ function setupControls() {
   $('clear-btn').addEventListener('click', async () => {
     const ok = await confirmDialog({
       title: 'すべて消しますか？',
-      message: 'ブロックとコードの両方が消えます。この操作は元に戻せません。',
-      okLabel: '全消去',
+      message: 'ブロックとコードの両方が消えます。消したあと、出てくる「元に戻す」を押せば戻せます。',
+      okLabel: 'すべて消す',
     });
     if (!ok) return;
     exitStepMode();
+    // 消す前のコードを控えておき、お知らせの「元に戻す」で戻せるようにする
+    const before = bench.getCode();
     bench.clearAll();
     $('output').textContent = '';
-    toast('すべて消しました');
+    showCommonNotes([]);
+    toast('すべて消しました', 10000, {
+      label: '元に戻す',
+      onClick: () => {
+        bench.setCode(before);
+        toast('消す前に戻しました');
+      },
+    });
   });
 
   $('share-btn').addEventListener('click', async () => {
     const code = bench.getCode();
-    if (!code.trim()) { toast('共有するコードがありません'); return; }
+    if (!code.trim()) { toast('リンクにするコードがありません'); return; }
     showShareDialog(await makeShareUrl('index.html', code));
   });
 
@@ -455,7 +501,7 @@ $('flow-zoom-in').addEventListener('click', () => bench.zoomFlowchart(1.25));
     e.currentTarget.classList.toggle('is-on', japanese);
     toast(japanese ? 'やさしい日本語で書きます' : 'コードのまま書きます');
   });
-  $('output-clear').addEventListener('click', () => { $('output').textContent = ''; });
+  $('output-clear').addEventListener('click', () => { $('output').textContent = ''; showCommonNotes([]); });
 
   // コードの「元に戻す」「やり直す」。ブロックの側には、もとからボタンがある
   const historyButton = (id, redo) => $(id).addEventListener('click', () => {
@@ -522,10 +568,10 @@ function showSyncState({ rawCount }) {
     chip.textContent = 'ブロックにできませんでした';
     chip.className = 'chip is-warn';
   } else if (rawCount > 0) {
-    chip.textContent = `同期中（${rawCount} か所は Python ブロック）`;
+    chip.textContent = `${rawCount} か所はブロックにできず、そのまま入っています`;
     chip.className = 'chip is-warn';
   } else {
-    chip.textContent = 'ブロックと同期中';
+    chip.textContent = 'ブロックと連動中';
     chip.className = 'chip is-live';
   }
 }
@@ -543,15 +589,21 @@ async function init() {
       onStatus: showSyncState,
     });
     makeEditorFriendly(bench.editor, 'Python のコード');
+    // コードの下に記号ボタンを並べる（キーの場所が分からなくても打てるように）
+    attachSymbolBar(bench.editor, $('code-symbols'));
     addCodeZoom([bench.editor], $('code-undo').parentElement);
+    addBlocksZoom(bench.workspace, $('blocks-undo').parentElement, 0.8);
+    addOutputZoom($('output-body') || $('output').parentElement, $('output-clear').parentElement);
     bindRunShortcut($('run-btn'));
 
-    // はじめて開いた人には、何から始めればよいかを出力欄で一言だけ伝える
+    // はじめて開いた人には、何から始めればよいかを出力欄で一言だけ伝える。
+    // 同じ説明はヒントの「はじめての人へ」にもあり、あとから読み返せる
     if (!safeStorage.get(FIRST_VISIT_KEY)) {
       $('output').textContent =
         'ようこそ。ブロックの区画の道具箱からブロックを置くと、Python のコードが同時にできあがります。\n'
-        + '①「実行」で動かす　②「ステップ実行」で 1 行ずつ確かめる　③ 図の区画で流れを見る\n'
-        + '書いたものは、このブラウザに自動で保存されます。';
+        + '①「実行」で動かす　②「1行ずつ実行」で 1 行ずつ確かめる　③ 図の区画で流れを見る\n'
+        + '書いたものは、このブラウザに自動で保存されます。（この説明は、ヒントの「はじめての人へ」でまた読めます）';
+      $('welcome-box').open = true;
       safeStorage.set(FIRST_VISIT_KEY, '1');
     }
 

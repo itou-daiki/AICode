@@ -1,12 +1,30 @@
 {
   "title": "if文の複数条件",
-  "description": "点数によって評価を出力します。80点以上なら「優」、60点以上なら「良」、それ以外は「可」と出力してください。",
-  "input": "",
+  "description": "入力された点数 score によって評価を出力します。80点以上なら「優」、60点以上なら「良」、それ以外は「可」と出力してください。\n\nいくつかの点数で確かめます。",
+  "input": "75",
   "expected": "良",
-  "template": "# 点数を変数に代入\nscore = 75\n\n# if-elif-else文を使って評価を判定\n",
-  "solution": "score = 75\nif score >= 90:\n    print(\"優\")\nelif score >= 70:\n    print(\"良\")\nelif score >= 60:\n    print(\"可\")\nelse:\n    print(\"不可\")\n",
+  "template": "# 点数を受け取る\nscore = int(input())\n\n# if-elif-else文を使って判定\n",
+  "solution": "score = int(input())\nif score >= 80:\n    print(\"優\")\nelif score >= 60:\n    print(\"良\")\nelse:\n    print(\"可\")\n",
   "hint": [
-    "上から順に調べます。いちばん厳しい条件から書きます。",
-    "90 以上 → 70 以上 → 60 以上 → それ以外、の順に `if` `elif` `elif` `else` を並べます。"
+    "上から順に調べます。いちばん厳しい条件（80 以上）から書きます。",
+    "80 以上 → 60 以上 → それ以外、の順に `if` `elif` `else` を並べます。"
+  ],
+  "tests": [
+    {
+      "input": "75",
+      "expected": "良"
+    },
+    {
+      "input": "92",
+      "expected": "優"
+    },
+    {
+      "input": "80",
+      "expected": "優"
+    },
+    {
+      "input": "40",
+      "expected": "可"
+    }
   ]
 }

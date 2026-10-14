@@ -1,5 +1,5 @@
 // module/linedrag.js
-// 行番号の左の「つまみ」（⋮⋮）をドラッグして、行を動かす。
+// 行番号の左の「つまみ」（⇅）をドラッグして、行を動かす。
 //
 //   attachLineDrag(cm) … つまみを付ける。Alt + ↑ / ↓ でも 1 行ずつ動かせる
 //   moveLines(lines, from, to, before) … 行の並べかえ（画面に関係なく確かめられる形）
@@ -109,8 +109,9 @@ export function attachLineDrag(cm) {
   const makeHandle = () => {
     const handle = document.createElement('span');
     handle.className = 'cm-drag-handle';
-    handle.textContent = '⋮⋮';
-    handle.title = 'ドラッグで行を動かす（見出しの行は中身ごと）。Alt + ↑ / ↓ でも動かせます';
+    // 上下に動かせることが一目でわかるよう、上下の矢印にする
+    handle.textContent = '⇅';
+    handle.title = 'ここをつかんで上下に動かすと、この行を動かせます（「:」の行は中身ごと）。Alt + ↑ / ↓ でも動かせます';
     handle.setAttribute('aria-hidden', 'true');
     return handle;
   };
@@ -123,6 +124,18 @@ export function attachLineDrag(cm) {
   };
   markAll();
   cm.on('change', markAll);
+
+  // つまみは、カーソルのある行にだけはっきり出す（全部の行に並ぶと、何の印かわからない）
+  let current = null;
+  const showCurrent = () => {
+    const line = cm.getLineHandle(cm.getCursor().line);
+    if (line === current) return;
+    if (current) cm.removeLineClass(current, 'wrap', 'cm-drag-current');
+    current = line;
+    if (current) cm.addLineClass(current, 'wrap', 'cm-drag-current');
+  };
+  showCurrent();
+  cm.on('cursorActivity', showCurrent);
 
   /* ---------- ドラッグ ---------- */
   let drag = null;   // { from, to, before, marks: [] }
@@ -202,12 +215,12 @@ export function attachLineDrag(cm) {
     if (hadFocus) cm.focus();
   };
 
-  // つまみ（⋮⋮）と行番号の列をつかめる。押しただけでは動かさず、少し動かしてから行を運びはじめる
+  // つまみ（⇅）と行番号の列をつかめる。押しただけでは動かさず、少し動かしてから行を運びはじめる
   const START_DISTANCE = 4;
   wrapper.addEventListener('pointerdown', (e) => {
     const grip = e.target.closest && e.target.closest('.cm-drag-handle, .CodeMirror-linenumber');
     if (!grip || locked() || e.button !== 0 || !e.isPrimary) return;
-    // 指で触るときは、つまみ（⋮⋮）だけでつかむ。行番号の上から始めた指の動きは、ふつうのスクロールにする
+    // 指で触るときは、つまみ（⇅）だけでつかむ。行番号の上から始めた指の動きは、ふつうのスクロールにする
     const onNumber = grip.classList.contains('CodeMirror-linenumber');
     if (onNumber && e.pointerType === 'touch') return;
     e.preventDefault();

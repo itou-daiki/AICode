@@ -98,7 +98,17 @@ export function check() {
       }
     }
     // 3. 画面の外（スクロールできないページで下に押し出された）
-    if (r.right > vw + 1 || r.left < -1) issues.push(`画面の横の外: ${label(el)}`);
+    // 横にすべらせる列（記号ボタンなど）の中なら、すべらせて届くので崩れではない
+    const sideScroll = (() => {
+      for (let p = el.parentElement; p && p !== document.documentElement; p = p.parentElement) {
+        if (/(auto|scroll)/.test(getComputedStyle(p).overflowX)) {
+          const pr = p.getBoundingClientRect();
+          return pr.left >= -1 && pr.right <= vw + 1;
+        }
+      }
+      return false;
+    })();
+    if (!sideScroll && (r.right > vw + 1 || r.left < -1)) issues.push(`画面の横の外: ${label(el)}`);
     if (!pageScrollsY && !reachableByScroll(el, vh) && r.bottom > vh + 1) issues.push(`画面の下の外（スクロールできない）: ${label(el)}`);
 
     // 4. 字があふれている（「…」で切る作りのものは除く）

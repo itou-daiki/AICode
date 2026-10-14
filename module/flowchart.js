@@ -72,9 +72,40 @@ function toLines(source) {
   source.split('\n').forEach((raw, index) => {
     const stripped = stripComment(raw);
     if (!stripped.trim()) return;
-    lines.push({ indent: indentWidth(stripped), text: stripped.trim(), line: index + 1 });
+    const indent = indentWidth(stripped);
+    // x = 1; y = 2 のように ; で並べた文は、1 つずつの図形にする（同じ行番号のまま）
+    const parts = matchCompound(stripped.trim()) ? [stripped] : splitStatements(stripped);
+    for (const part of parts) {
+      if (part.trim()) lines.push({ indent, text: part.trim(), line: index + 1 });
+    }
   });
   return lines;
+}
+
+/**
+ * かっこと文字列の外にある ; で文を分ける
+ * @param {string} line
+ * @returns {string[]}
+ */
+function splitStatements(line) {
+  const parts = [];
+  let depth = 0;
+  let quote = null;
+  let start = 0;
+  for (let i = 0; i < line.length; i++) {
+    const ch = line[i];
+    if (quote) {
+      if (ch === '\\') i++;
+      else if (ch === quote) quote = null;
+      continue;
+    }
+    if (ch === '"' || ch === "'") quote = ch;
+    else if ('([{'.includes(ch)) depth++;
+    else if (')]}'.includes(ch)) depth--;
+    else if (ch === ';' && depth === 0) { parts.push(line.slice(start, i)); start = i + 1; }
+  }
+  parts.push(line.slice(start));
+  return parts;
 }
 
 /**
@@ -307,13 +338,13 @@ function renderSimple(b, stmt, incoming, ctx) {
     return [];
   }
   if (text === 'break') {
-    const id = b.addNode('process', 'ループを抜ける', line);
+    const id = b.addNode('process', 'くり返しを抜ける', line);
     b.connect(incoming, id);
     if (ctx.loop) ctx.loop.breaks.push({ id });
     return [];
   }
   if (text === 'continue') {
-    const id = b.addNode('process', '次の繰り返しへ', line);
+    const id = b.addNode('process', '次のくり返しへ', line);
     b.connect(incoming, id);
     if (ctx.loop) b.connect([{ id }], ctx.loop.continueTarget || ctx.loop.head);
     return [];
@@ -370,6 +401,18 @@ function renderLoop(b, stmt, incoming, ctx) {
     return [...after, ...loopCtx.loop.breaks];
   };
 
+  // --- while True（ずっとくり返す）---
+  // 「いいえ」に進むことは無いので、判断のひし形にせず、くり返しの図形にする。
+  // 抜けるのは break のときだけ（break が無ければ、ここで流れが終わる）
+  if (!isFor && clause.head === 'True') {
+    const head = b.addNode('loop', useJapanese ? 'ずっとくり返す' : 'while True', clause.line);
+    b.connect(incoming, head);
+    const loopCtx = { ...ctx, loop: { head, continueTarget: head, breaks: [] } };
+    const outs = renderSequence(b, clause.body, [{ id: head }], loopCtx);
+    b.connect(outs, head);
+    return loopCtx.loop.breaks.map(edge => ({ ...edge, rankAfter: outs.map(e => e.id).filter(Boolean) }));
+  }
+
   // --- while ---
   if (!isFor) {
     const cond = b.addNode('decision', ask(clause.head), clause.line);
@@ -392,7 +435,10 @@ function renderLoop(b, stmt, incoming, ctx) {
     const cond = b.addNode('decision', ask(`${range.name} ${range.compare} ${range.to}`), clause.line);
     b.connect([{ id: init }], cond);
 
-    const update = b.addNode('process', say(`${range.name} = ${range.name} + ${range.step}`), clause.line);
+    // range(10, 0, -2) は「i を 2 減らす」（「-2 増やす」にしない）
+    const update = b.addNode('process', range.compare === '>'
+      ? say(`${range.name} = ${range.name} - ${range.step.slice(1).trim()}`)
+      : say(`${range.name} = ${range.name} + ${range.step}`), clause.line);
 
     const loopCtx = { ...ctx, loop: { head: cond, continueTarget: update, breaks: [] } };
     const outs = renderSequence(b, clause.body, [{ id: cond, label: 'はい' }], loopCtx);
@@ -428,7 +474,7 @@ function renderLoop(b, stmt, incoming, ctx) {
  * @returns {{name: string, from: string, to: string, step: string, compare: string}|null}
  */
 function parseRangeHeader(head) {
-  const match = head.match(/^([A-Za-z_]\w*)\s+in\s+range\s*\((.*)\)$/s);
+  const match = head.match(/^([\p{L}_][\p{L}\p{N}_]*)\s+in\s+range\s*\((.*)\)$/su);
   if (!match) return null;
 
   const args = splitTopLevel(match[2]);
@@ -512,8 +558,9 @@ function renderDefinition(b, stmt, index) {
   const ctx = { definitions: [], returns: [], loop: null };
   const outs = renderSequence(b, clause.body, [{ id: start }], ctx);
 
-  const end = b.addNode('terminator', `${title} 終了`);
-  b.connect([...outs, ...ctx.returns], end);
+  // ずっとくり返して終わらない関数には、終了の図形を置かない（どこからもつながらないため）
+  const exits = [...outs, ...ctx.returns];
+  if (exits.length) b.connect(exits, b.addNode('terminator', `${title} 終了`));
 
   b.lines.push('  end');
   return ctx.definitions;
@@ -549,8 +596,8 @@ export function pythonToMermaid(source, { japanese = true, sketch = false } = {}
 
   const start = b.addNode('terminator', '開始');
   const outs = renderSequence(b, stmts, [{ id: start }], ctx);
-  const end = b.addNode('terminator', '終了');
-  b.connect([...outs, ...ctx.returns], end);
+  const exits = [...outs, ...ctx.returns];
+  if (exits.length) b.connect(exits, b.addNode('terminator', '終了'));
 
   // 関数・クラス定義をサブグラフとして追加（入れ子の定義も展開する）
   const queue = [...ctx.definitions];
@@ -566,6 +613,7 @@ export function pythonToMermaid(source, { japanese = true, sketch = false } = {}
   b.lines.push('  classDef terminator fill:#FCFCFA,stroke:#16181A,stroke-width:2px,color:#16181A;');
   b.lines.push('  classDef decision fill:#FCFCFA,stroke:#16181A,stroke-width:2px,color:#16181A;');
   b.lines.push('  classDef io fill:#F4F5F2,stroke:#4A4E52,color:#16181A;');
+  b.lines.push('  classDef loop fill:#FCFCFA,stroke:#16181A,stroke-width:2px,color:#16181A;');
   b.lines.push('  classDef junction fill:#D8DAD3,stroke:#D8DAD3,color:#D8DAD3,width:10px;');
   for (const [shape, ids] of Object.entries(b.byShape)) {
     if (ids.length) b.lines.push(`  class ${ids.join(',')} ${shape};`);

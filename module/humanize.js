@@ -9,6 +9,9 @@
 //
 // フローチャートのラベルに使う。言いかえられない書き方は、そのまま返す。
 
+/** Python の名前（合計 のような日本語の名前もふくむ）。u のついた正規表現で使う */
+const NAME = '[\\p{L}_][\\p{L}\\p{N}_]*';
+
 /** スケッチ（p5.js）のコードとして読むか */
 let sketchMode = false;
 
@@ -24,16 +27,16 @@ export function setSketchMode(on, source = '') {
   sketchMode = Boolean(on);
   ownNames = new Set();
   const code = String(source);
-  for (const m of code.matchAll(/\bdef\s+\w+\s*\(([^)]*)\)/g)) {
+  for (const m of code.matchAll(/\bdef\s+[\p{L}\p{N}_]+\s*\(([^)]*)\)/gu)) {
     for (const param of m[1].split(',')) {
       const name = param.split(/[=:]/)[0].replace(/\*/g, '').trim();
       if (name) ownNames.add(name);
     }
   }
-  for (const m of code.matchAll(/^\s*([A-Za-z_]\w*(?:\s*,\s*[A-Za-z_]\w*)*)\s*(?:\*\*|\/\/|[-+*/%])?=(?!=)/gm)) {
+  for (const m of code.matchAll(new RegExp(`^\\s*(${NAME}(?:\\s*,\\s*${NAME})*)\\s*(?:\\*\\*|\\/\\/|[-+*/%])?=(?!=)`, 'gmu'))) {
     for (const name of m[1].split(',')) ownNames.add(name.trim());
   }
-  for (const m of code.matchAll(/\bfor\s+([A-Za-z_][\w\s,]*?)\s+in\b/g)) {
+  for (const m of code.matchAll(/\bfor\s+([\p{L}_][\p{L}\p{N}_\s,]*?)\s+in\b/gu)) {
     for (const name of m[1].split(',')) ownNames.add(name.trim());
   }
 }
@@ -85,6 +88,37 @@ function findTop(text, op) {
   return -1;
 }
 
+/**
+ * open 番目の開きかっこに対応する、閉じかっこの位置（文字列の中は数えない）
+ * @param {string} text
+ * @param {number} open
+ * @returns {number} 見つからなければ -1
+ */
+function closingParen(text, open) {
+  let depth = 0;
+  let quote = null;
+  for (let i = open; i < text.length; i++) {
+    const ch = text[i];
+    if (quote) {
+      if (ch === '\\') i++;
+      else if (ch === quote) quote = null;
+      continue;
+    }
+    if (ch === '"' || ch === "'") { quote = ch; continue; }
+    if ('([{'.includes(ch)) depth++;
+    else if (')]}'.includes(ch) && --depth === 0) return i;
+  }
+  return -1;
+}
+
+/**
+ * 式の全体を 1 組のかっこが包んでいるか。
+ * (a + b) は包んでいるが、(a > 0) and (b > 0) や (a + b) * (c + d) は包んでいない。
+ */
+function wrapsWhole(text) {
+  return text.startsWith('(') && text.endsWith(')') && closingParen(text, 0) === text.length - 1;
+}
+
 /** かっこの外でカンマ区切りにする */
 function splitArgs(text) {
   const parts = [];
@@ -110,11 +144,43 @@ function splitArgs(text) {
 
 /** 「なにか(…)」の形なら、名前と中身を返す */
 function matchCall(text) {
-  const match = text.match(/^([A-Za-z_][\w.]*)\s*\((.*)\)$/s);
+  const match = text.match(/^([\p{L}_][\p{L}\p{N}_.]*)\s*\((.*)\)$/su);
   if (!match) return null;
-  // 「f(1) + g(2)」のように、閉じかっこが途中で終わっていないか確かめる
-  if (findTop(match[2], ')') !== -1) return null;
+  // 「f(1) + g(2)」や「input().split()」のように、最初のかっこが途中で閉じていないか確かめる
+  if (closingParen(text, text.indexOf('(', match[1].length)) !== text.length - 1) return null;
   return { name: match[1], args: splitArgs(match[2]) };
+}
+
+/**
+ * 「値.メソッド(…)」の形なら、値・メソッドの名前・中身を返す。
+ * input().split() や ",".join(Words) のように、名前でない値に続くものも読む。
+ */
+function matchMethod(text) {
+  if (!text.endsWith(')')) return null;
+  // かっこと文字列の外にある「.」を集めて、うしろから試す
+  const dots = [];
+  let depth = 0;
+  let quote = null;
+  for (let i = 0; i < text.length; i++) {
+    const ch = text[i];
+    if (quote) {
+      if (ch === '\\') i++;
+      else if (ch === quote) quote = null;
+      continue;
+    }
+    if (ch === '"' || ch === "'") quote = ch;
+    else if ('([{'.includes(ch)) depth++;
+    else if (')]}'.includes(ch)) depth--;
+    else if (ch === '.' && depth === 0 && i > 0) dots.push(i);
+  }
+  for (const at of dots.reverse()) {
+    const rest = text.slice(at).match(/^\.([\p{L}_][\p{L}\p{N}_]*)\s*\((.*)\)$/su);
+    if (!rest) continue;
+    const open = text.indexOf('(', at);
+    if (closingParen(text, open) !== text.length - 1) continue;
+    return { target: text.slice(0, at).trim(), action: rest[1], args: splitArgs(rest[2]) };
+  }
+  return null;
 }
 
 /** 文字列のかたまりかどうか */
@@ -180,15 +246,13 @@ function valueBody(expr) {
   const string = isString(text) && text.match(/^(['"])([\s\S]*)\1$/);
   if (string) return `「${string[2]}」`;
 
-  // 真偽値・なし
-  if (text === 'True') return '正しい';
-  if (text === 'False') return '正しくない';
+  // 真偽値・なし。True と書いたコードと見くらべられるよう、言葉はそのまま残して意味を添える
+  if (text === 'True') return 'True（はい）';
+  if (text === 'False') return 'False（いいえ）';
   if (text === 'None') return 'なし';
 
   // かっこ全体を包んでいるだけなら中身を見る
-  if (text.startsWith('(') && text.endsWith(')') && findTop(text.slice(1, -1), ')') === -1) {
-    return valueBody(text.slice(1, -1));
-  }
+  if (wrapsWhole(text)) return valueBody(text.slice(1, -1));
 
   // 文字どうしのつなぎ（「こんにちは」＋ name）だけは日本語にする。
   // 計算式は、日本語にすると計算の順番が分かりにくくなるので、式のまま見せる。
@@ -210,6 +274,15 @@ function valueBody(expr) {
 
   // 関数の呼び出し
   const call = matchCall(text);
+  if (call && call.name === 'random.choice' && call.args.length === 1) {
+    return `${valueBody(call.args[0])} からランダムに選んだ 1 つ`;
+  }
+  // s.upper() や input().split() のような、値に続けて呼ぶメソッド
+  const method = !call || (call.name.includes('.') && !/^(p5|math|random)\./.test(call.name)) ? matchMethod(text) : null;
+  if (method) {
+    const said = methodValue(method);
+    if (said) return said;
+  }
   if (call) {
     const args = call.args.map(valueBody);
     switch (call.name) {
@@ -232,13 +305,19 @@ function valueBody(expr) {
       case 'enumerate': return args.length >= 2 ? `${args[0]} の番号（${args[1]} から）と値` : `${args[0]} の番号と値`;
       case 'sorted':
         if (args.length === 1) return `${args[0]} を小さい順に並べたもの`;
+        if (args.length === 2 && /^reverse\s*=\s*True$/.test(call.args[1])) return `${args[0]} を大きい順に並べたもの`;
         break;
       case 'reversed': return `${args[0]} を逆の順にしたもの`;
       case 'zip': return `${args.join(' と ')} を組にしたもの`;
+      case 'pow':
+        if (args.length === 2) return `${args[0]} の ${args[1]} 乗`;
+        break;
       case 'range': {
         if (args.length === 1) return `0 から ${args[0]} の手前まで`;
         const range = `${args[0]} から ${args[1]} の手前まで`;
-        return args.length >= 3 ? `${range}（${args[2]} ずつ）` : range;
+        if (args.length < 3) return range;
+        // range(10, 0, -1) は「-1 ずつ」ではなく「1 ずつ減らしながら」と読む
+        return /^-/.test(args[2]) ? `${range}（${args[2].slice(1).trim()} ずつ減らしながら）` : `${range}（${args[2]} ずつ）`;
       }
     }
     // math.sqrt や random.randint は、どの画面でも同じ意味なので言いかえる。
@@ -255,6 +334,33 @@ function valueBody(expr) {
 }
 
 /**
+ * 値に続けて呼ぶ、よく使うメソッドの言いかえ
+ * @param {{target: string, action: string, args: string[]}} method
+ * @returns {string|null} 言いかえられなければ null
+ */
+function methodValue({ target, action, args: rawArgs }) {
+  const t = valueBody(target);
+  const a = rawArgs.map(valueBody);
+  switch (action) {
+    case 'isdigit': return a.length ? null : `${t} が数字だけでできている`;
+    case 'upper': return a.length ? null : `${t} を大文字にしたもの`;
+    case 'lower': return a.length ? null : `${t} を小文字にしたもの`;
+    case 'strip': return a.length ? null : `${t} の前後の空白を取ったもの`;
+    case 'replace': return a.length === 2 ? `${t} の ${a[0]} を ${a[1]} に置きかえたもの` : null;
+    case 'split':
+      if (!a.length) return `${t} を空白で区切ったリスト`;
+      return a.length === 1 ? `${t} を ${a[0]} で区切ったリスト` : null;
+    case 'join': return a.length === 1 ? `${a[0]} を ${t} でつないだ文字` : null;
+    case 'find': return a.length === 1 ? `${t} の中で ${a[0]} が最初に見つかる位置` : null;
+    case 'index': return a.length === 1 ? `${t} の中で ${a[0]} がある番号` : null;
+    case 'count': return a.length === 1 ? `${t} の中の ${a[0]} の数` : null;
+    case 'startswith': return a.length === 1 ? `${t} が ${a[0]} で始まる` : null;
+    case 'endswith': return a.length === 1 ? `${t} が ${a[0]} で終わる` : null;
+    default: return null;
+  }
+}
+
+/**
  * 計算式の中の mouseX や width を日本語にする（スケッチのときだけ）。
  * 式の形（+ や / の順番）はそのまま残すので、計算の順番は変わらない。
  *   width / 2 → キャンバスの幅 / 2
@@ -267,7 +373,7 @@ function sketchNamesIn(text) {
   return text.split(/("(?:\\.|[^"\\])*"|'(?:\\.|[^'\\])*')/).map((part, i) => (i % 2
     ? part
     // f(width=3) の width は、渡す相手の引数の名前なので変えない
-    : part.replace(/(?<![\w.])((?:p5\.)?[A-Za-z_]\w*)(?![\w.(])(?!\s*=(?!=))/g,
+    : part.replace(/(?<![\p{L}\p{N}_.])((?:p5\.)?[\p{L}_][\p{L}\p{N}_]*)(?![\p{L}\p{N}_.(])(?!\s*=(?!=))/gu,
       (name) => (isSketchName(name) ? SKETCH_NAMES[name] : name)))).join('');
 }
 
@@ -328,14 +434,44 @@ function valueOfSketch(name, a) {
  * 3. 条件の言いかえ
  * ========================================================== */
 
-const COMPARE = [
-  ['==', 'と等しい'],
-  ['!=', 'と等しくない'],
-  ['<=', '以下'],
-  ['>=', '以上'],
-  ['<', 'より小さい'],
-  ['>', 'より大きい'],
-];
+/** 比べる記号の読み方（a 記号 b → a は b 〜） */
+const LABEL = { '==': 'と等しい', '!=': 'と等しくない', '<=': '以下', '>=': '以上', '<': 'より小さい', '>': 'より大きい' };
+/** not をつけたときの読み方（反対の比べ方） */
+const NOT_LABEL = { '==': 'と等しくない', '!=': 'と等しい', '<=': 'より大きい', '>=': 'より小さい', '<': '以上', '>': '以下' };
+/** 文をつなぐときの読み方（「より大きく」「以上で」） */
+const CONTINUED = { '==': 'と等しく', '!=': 'と等しくなく', '<=': '以下で', '>=': '以上で', '<': 'より小さく', '>': 'より大きく' };
+/** 左右を入れかえたときの記号（0 < x は x > 0） */
+const FLIP = { '==': '==', '!=': '!=', '<=': '>=', '>=': '<=', '<': '>', '>': '<' };
+
+/**
+ * かっこと文字列の外にある、比べる記号を左から順に集める
+ * @param {string} text
+ * @returns {{op: string, at: number}[]}
+ */
+function compareOps(text) {
+  const ops = [];
+  let depth = 0;
+  let quote = null;
+  for (let i = 0; i < text.length; i++) {
+    const ch = text[i];
+    if (quote) {
+      if (ch === '\\') i++;
+      else if (ch === quote) quote = null;
+      continue;
+    }
+    if (ch === '"' || ch === "'") { quote = ch; continue; }
+    if ('([{'.includes(ch)) { depth++; continue; }
+    if (')]}'.includes(ch)) { depth--; continue; }
+    if (depth) continue;
+    const two = text.slice(i, i + 2);
+    if (['<=', '>=', '==', '!='].includes(two)) { ops.push({ op: two, at: i }); i++; continue; }
+    // << や >>（ビットのずらし）と -> は比べる記号ではない
+    if ((ch === '<' || ch === '>') && text[i + 1] !== ch && text[i - 1] !== ch && text[i - 1] !== '-') {
+      ops.push({ op: ch, at: i });
+    }
+  }
+  return ops;
+}
 
 /**
  * 条件をやさしい日本語にする（末尾に「？」が付く形）
@@ -370,18 +506,29 @@ function conditionBody(text) {
   if (!text) return '';
 
   // かっこ全体を包んでいるだけなら中身を見る
-  if (text.startsWith('(') && text.endsWith(')') && findTop(text.slice(1, -1), ')') === -1) {
-    return conditionBody(text.slice(1, -1));
-  }
+  if (wrapsWhole(text)) return conditionBody(text.slice(1, -1).trim());
 
   // かつ / または
   const or = findTop(text, 'or');
-  if (or > 0) return `${conditionBody(text.slice(0, or))} または ${conditionBody(text.slice(or + 2))}`;
+  if (or > 0) return `${conditionBody(text.slice(0, or).trim())} または ${conditionBody(text.slice(or + 2).trim())}`;
   const and = findTop(text, 'and');
-  if (and > 0) return `${conditionBody(text.slice(0, and))} かつ ${conditionBody(text.slice(and + 3))}`;
+  if (and > 0) return `${conditionBody(text.slice(0, and).trim())} かつ ${conditionBody(text.slice(and + 3).trim())}`;
 
-  // 〜でない
-  if (/^not\b/.test(text)) return `${conditionBody(text.slice(3))} ではない`;
+  // 〜でない。not x == 3 は「x は 3 と等しくない」のように、比べ方を反対にして読む
+  if (/^not\b/.test(text)) {
+    const rest = text.slice(3).trim();
+    const inner = wrapsWhole(rest) ? rest.slice(1, -1).trim() : rest;
+    const divisible = inner.match(/^(.+?)\s*%\s*(.+?)\s*==\s*0$/s);
+    const ops = compareOps(inner);
+    if (divisible && ops.length === 1) {
+      return `${humanizeValue(divisible[1])} は ${humanizeValue(divisible[2])} で割り切れない`;
+    }
+    if (ops.length === 1 && findTop(inner, 'not') === -1) {
+      const [{ op, at }] = ops;
+      return `${humanizeValue(inner.slice(0, at))} は ${humanizeValue(inner.slice(at + op.length))} ${NOT_LABEL[op]}`;
+    }
+    return `${conditionBody(rest)} ではない`;
+  }
 
   // 「a not in b」は、in より先に見ないと「a not が b の中にある」になってしまう
   const notIn = findTop(text, 'not in');
@@ -402,13 +549,18 @@ function conditionBody(text) {
   }
 
   // 比べる
-  for (const [op, label] of COMPARE) {
-    const at = findTop(text, op);
-    if (at > 0) {
-      const left = humanizeValue(text.slice(0, at));
-      const right = humanizeValue(text.slice(at + op.length));
-      return `${left} は ${right} ${label}`;
-    }
+  const ops = compareOps(text);
+  if (ops.length === 1 && ops[0].at > 0) {
+    const [{ op, at }] = ops;
+    return `${humanizeValue(text.slice(0, at))} は ${humanizeValue(text.slice(at + op.length))} ${LABEL[op]}`;
+  }
+  // つなげた比べ方 0 < x < 10 は「x は 0 より大きく 10 より小さい」（まん中の値を主語にする）
+  if (ops.length === 2 && ops[0].at > 0) {
+    const [p, q] = ops;
+    const a = humanizeValue(text.slice(0, p.at));
+    const b = humanizeValue(text.slice(p.at + p.op.length, q.at));
+    const c = humanizeValue(text.slice(q.at + q.op.length));
+    return `${b} は ${a} ${CONTINUED[FLIP[p.op]]} ${c} ${LABEL[q.op]}`;
   }
 
   // 〜の中にある
@@ -448,12 +600,14 @@ function statementBody(statement) {
 
   // import math / from random import randint
   const importMatch = text.match(/^import\s+(.+)$/s);
+  const alias = importMatch && importMatch[1].trim().match(/^(\S+)\s+as\s+(\S+)$/);
+  if (alias) return `${alias[1]} を ${alias[2]} という名前で使えるようにする`;
   if (importMatch) return `${importMatch[1].trim()} を使えるようにする`;
   const fromMatch = text.match(/^from\s+(\S+)\s+import\s+(.+)$/s);
   if (fromMatch) return `${fromMatch[1]} から ${fromMatch[2].trim()} を使えるようにする`;
 
   // x += 1 のような書き方（//= %= **= も、= の前の 2 文字までを演算子として読む）
-  const compound = text.match(/^([A-Za-z_][\w.[\]'"]*)\s*(\*\*|\/\/|[+\-*/%])=(?!=)\s*(.+)$/s);
+  const compound = text.match(/^([\p{L}_][\p{L}\p{N}_.[\]'"]*)\s*(\*\*|\/\/|[+\-*/%])=(?!=)\s*(.+)$/su);
   if (compound) {
     const [, name, op, rest] = compound;
     const amount = humanizeValue(rest);
@@ -476,7 +630,7 @@ function statementBody(statement) {
     // ただし x = x - y + 1 は「x を y + 1 減らす」ではない（引く数は y だけ）。
     // 引き算のときは、うしろに + や - が続かないものだけ言いかえる。
     // x = x - y if c else z も「(x - y) if c else z」なので、条件がまざるときは言いかえない。
-    const selfAdd = rest.match(/^([A-Za-z_][\w.]*)\s*([+\-])\s*(.+)$/s);
+    const selfAdd = rest.match(/^([\p{L}_][\p{L}\p{N}_.]*)\s*([+\-])\s*(.+)$/su);
     if (selfAdd && selfAdd[1] === name && findTop(rest, selfAdd[2]) > 0 && !hasLogic(selfAdd[3])) {
       const tail = selfAdd[3];
       const plain = findTop(tail, '+') === -1 && findTop(tail, '-') <= 0;
@@ -494,10 +648,18 @@ function statementBody(statement) {
     if (source && ['int', 'float'].includes(source.name)) {
       const inner = matchCall(source.args[0] || '');
       if (inner && inner.name === 'input') {
-        const prompt = inner.args.length ? humanizeValue(inner.args[0]) : 'キーボードから入力';
         const kind = source.name === 'int' ? '整数' : '小数';
-        return `${prompt} と聞いて、${kind}にして ${name} に入れる`;
+        if (!inner.args.length) return `キーボードから入力して、${kind}にして ${name} に入れる`;
+        return `${humanizeValue(inner.args[0])} と聞いて、${kind}にして ${name} に入れる`;
       }
+    }
+    // a, b = input().split() は、入力を空白で区切って、いくつかの変数に入れる
+    const split = matchMethod(rest);
+    const asked = split && split.action === 'split' && matchCall(split.target);
+    if (asked && asked.name === 'input' && name.includes(',')) {
+      const how = split.args.length ? `${humanizeValue(split.args[0])} で区切って` : '空白で区切って';
+      const prompt = asked.args.length ? `${humanizeValue(asked.args[0])} と聞いて` : 'キーボードから入力して';
+      return `${prompt}、${how} ${name} に入れる`;
     }
 
     return `${name} に ${humanizeValue(rest)} を入れる`;
@@ -520,11 +682,14 @@ function statementBody(statement) {
     if (method) {
       const [, target, action] = method;
       const args = call.args.map(humanizeValue);
+      if (target === 'random' && action === 'shuffle' && args.length === 1) return `${args[0]} の順番をランダムに並べかえる`;
+      if (target === 'time' && action === 'sleep' && args.length === 1) return `${args[0]} 秒待つ`;
       switch (action) {
         case 'append': return `${target} に ${args[0]} を追加する`;
         case 'remove': return `${target} から ${args[0]} を取り除く`;
         case 'insert': return `${target} の ${args[0]} 番目に ${args[1]} を入れる`;
-        case 'sort': return `${target} を並べかえる`;
+        case 'sort': return call.args.some(arg => /^reverse\s*=\s*True$/.test(arg))
+          ? `${target} を大きい順に並べかえる` : `${target} を並べかえる`;
         case 'reverse': return `${target} を逆順にする`;
         case 'clear': return `${target} を空にする`;
         case 'pop': return args.length ? `${target} から ${args[0]} 番目を取り出す` : `${target} の最後を取り出す`;
@@ -726,7 +891,7 @@ function modeWord(arg) {
  * @returns {string}
  */
 export function humanizeDefHead(head) {
-  const match = String(head).match(/^([A-Za-z_]\w*)\s*\((.*)\)$/s);
+  const match = String(head).match(/^([\p{L}_][\p{L}\p{N}_]*)\s*\((.*)\)$/su);
   if (!match) return head;
   const args = splitArgs(match[2]);
   // setup / draw などは、いつ動くのかを添える（何をする関数かが名前だけでは分からないため）

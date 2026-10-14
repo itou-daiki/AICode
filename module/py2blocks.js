@@ -79,7 +79,15 @@ function toLogicalLines(source) {
     }
   }
 
-  if (buffer) result.push(finishLogical(buffer));
+  if (buffer && depth > 0) {
+    // かっこが閉じないまま最後まで来た。うしろの行を全部 1 つの文につなぐと、
+    // 書いた行がまとめて消えたように見えるので、元の行ごとに分けて、コードのまま持つ印をつける
+    buffer.raws.forEach((raw, k) => {
+      if (raw.trim()) result.push({ indent: indentWidth(raw), text: raw.trim(), line: buffer.line + k, broken: true });
+    });
+  } else if (buffer) {
+    result.push(finishLogical(buffer));
+  }
   return result;
 }
 
@@ -171,7 +179,20 @@ function parseStatements(lines, start, parentIndent) {
   const blockIndent = lines[i].indent;
 
   while (i < lines.length && lines[i].indent >= blockIndent) {
-    if (lines[i].indent > blockIndent) { i++; continue; }
+    // 字下げが深すぎる行（: の書きわすれや、字下げのまちがい）は、消さずにコードのまま持つ。
+    // まとまりの字下げより深いぶんは残すので、書いたとおりのコードに戻る
+    if (lines[i].indent > blockIndent) {
+      const from = i;
+      while (i < lines.length && lines[i].indent > blockIndent) i++;
+      stmts.push({ kind: 'raw', startIndex: from, endIndex: i, base: blockIndent, line: lines[from].line });
+      continue;
+    }
+    // かっこが閉じないまま終わったコードの行は、1 行ずつコードのまま持つ
+    if (lines[i].broken) {
+      stmts.push({ kind: 'raw', startIndex: i, endIndex: i + 1, base: blockIndent, line: lines[i].line });
+      i++;
+      continue;
+    }
 
     const { text: fullText } = lines[i];
     // 見出しの行末コメントは切り分けて、ブロックに付ける
@@ -180,7 +201,7 @@ function parseStatements(lines, start, parentIndent) {
     const match = text.endsWith(':') ? text.match(COMPOUND_RE) : null;
 
     if (!match) {
-      stmts.push({ kind: 'simple', text: fullText, line: lines[i].line });
+      stmts.push({ kind: 'simple', text: fullText, line: lines[i].line, startIndex: i, endIndex: i + 1 });
       i++;
       continue;
     }
@@ -825,6 +846,10 @@ function callBlock(node, ctx) {
     case 'input/1':
       return { type: 'py_input', inputs: { PROMPT: one() } };
     case 'int/1':
+      // int(input(…)) は「数を入力」の 1 つのブロックにする（よく使う組み合わせなので）
+      if (a.type === 'call' && a.name === 'input' && a.args.length <= 1 && known('py_input_int')) {
+        return { type: 'py_input_int', inputs: a.args.length ? { PROMPT: input(valueBlock(a.args[0], ctx)) } : {} };
+      }
       return { type: 'py_to_int', inputs: { VALUE: one() } };
     case 'float/1':
       return { type: 'py_to_float', inputs: { VALUE: one() } };
@@ -840,11 +865,16 @@ function callBlock(node, ctx) {
       return { type: 'math_on_list', fields: { OP: 'MIN' }, inputs: { LIST: one() } };
     case 'round/2':
       return userCall(node, ctx, 'py_callv') || rawValue(node);
-    // abs と round は、Blockly の計算ブロックにすると math.fabs や import math に変わってしまうので、
-    // 書いたままの呼び出しにする
+    // abs は、Blockly の計算ブロックにすると math.fabs に変わってしまうので、書いたままの呼び出しにする
     case 'abs/1':
-    case 'round/1':
       return userCall(node, ctx, 'py_callv') || rawValue(node);
+    // round(x) は「丸める」ブロック（round(x) のまま書き戻される）
+    case 'round/1':
+      return known('math_round')
+        ? { type: 'math_round', fields: { OP: 'ROUND' }, inputs: { NUM: one() } }
+        : userCall(node, ctx, 'py_callv') || rawValue(node);
+    case 'random.choice/1':
+      return known('py_random_choice') ? { type: 'py_random_choice', inputs: { LIST: one() } } : userCall(node, ctx, 'py_callv') || rawValue(node);
     case 'math.sqrt/1':
       return { type: 'math_single', fields: { OP: 'ROOT' }, inputs: { NUM: one() } };
     case 'random.randint/2':
@@ -957,7 +987,14 @@ const ARITH_SYMBOLS = { ADD: '+', MINUS: '-', MULTIPLY: '*', DIVIDE: '/', POWER:
 function statementChain(stmts, ctx) {
   const blocks = [];
   for (const stmt of stmts) {
-    const block = statementBlock(stmt, ctx);
+    let block;
+    try {
+      block = statementBlock(stmt, ctx);
+    } catch (e) {
+      // ブロックにできない文（Data と data のように、Blockly では同じ変数になる名前など）は、
+      // その文だけをコードのまま持つ。ほかの文はブロックのまま
+      block = rawRange(stmt.startIndex, stmt.endIndex, ctx);
+    }
     if (!block) continue;
     // ステップ実行で「今どのブロックを動いているか」を示すために行番号を持たせる
     if (stmt.line && !block.data) block.data = String(stmt.line);
@@ -981,6 +1018,7 @@ function tailOf(block) {
 
 /** 1つの文をブロックに変換する */
 function statementBlock(stmt, ctx) {
+  if (stmt.kind === 'raw') return rawRange(stmt.startIndex, stmt.endIndex, ctx, stmt.base);
   if (stmt.kind === 'simple') return simpleBlock(stmt.text, ctx);
 
   // 中に、字下げより左に書いた文字列の行があるときは、まるごとコードのまま持つ（中身を変えないため）
@@ -1089,46 +1127,13 @@ function simpleBlock(text, ctx) {
   // print(…)
   const printMatch = text.match(/^print\s*\((.*)\)$/s);
   if (printMatch) {
-    const inside = printMatch[1].trim();
+    const printed = printBlock(printMatch[1].trim(), ctx);
+    if (printed) return printed;
+  }
 
-    // print() だけなら「改行する」
-    if (inside === '') return { type: 'py_newline' };
-
-    const parts = splitArguments(inside).map(part => part.trim());
-
-    // 最後が end="…" なら「改行せずに表示」
-    const endMatch = parts.length >= 1 && parts[parts.length - 1].match(/^end\s*=\s*(.+)$/s);
-    if (endMatch && parts.length === 2) {
-      const value = parseExpression(parts[0]);
-      const tail = parseExpression(endMatch[1]);
-      // end="\n" のように \ をふくむ書き方は、文字の欄では書き戻せないので、呼び出しのブロックにまかせる
-      if (value && tail && tail.type === 'string' && !(tail.src || '').includes('\\')) {
-        return {
-          type: 'py_print_end',
-          fields: { END: tail.value },
-          inputs: { TEXT: input(valueBlock(value, ctx)) },
-        };
-      }
-    }
-
-    // print(a, b) は「空白で区切って表示」
-    if (!endMatch && parts.length === 2) {
-      const a = parseExpression(parts[0]);
-      const b = parseExpression(parts[1]);
-      if (a && b) {
-        return {
-          type: 'py_print_two',
-          inputs: { A: input(valueBlock(a, ctx)), B: input(valueBlock(b, ctx)) },
-        };
-      }
-    }
-
-    if (!endMatch && parts.length === 1) {
-      const node = parseExpression(inside);
-      if (node) {
-        return { type: 'text_print', inputs: { TEXT: input(valueBlock(node, ctx)) } };
-      }
-    }
+  // time.sleep(n) は「n 秒待つ」
+  if (callNode && callNode.type === 'call' && callNode.name === 'time.sleep' && callNode.args.length === 1 && known('py_sleep')) {
+    return { type: 'py_sleep', inputs: { SECS: input(valueBlock(callNode.args[0], ctx)) } };
   }
 
   // リスト.append(式)
@@ -1164,6 +1169,45 @@ function simpleBlock(text, ctx) {
   }
 
   return rawStatement(text);
+}
+
+/**
+ * print(…) のブロック。ブロックにできなければ null
+ * @param {string} inside かっこの中
+ * @param {object} ctx
+ */
+function printBlock(inside, ctx) {
+  // print() だけなら「改行する」
+  if (inside === '') return { type: 'py_newline' };
+
+  const parts = splitArguments(inside).map(part => part.trim());
+  const last = parts[parts.length - 1];
+  const keyword = last.match(/^(end|sep)\s*=(?!=)\s*(.+)$/s);
+  const values = (keyword ? parts.slice(0, -1) : parts).map(part => parseExpression(part));
+  if (!values.length || values.some(v => !v)) return null;
+  const holes = (prefix) => Object.fromEntries(values.map((v, i) => [`${prefix}${i}`, input(valueBlock(v, ctx))]));
+
+  if (keyword) {
+    // end="\n" や sep="\t" のように \ をふくむ書き方は、文字の欄では書き戻せないので、呼び出しのブロックにまかせる
+    const tail = parseExpression(keyword[2]);
+    if (!tail || tail.type !== 'string' || (tail.src || '').includes('\\')) return null;
+    if (keyword[1] === 'end' && values.length === 1) {
+      // end="" は「改行しないで表示」
+      if (tail.value === '' && known('py_print_noline')) return { type: 'py_print_noline', inputs: { TEXT: input(valueBlock(values[0], ctx)) } };
+      return { type: 'py_print_end', fields: { END: tail.value }, inputs: { TEXT: input(valueBlock(values[0], ctx)) } };
+    }
+    const type = `py_print_sep_${values.length}`;
+    if (keyword[1] === 'sep' && known(type)) return { type, fields: { SEP: tail.value }, inputs: holes('A') };
+    return null;
+  }
+
+  if (values.length === 1) return { type: 'text_print', inputs: { TEXT: input(valueBlock(values[0], ctx)) } };
+  // print(a, b) は「空白で区切って表示」
+  if (values.length === 2) {
+    return { type: 'py_print_two', inputs: { A: input(valueBlock(values[0], ctx)), B: input(valueBlock(values[1], ctx)) } };
+  }
+  const type = `py_print_${values.length}`;
+  return known(type) ? { type, inputs: holes('A') } : null;
 }
 
 /** 複合代入の記号 */
@@ -1323,6 +1367,8 @@ function ifBlock(clauses, ctx) {
 function whileBlock(clause, ctx) {
   const node = parseExpression(clause.head);
   const body = statementChain(clause.body, ctx);
+  // while True: は「ずっとくり返す」
+  if (clause.head === 'True' && known('py_forever')) return { type: 'py_forever', inputs: body ? { DO: { block: body } } : {} };
   const inputs = {
     BOOL: input(node
       ? valueBlock(node, ctx)
@@ -1364,49 +1410,24 @@ function forBlock(clause, ctx) {
   const rangeMatch = iterableText.match(/^range\s*\((.*)\)$/s);
   if (rangeMatch) {
     const args = splitArguments(rangeMatch[1]).map(a => parseExpression(a));
-    const numbers = args.map(a => (a && a.type === 'number' ? a.value : null));
 
     // range(n) かつ Blockly が作る変数名なら「n 回繰り返す」ブロックに戻す
-    if (args.length === 1 && /^count\d*$/.test(varName)) {
+    if (args.length === 1 && args[0] && /^count\d*$/.test(varName)) {
       return {
         type: 'controls_repeat_ext',
         inputs: withBody({ TIMES: input(valueBlock(args[0], ctx)) }),
       };
     }
-    // range(n) / range(a, b) / range(a, b, c) は「a から b まで」ブロックに戻す。
-    // 終わりの値は range が「含まない」ので、1 引いた形にする。
-    // Blockly の「a から b まで」は、数がすべて決まっていて 1 ずつ以上増えるときしか
-    // range(…) のままのコードにならない（変数が入ると upRange などの長いコードになり、
-    // 減らしながらのときは終わりがずれる）。それ以外は「range(…) の中を順に」にする。
-    const plainNumbers = args.length >= 1 && numbers.every(n => n !== null && Number.isInteger(n))
-      && (args.length < 3 || numbers[2] > 0)
-      && (args.length === 1 ? numbers[0] > 0 : numbers[0] < numbers[1]);
-    if (plainNumbers) {
-      const endNode = args.length === 1 ? args[0] : args[1];
-      const to = endNode.type === 'number'
-        ? { type: 'math_number', fields: { NUM: endNode.value - 1 } }
-        : {
-          type: 'math_arithmetic',
-          fields: { OP: 'MINUS' },
-          inputs: {
-            A: input(valueBlock(endNode, ctx)),
-            B: input({ type: 'math_number', fields: { NUM: 1 } }),
-          },
-        };
-      return {
-        type: 'controls_for',
-        fields: { VAR: ctx.variable(varName) },
-        inputs: withBody({
-          FROM: input(args.length === 1
-            ? { type: 'math_number', fields: { NUM: 0 } }
-            : valueBlock(args[0], ctx)),
-          TO: input(to),
-          BY: input(args[2] ? valueBlock(args[2], ctx) : { type: 'math_number', fields: { NUM: 1 } }),
-        }),
-      };
+    // range(…) は、書いた数のまま「i を a から b の手前まで c ずつ」のブロックにする。
+    // 引数の数ごとに別のブロックにして、range(5) が range(0, 5) に変わったりしないようにする
+    const type = ['py_for_range1', 'py_for_range2', 'py_for_range'][args.length - 1];
+    if (type && args.every(Boolean) && args.every(a => a.type !== 'kwarg' && a.type !== 'star') && known(type)) {
+      const holes = args.length === 1 ? ['STOP'] : ['START', 'STOP', 'STEP'];
+      const inputs = {};
+      args.forEach((arg, k) => { inputs[holes[k]] = input(valueBlock(arg, ctx)); });
+      return { type, fields: { VAR: ctx.variable(varName) }, inputs: withBody(inputs) };
     }
   }
-
   const iterable = parseExpression(iterableText);
   return {
     type: 'controls_forEach',
@@ -1419,9 +1440,12 @@ function forBlock(clause, ctx) {
   };
 }
 
-/** 元のコードの範囲を、行番号つきの Python ブロックにする */
-function rawRange(start, end, ctx) {
-  return rawStatement(ctx.sourceRange(start, end), ctx.sourceRangeLines(start, end));
+/**
+ * 元のコードの範囲を、行番号つきの Python ブロックにする
+ * @param {number} [base] この字下げより深いぶんを、行頭の空白として残す（はじめは範囲の 1 行目の字下げ）
+ */
+function rawRange(start, end, ctx, base) {
+  return rawStatement(ctx.sourceRange(start, end, base), ctx.sourceRangeLines(start, end));
 }
 
 /**
@@ -1535,6 +1559,9 @@ export function pythonToBlocks(source, workspace) {
   const ctx = {
     /** 変数名から Blockly の変数 ID を得る（無ければ作る） */
     variable(name) {
+      // Blockly の変数は大文字と小文字を区別しない。Data と data があると、for data in Data が
+      // for Data in Data に変わってしまうので、ブロックにせずにその文をコードのまま持たせる
+      if (this.caseClash(name)) throw new Error(`大文字と小文字だけがちがう名前があります: ${name}`);
       let variable = workspace.getVariable(name, '');
       if (!variable) variable = workspace.createVariable(name, '');
       return { id: variable.getId() };
@@ -1545,10 +1572,9 @@ export function pythonToBlocks(source, workspace) {
       return Boolean(spellings && spellings.size > 1);
     },
     /** 元のコードの一部（複数行）をそのまま取り出す */
-    sourceRange(start, end) {
+    sourceRange(start, end, base = lines[start] ? lines[start].indent : 0) {
       const slice = lines.slice(start, end);
       if (!slice.length) return '';
-      const base = slice[0].indent;
       // 行をまたぐ文字列の 2 行目からは、元の行から範囲の字下げ（base）ぶんだけ取りのぞく
       const dedent = (text) => {
         let i = 0;
@@ -1575,6 +1601,19 @@ export function pythonToBlocks(source, workspace) {
   };
 
   const { stmts } = parseStatements(lines, 0, lines.length ? lines[0].indent - 1 : -1);
+
+  // 一番外側の文の前にあった空行の数。ブロックを動かしてコードを作り直しても、空行が消えないようにする。
+  // ブロックの印（data）は行番号のまま使う（ステップ実行で光らせる所を探すため）ので、
+  // 空行の数は、その行番号をかぎにして、ワークスペースに持たせておく（blockdefs.js の scrub_ が読む）
+  const rawLines = String(source).split('\n');
+  const blankLines = new Map();
+  stmts.forEach((stmt, k) => {
+    if (!k || !stmt.line) return;
+    let count = 0;
+    while (stmt.line - 2 - count >= 0 && !rawLines[stmt.line - 2 - count].trim()) count++;
+    if (count) blankLines.set(String(stmt.line), count);
+  });
+  workspace.__easycodeBlankLines = blankLines;
 
   try {
     Blockly.Events.disable();

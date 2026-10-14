@@ -60,6 +60,12 @@ export function findIndentOutliers(code) {
   rows.forEach((row, k) => {
     const prev = rows[k - 1];
     const next = rows[k + 1];
+    // 「:」で終わる行のすぐ下なのに、下げていない（中身を左はしに書いた）。かならずエラーになる
+    if (prev && prev.header && row.indent <= prev.indent) {
+      const lead = `${prev.lead}${prev.lead.includes('\t') ? '\t' : '    '}`;
+      found.push({ line: row.line, indent: row.indent, expected: prev.indent + 4, lead, afterHeader: true });
+      return;
+    }
     // 1 行目からいきなり字下げしている
     if (!prev) {
       if (row.indent > 0) found.push({ line: row.line, indent: row.indent, expected: 0, lead: '' });
@@ -128,11 +134,13 @@ export function attachIndentCheck(cm) {
       note.className = 'indent-chip-note';
       note.textContent = f.line === 0 && f.expected === 0
         ? '1 行目は字下げしない'
-        : `この行だけ字下げが ${describeIndent(f.indent)}。前後は ${describeIndent(f.expected)}`;
+        : f.afterHeader
+          ? '「:」の次の行は、空白 4 つ（Tab キー 1 回）下げて書きます'
+          : `この行だけ字下げが ${describeIndent(f.indent)}。前後は ${describeIndent(f.expected)}`;
       const fix = document.createElement('button');
       fix.type = 'button';
       fix.className = 'namefix-apply';
-      fix.textContent = f.expected % 4 === 0 && f.expected ? `Tab ${f.expected / 4} 回ぶんにそろえる` : `${f.expected} 文字にそろえる`;
+      fix.textContent = f.afterHeader ? '4 文字下げる' : '前後の行にそろえる';
       fix.title = '押すと、この行の字下げを前後の行とそろえます';
       fix.addEventListener('mousedown', (e) => e.preventDefault());
       fix.addEventListener('click', () => {

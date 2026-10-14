@@ -208,15 +208,21 @@ const NOT_ARRAY_NAMES = new Set(['range', 'print', 'input', 'len', 'int', 'str',
 /** プログラム全体を見て、配列として使われている名前を集める */
 function collectArrayNames(lines) {
   const names = new Set();
+  const lists = new Set();
+  // 文字列を入れた名前（s = input() の s[0] など）は、[ ] で読んでも配列ではない
+  const texts = new Set();
+  const textValue = new RegExp(`^([A-Za-z_]\\w*)\\s*=\\s*(${MASK_OPEN}\\d+${MASK_CLOSE}|input\\(|str\\()`);
   for (const line of lines) {
     const { body } = parseLine(line);
     const assigned = /^([A-Za-z_]\w*)\s*=\s*(\[|list\()/.exec(body);
-    if (assigned) names.add(assigned[1]);
+    if (assigned) { names.add(assigned[1]); lists.add(assigned[1]); }
+    const text = textValue.exec(body);
+    if (text) texts.add(text[1]);
     for (const m of body.matchAll(/\b([A-Za-z_]\w*)\s*\[/g)) {
       if (!NOT_ARRAY_NAMES.has(m[1])) names.add(m[1]);
     }
   }
-  return [...names].filter(name => /^[a-z]/.test(name));
+  return [...names].filter(name => /^[a-z]/.test(name) && (!texts.has(name) || lists.has(name)));
 }
 
 function capitalizeArrays(body, arrays) {
@@ -295,6 +301,9 @@ function convertBody(part, arrays, sketch = false) {
   // Data.append(x) は「Data に追加(x)」（Life is Tech 2024年度 第3回の書き方）
   body = body.replace(/^([A-Za-z_]\w*)\.append\((.*)\)$/, '$1 に追加($2)');
 
+  // Python にしか無い書き方（スライス・メソッド・sum など）は、変えずに残して知らせる
+  warning = warning || pythonOnlyWarning(body);
+
   // 制御構文
   let m;
   if ((m = /^if\s+(.+?)\s*:$/.exec(body))) body = `もし ${m[1]} ならば:`;
@@ -305,6 +314,32 @@ function convertBody(part, arrays, sketch = false) {
   else body = body.replace(/\s*;\s*/g, ' , ');
 
   return { converted: unmask(body, part.strings), warning };
+}
+
+/** Python にしか無い書き方と、その呼び名 */
+const PYTHON_ONLY = [
+  // 内包表記を先に見る（中の for … in を「in の演算子」と言わないように）
+  [/\[[^\[\]]*\bfor\b[^\[\]]*\bin\b[^\[\]]*\]/, 'リスト内包表記（[x for x in …]）'],
+  [/\[[^\[\]]*:[^\[\]]*\]/, 'スライス（x[a:b] や x[::-1]）'],
+  [/^[A-Za-z_][\w.]*(?:\[[^\]]*\])*\s*,\s*[^=]*[^=!<>]=(?!=)/, '2 つ以上の名前へ一度に入れる書き方（a, b = b, a）'],
+  [/\b(?:sum|max|min|sorted)\(/, 'sum / max / min / sorted'],
+  [/\.[A-Za-z_]\w*\s*\(/, 'メソッドの呼び出し（x.名前(…)）'],
+];
+
+/**
+ * 表記に無い Python の書き方を見つけたら、その案内を返す
+ * @param {string} body 言いかえたあとの本文（文字列は退避済み）
+ * @returns {string|null}
+ */
+function pythonOnlyWarning(body) {
+  for (const [pattern, name] of PYTHON_ONLY) {
+    if (pattern.test(body)) return `${name}は、${NOT_IN_KTPH}`;
+  }
+  // in の演算子（for i in range(…) の in は表記の「繰り返す」になるので除く）
+  if (/\bin\b/.test(body.replace(/^for\s+[A-Za-z_]\w*\s+in\s+range\(/, ''))) {
+    return `in の演算子（x in リスト）は、${NOT_IN_KTPH}`;
+  }
+  return null;
 }
 
 /** 関数名と演算子の言いかえ（文字列は退避済みなので安全） */

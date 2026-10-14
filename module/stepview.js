@@ -247,7 +247,12 @@ const stripComment = (text) => String(text || '').replace(/\s+#.*$/, '').trim();
  */
 export function explainLine(steps, index, info, getLine) {
   if (!info || !info.done || !['done', 'back', 'error'].includes(info.doneKind)) return '';
-  if (info.doneKind === 'error') return 'ここでエラーになった';
+  if (info.doneKind === 'error') {
+    // エラーのあとには、関数の終わり（return）と記録の終わり（end）が続くことがある。
+    // どれも同じ行を指すので、注釈はエラーになった最初のステップにだけ書く
+    const previous = steps[index - 1];
+    return previous && previous.event === 'line' ? 'ここでエラーになった' : '';
+  }
   const doneText = getLine(info.done);
   const text = stripComment(doneText);
   const changes = info.changes || [];
@@ -303,20 +308,54 @@ export function explainLine(steps, index, info, getLine) {
     if (branch === 'elif' || /^\s*elif\b/.test(nextText)) return `${shown} は 成り立たない → 次の elif へ`;
     return word === 'while' ? `${shown} は 成り立たない → くり返しを終える` : `${shown} は 成り立たない → とばす`;
   }
-  const defMatch = text.match(/^(?:async\s+)?def\s+([A-Za-z_]\w*)/);
+  const defMatch = text.match(/^(?:async\s+)?def\s+([\p{L}_][\p{L}\p{N}_]*)/u);
   if (defMatch) return `関数 ${defMatch[1]} を作った（中はまだ動かない）`;
 
+  // break / continue は、次にどこへ進んだかを言う
+  if (text === 'break') return info.next ? `くり返しを抜けた → ${info.next} 行目へ` : 'くり返しを抜けた';
+  if (text === 'continue') {
+    const head = String(nextText).trim().match(/^(for|while)\b/);
+    return `次のくり返しへ（${head ? head[1] : 'for/while'} の行にもどる）`;
+  }
+
   const parts = [];
+  // input( の行は、出力に出た「聞いた文字と打った文字」を、表示ではなく「受け取った」と言う
+  const asked = /\binput\s*\(/.test(text) ? describeInput(text, info.newOutput) : '';
+  if (asked) parts.push(asked);
   for (const c of changes.slice(0, 2)) {
     parts.push(c.kind === 'new'
       ? `${c.name} に ${short(c.after, 16)} が入った`
       : `${c.name} が ${short(c.before, 10)} → ${short(c.after, 12)} になった`);
   }
   if (changes.length > 2) parts.push(`ほか ${changes.length - 2} 個`);
-  if (info.newOutput) parts.push(`「${short(info.newOutput.replace(/\n$/, '').replace(/\n/g, '⏎'), 16)}」を表示した`);
+  if (asked) {
+    // 出力は、聞いた文字と打った文字なので、もう書かない
+  } else if (info.newOutput && /^\n+$/.test(info.newOutput)) {
+    parts.push('改行した');
+  } else if (info.newOutput) {
+    parts.push(`「${short(info.newOutput.replace(/\n$/, '').replace(/\n/g, '⏎'), 16)}」を表示した`);
+  }
   if (/^return\b/.test(text) && info.doneKind !== 'back') parts.push('値を返して、呼び出したところへ戻る');
   if (info.doneKind === 'back' && info.callee) parts.unshift(`${info.callee}() から戻った`);
   return parts.join('、');
+}
+
+/**
+ * input( の行で、何を聞いて何を受け取ったか
+ * 記録の出力には、聞いた文字のうしろに、打った文字と改行が続いて出ている（点数: 50⏎）。
+ * @param {string} text その行のコード（コメントは取りのぞいたもの）
+ * @param {string} newOutput その行で増えた出力
+ * @returns {string} 例「「点数: 」と聞いて 50 を受け取った」。分からなければ空
+ */
+function describeInput(text, newOutput) {
+  const call = text.match(/\binput\s*\(\s*(?:"((?:[^"\\]|\\.)*)"|'((?:[^'\\]|\\.)*)')?\s*\)/);
+  if (!call) return '';
+  const prompt = call[1] ?? call[2] ?? '';
+  const echo = String(newOutput || '');
+  const typed = (echo.startsWith(prompt) ? echo.slice(prompt.length) : echo).replace(/\n$/, '');
+  if (typed.includes('\n')) return '';
+  const value = short(typed, 16);
+  return prompt ? `「${short(prompt, 16)}」と聞いて ${value} を受け取った` : `キーボードから ${value} を受け取った`;
 }
 
 const noteMarks = new WeakMap();

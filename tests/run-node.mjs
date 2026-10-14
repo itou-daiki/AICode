@@ -11,7 +11,7 @@ import { humanizeStatement, humanizeCondition, humanizeValue, humanizeDefHead, s
 import { pythonToMermaid, parsePython } from '../module/flowchart.js';
 import { getCompletions, analyzeCode } from '../module/pycomplete.js';
 import { explainError } from '../module/pyrun.js';
-import { jsToPython, toHalfWidth, hasFullWidth, findFullWidth, pointOutFullWidth, suggestSyntaxFix, noticeSilentMistakes } from '../module/pyfix.js';
+import { jsToPython, toHalfWidth, hasFullWidth, findFullWidth, pointOutFullWidth, suggestSyntaxFix, noticeSilentMistakes, noticeCommonMistakes, noticeSketchNames } from '../module/pyfix.js';
 import { sameOutput } from '../module/grade.js';
 import { toKtph } from '../module/ktph.js';
 import { describeStep, explainLine, variableHistory } from '../module/stepview.js';
@@ -28,10 +28,11 @@ import {
   normalizeAnswer, sameAnswer, gradeTrace, gradeBlanks, gradeTests, scoreMock,
 } from '../module/grade.js';
 import {
-  normalizeProblem, findBlankKeys, fillBlanks, correctPicks, problemRef,
+  normalizeProblem, findBlankKeys, fillBlanks, correctPicks, problemRef, choiceOrder,
 } from '../module/lessons-data.js';
 import {
   loadProgress, saveDraft, getDraft, isDraftStale, clearDraft, markSolved, exportProgress, importProgress, clearProgress,
+  markTried, needsReview,
 } from '../module/lessons-progress.js';
 
 /* ============================================================
@@ -577,7 +578,7 @@ section('pyrun（エラーの言いかえ）');
   const concat = explainError(
     { type: 'TypeError', message: 'can only concatenate str (not "int") to str', line: 1, name: null },
     'print("点" + 1)');
-  check('エラー: 文字列と数値をつないだとき', concat.includes('str() や int()'), `\n  実際: ${concat}`);
+  check('エラー: 文字列と数値をつないだとき', concat.includes('str()') && concat.includes('int()'), `\n  実際: ${concat}`);
 
   const timeout = explainError({ type: 'TimeoutError', message: '時間がかかりすぎたので止めました。', line: null, name: null });
   check('エラー: 時間切れはそのまま伝える', timeout.includes('時間がかかりすぎた'), `\n  実際: ${timeout}`);
@@ -1011,7 +1012,9 @@ const colon = suggestSyntaxFix('def draw()\n    circle(1, 2, 3)', { type: 'Synta
 equal('直し方: : を足す', colon && colon.code, 'def draw():\n    circle(1, 2, 3)');
 const eq = suggestSyntaxFix('x = 5\nif x = 5:\n    print(1)', { type: 'SyntaxError', message: "invalid syntax. Maybe you meant '==' or ':=' instead of '='?", line: 2 });
 equal('直し方: = を == に', eq && eq.code, 'x = 5\nif x == 5:\n    print(1)');
-check('直し方: ふつうの Python には出さない', suggestSyntaxFix('print(1', { type: 'SyntaxError', message: "'(' was never closed", line: 1 }) === null);
+const never = suggestSyntaxFix('print(1', { type: 'SyntaxError', message: "'(' was never closed", line: 1 });
+equal('直し方: 閉じわすれの ) を足す', never && never.code, 'print(1)');
+check('直し方: 書き方が正しい行には出さない', suggestSyntaxFix('x = 1\nprint(x)', { type: 'SyntaxError', message: 'invalid syntax', line: 2 }) === null);
 
 // エラーにならないが動かないもの
 const silent = noticeSilentMistakes('def setup():\n    background(245)\n\ndef draw():\n    x = 0\n    circle(x, 200, 100)\n    x = x + 1\n');
@@ -1363,6 +1366,248 @@ section('字下げのまとまりと、ステップの注釈');
   equal('変数: 出てきた順', h.order.join(','), 'total,n');
   equal('変数: 値の移りかわり', h.history.total.join('→'), '0→3');
   equal('変数: 同じ値はまとめる', h.history.n.join('→'), '3→1');
+}
+
+section('はじめての人のまちがい（直し方と説明）');
+{
+  const fix = (code, type, message, line) => suggestSyntaxFix(code, { type, message, line });
+  const sx = (code, message, line = 1) => fix(code, 'SyntaxError', message, line);
+  equal('初心者: x++ はその行だけ直す（字下げを残す）', sx('x = 0\nfor i in range(3):\n    x++\nprint(x)', 'invalid syntax', 3)?.code, 'x = 0\nfor i in range(3):\n    x += 1\nprint(x)');
+  equal('初心者: else if は elif（字下げを残す）', sx('if x == 1:\n    print(1)\nelse if x == 2:\n    print(2)', 'expected \':\'', 3)?.code, 'if x == 1:\n    print(1)\nelif x == 2:\n    print(2)');
+  equal('初心者: 「」で囲んだ文字は " " に', sx('print(「こんにちは」)', "invalid character '「' (U+300C)", 1)?.code, 'print("こんにちは")');
+  equal('初心者: print のかっこ', sx('print "x"', "Missing parentheses in call to 'print'. Did you mean print(...)?")?.code, 'print("x")');
+  equal('初心者: 閉じていない文字', sx('print("こんにちは)', 'unterminated string literal (detected at line 1)')?.code, 'print("こんにちは")');
+  equal('初心者: 種類のちがう引用符で閉じた', sx('print("こんにちは\')', 'unterminated string literal (detected at line 1)')?.code, 'print("こんにちは")');
+  equal('初心者: 多い )', sx('print("a"))', "unmatched ')'")?.code, 'print("a")');
+  equal('初心者: => は >=', sx('if x => 3:\n    pass', 'invalid syntax')?.code, 'if x >= 3:\n    pass');
+  equal('初心者: else を中身と同じ深さに書いた', sx('if x == 1:\n    print(1)\n    else:\n    print(2)', 'invalid syntax', 3)?.code, 'if x == 1:\n    print(1)\nelse:\n    print(2)');
+
+  const hint = (code, type, message, line = 1) => explainError({ type, message, line }, code).split('\n').filter(l => l.startsWith('→')).join('');
+  check('初心者: prnt は print の打ちまちがい', hint('prnt(1)', 'NameError', "name 'prnt' is not defined").includes('print'));
+  check('初心者: 引用符をわすれた日本語', hint('print(こんにちは)', 'NameError', "name 'こんにちは' is not defined").includes('print("こんにちは")'));
+  check('初心者: 日本語入力のまま', hint('ぷりんt(1)', 'NameError', "name 'ぷりんt' is not defined").includes('日本語入力'));
+  check('初心者: input の値に足す', hint('n = input()\nprint(n + 1)', 'TypeError', 'can only concatenate str (not "int") to str', 2).includes('int(n)'));
+  check('初心者: for i in 10', hint('for i in 10:\n    pass', 'TypeError', "'int' object is not iterable").includes('range(10)'));
+  check('初心者: return わすれ', hint('x = f() + 1', 'TypeError', "unsupported operand type(s) for +: 'NoneType' and 'int'").includes('return'));
+  check('初心者: 小数を int に', hint('int("3.5")', 'ValueError', "invalid literal for int() with base 10: '3.5'").includes('float'));
+  check('初心者: 何も入力しない', hint('int(input())', 'ValueError', "invalid literal for int() with base 10: ''").includes('何も入力'));
+  check('初心者: class は名前にできない', hint('class = 1', 'SyntaxError', 'invalid syntax').includes('class'));
+  check('初心者: import の打ちまちがい', hint('import randam', 'ModuleNotFoundError', "No module named 'randam'").includes('random'));
+  check('初心者: def の中身を下げわすれ', hint('def f():\nreturn 1', 'IndentationError', 'expected an indented block after function definition on line 1', 2).includes('1 行目の def'));
+
+  const after = findIndentOutliers('for i in range(3):\nprint(i)');
+  check('初心者: 「:」の次の行を下げわすれたら、書いている途中に知らせる', after.length === 1 && after[0].afterHeader && after[0].expected === 4);
+  const three = suggestFix('for i in range(3):\n    print(i)\n   print("end")', { type: 'IndentationError', message: 'unindent does not match any outer indentation level', line: 3 });
+  equal('初心者: 空白 3 つは近い 4 つにそろえる', three?.code.split('\n')[2], '    print("end")');
+
+  const common = noticeCommonMistakes('x = 0\nx =+ 1\ndef hi():\n    pass\nhi\nname = "a"\nprint("{name}さん")\nif x == 1 or 2:\n    pass');
+  check('初心者: =+ に気づく', common.some(n => n.includes('+=')));
+  check('初心者: ( ) をつけない関数', common.some(n => n.includes('hi()')));
+  check('初心者: f のつけわすれ', common.some(n => n.includes('f"')));
+  check('初心者: == 1 or 2', common.some(n => n.includes('x == 2')));
+  check('初心者: ふつうのコードには何も言わない', noticeCommonMistakes('x = 1\nx += 1\nprint(f"{x}")\nif x == 1 or x == 2:\n    print(x)').length === 0);
+  check('スケッチ: def Draw は呼ばれない', noticeSketchNames('def Draw():\n    pass')[0].includes('draw'));
+  check('スケッチ: くり返しの中で数えるのは正しい', noticeSilentMistakes('def draw():\n    i = 0\n    while i < 3:\n        i += 1').length === 0);
+}
+
+section('レッスンの答え合わせのゆれ・選択肢の順・要復習・表記の警告');
+{
+  // 区切り・数の書き方・引用符・かっこのゆれは、同じ答えとみなす
+  check('答え: 5,5 は 5 5 と同じ', sameAnswer('5,5', '5 5'));
+  check('答え: 5、5 は 5 5 と同じ', sameAnswer('5、5', '5 5'));
+  check('答え: 5，5（全角のカンマ）は 5 5 と同じ', sameAnswer('5，5', '5 5'));
+  check('答え: 80 と 80.0 はちがう（/ と ÷ のちがいを問う問題がある）', !sameAnswer('80', '80.0'));
+  check('答え: 3.0 と 3 はちがう', !sameAnswer('3.0', '3'));
+  check('答え: 文の中の , は区切りにしない', !sameAnswer('Hello World', 'Hello, World'));
+  check('答え: 数の並びは , で区切ってもよい', sameAnswer('5,5', '5 5'));
+  check('答え: 2.5 と 25 はちがう', !sameAnswer('2.5', '25'));
+  check('答え: 「合格」は 合格 と同じ', sameAnswer('「合格」', '合格'));
+  check('答え: 『合格』も同じ', sameAnswer('『合格』', '合格'));
+  check('答え: "合格" も同じ', sameAnswer('"合格"', '合格'));
+  check("答え: 'abc' も同じ", sameAnswer("'abc'", 'abc'));
+  check('答え: 正解に引用符があれば、引用符なしはちがう', !sameAnswer('abc', "'abc'"));
+  check('答え: かっこなしの 2 1 3 は [2, 1, 3] と同じ', sameAnswer('2 1 3', '[2, 1, 3]'));
+  check('答え: かっこなしの 2,1,3 も同じ', sameAnswer('2,1,3', '[2, 1, 3]'));
+  check('答え: 数が足りなければちがう', !sameAnswer('2 1', '[2, 1, 3]'));
+  check('答え: 順番がちがえばちがう', !sameAnswer('1 2 3', '[2, 1, 3]'));
+  check("答え: 文字のリストは引用符まで答える", !sameAnswer('a b', "['a', 'b']") && sameAnswer("'a' 'b'", "['a', 'b']"));
+  check('答え: 入れ子のリストはかっこが要る', !sameAnswer('1 2 3', '[[1, 2], [3]]'));
+  check('答え: true は True と同じ', sameAnswer('true', 'True'));
+  check('答え: false は False と同じ', sameAnswer('false', 'False'));
+  check('答え: TRUE はちがう', !sameAnswer('TRUE', 'True'));
+  check('答え: True に true は、逆向きには許さない', !sameAnswer('True', 'true'));
+  check('答え: ほかの言葉の大文字小文字は区別する', !sameAnswer('fizz', 'Fizz'));
+  check('答え: 数のあいだの空白は残す（ゆれを許しても）', !sameAnswer('2,15', '215'));
+
+  // accept: 別の書き方の正解
+  {
+    const problem = normalizeProblem({ id: 'a', question: '？', program: 'print(1)', answer: '3 2', accept: '3あまり2' }, 'intro', 'l');
+    check('データ: accept は並びにそろえる', Array.isArray(problem.accept) && problem.accept[0] === '3あまり2');
+    check('トレース: accept の答えも正解', gradeTrace(problem, '3あまり2').ok);
+    check('トレース: もとの答えも正解', gradeTrace(problem, '3,2').ok);
+    check('トレース: どれでもなければ不正解', !gradeTrace(problem, '2 3').ok);
+    equal('トレース: 見せる正解は answer', gradeTrace(problem, 'x').expected, '3 2');
+  }
+
+  // 選択肢の見せる順
+  {
+    const a = choiceOrder(4, 'kyotsu#max-value#ア');
+    equal('選択肢: 同じ問題なら毎回同じ順', a.join(','), choiceOrder(4, 'kyotsu#max-value#ア').join(','));
+    equal('選択肢: もとの番号をちょうど 1 回ずつ含む', [...a].sort().join(','), '0,1,2,3');
+    const firsts = new Set();
+    for (let i = 0; i < 40; i++) firsts.add(choiceOrder(4, `c#p${i}`)[0]);
+    check('選択肢: 問題によって先頭が変わる（いつも正解が先頭にならない）', firsts.size >= 3, `\n  先頭: ${[...firsts]}`);
+    equal('選択肢: 0 個でも落ちない', choiceOrder(0, 'x').length, 0);
+  }
+
+  // 模試: 何と答えたかを残す
+  {
+    const set = { problems: [{ ref: 'a#1', points: 40 }, { ref: 'a#2', points: 60 }] };
+    const result = scoreMock(set, {
+      'a#1': { ok: true, given: '3', expected: '3' },
+      'a#2': { ok: false, given: '（とばした）', expected: '【ア】x' },
+    });
+    equal('模試: 答えの記録つきでも点数を出す', result.score, 40);
+    equal('模試: 答えを行に残す', result.rows[1].given, '（とばした）');
+    equal('模試: 正解を行に残す', result.rows[1].expected, '【ア】x');
+    check('模試: 古い形（true/false）も読める', scoreMock(set, { 'a#2': true }).score === 60);
+  }
+
+  // 要復習: 1 回目の正誤
+  {
+    clearProgress();
+    markTried('r#1', false);
+    markTried('r#1', true);
+    markSolved('r#1');
+    markTried('r#2', true);
+    markSolved('r#2');
+    check('要復習: 1 回目でまちがえた問題', needsReview('r#1'));
+    check('要復習: 1 回目で正解した問題は入らない', !needsReview('r#2'));
+    check('要復習: まだ答えていない問題は入らない', !needsReview('r#3'));
+    equal('要復習: 解けた記録にも 1 回目の正誤を残す', loadProgress().solved['r#1'].firstTry, false);
+    const file = exportProgress();
+    clearProgress();
+    importProgress(file);
+    check('要復習: 持ち運んでも残る', needsReview('r#1') && !needsReview('r#2'));
+    clearProgress();
+  }
+
+  // 表記: Python にしか無い書き方は、変えずに知らせる
+  {
+    const warned = (code) => toKtph(code).warnings.length > 0;
+    check('表記の警告: スライス', warned('x = Data[1:3]'));
+    check('表記の警告: 逆順のスライス', warned('print(s[::-1])'));
+    check('表記の警告: メソッドの呼び出し', warned('t = s.upper()'));
+    check('表記の警告: sum', warned('t = sum(Data)'));
+    check('表記の警告: max', warned('m = max(a, b)'));
+    check('表記の警告: sorted', warned('Data = sorted(Data)'));
+    check('表記の警告: 条件の中の in', warned('if 3 in Data:\n    print(1)'));
+    check('表記の警告: 入れかえの a, b = b, a', warned('a, b = b, a'));
+    check('表記の警告: リスト内包表記', warned('y = [i * 2 for i in range(3)]'));
+    check('表記の警告: append は表記にあるので出さない', !warned('Data.append(3)'));
+    check('表記の警告: 乱数は表記にあるので出さない', !warned('x = int(random.random() * 6) + 1'));
+    check('表記の警告: for i in range は出さない', !warned('for i in range(0, 3):\n    print(i)'));
+    check('表記の警告: 文字列の中は見ない', !warned('print("a.b(c) in [1:2]")'));
+    check('表記の警告: 比べる式のカンマは入れかえではない', !warned('print(a, b == c)'));
+    equal('表記: 文字列を入れた名前は大文字にしない', toKtph('s = input()\nprint(s[0])').text, 's = 【外部からの入力】\n表示する(s[0])');
+    equal('表記: 文字を入れた名前も大文字にしない', toKtph('moji = "abc"\nprint(moji[1])').text, 'moji = "abc"\n表示する(moji[1])');
+    equal('表記: リストを入れた名前は大文字にする', toKtph('data = [1, 2]\nprint(data[0])').text, 'Data = [1, 2]\n表示する(Data[0])');
+  }
+}
+
+section('フローチャートの言いかえ（かっこ・つなげた比較・日本語の名前）と、ステップの注釈');
+{
+  // 全体を包むかっこだけを外す。(a > 0) and (b > 0) の外側をはがして、まちがった文にしない
+  equal('かっこ: 2 つの条件', humanizeCondition('(a > 0) and (b > 0)'), 'a は 0 より大きい かつ b は 0 より大きい？');
+  equal('かっこ: 全体を包む条件', humanizeCondition('(x == 3)'), 'x は 3 と等しい？');
+  equal('かっこ: 計算はそのまま', humanizeStatement('x = (a + b) * (c + d)'), 'x に (a + b) * (c + d) を入れる');
+  equal('かっこ: print の中の計算', humanizeStatement('print((a+1)*(b+1))'), '(a+1)*(b+1) を表示する');
+  equal('かっこ: 2 つの呼び出しの足し算', humanizeValue('f(1) + g(2)'), 'f(1) + g(2)');
+  equal('入力: 空白で区切って入れる', humanizeStatement('a, b = input().split()'), 'キーボードから入力して、空白で区切って a, b に入れる');
+  equal('入力: 聞かずに整数にする', humanizeStatement('n = int(input())'), 'キーボードから入力して、整数にして n に入れる');
+  // つなげた比較・not
+  equal('比較: 0 < x < 10', humanizeCondition('0 < x < 10'), 'x は 0 より大きく 10 より小さい？');
+  equal('比較: 1 <= x <= 10', humanizeCondition('1 <= x <= 10'), 'x は 1 以上で 10 以下？');
+  equal('比較: not x == 3', humanizeCondition('not x == 3'), 'x は 3 と等しくない？');
+  equal('比較: not (x < 3)', humanizeCondition('not (x < 3)'), 'x は 3 以上？');
+  // 真偽値は、コードの言葉のまま意味を添える
+  equal('値: True', humanizeStatement('flag = True'), 'flag に True（はい） を入れる');
+  equal('値: False', humanizeValue('False'), 'False（いいえ）');
+  // 日本語の名前
+  equal('名前: 日本語の名前を増やす', humanizeStatement('合計 += 1'), '合計 を 1 増やす');
+  equal('名前: 日本語の名前の x = x + 1', humanizeStatement('合計 = 合計 + 3'), '合計 を 3 増やす');
+  equal('名前: 日本語の関数', humanizeDefHead('平均(a, b)'), '関数 平均（a、b を受け取る）');
+  // よく使うメソッドと関数
+  equal('メソッド: isdigit', humanizeCondition('s.isdigit()'), 's が数字だけでできている？');
+  equal('メソッド: upper', humanizeStatement('t = s.upper()'), 't に s を大文字にしたもの を入れる');
+  equal('メソッド: replace', humanizeValue('s.replace("a", "b")'), 's の「a」を「b」に置きかえたもの');
+  equal('メソッド: join', humanizeValue('",".join(Words)'), 'Words を「,」でつないだ文字');
+  equal('メソッド: split', humanizeValue('s.split(",")'), 's を「,」で区切ったリスト');
+  equal('メソッド: find', humanizeValue('s.find("a")'), 's の中で「a」が最初に見つかる位置');
+  equal('メソッド: startswith', humanizeCondition('s.startswith("a")'), 's が「a」で始まる？');
+  equal('関数: random.choice', humanizeValue('random.choice(Data)'), 'Data からランダムに選んだ 1 つ');
+  equal('関数: random.shuffle', humanizeStatement('random.shuffle(Data)'), 'Data の順番をランダムに並べかえる');
+  equal('関数: pow', humanizeValue('pow(2, 10)'), '2 の 10 乗');
+  equal('関数: sorted の大きい順', humanizeValue('sorted(a, reverse=True)'), 'a を大きい順に並べたもの');
+  equal('関数: time.sleep', humanizeStatement('time.sleep(2)'), '2 秒待つ');
+  equal('import: as', humanizeStatement('import random as r'), 'random を r という名前で使えるようにする');
+  equal('値: range を減らしながら', humanizeValue('range(10, 0, -2)'), '10 から 0 の手前まで（2 ずつ減らしながら）');
+
+  const labels = (code) => [...pythonToMermaid(code).definition.matchAll(/"([^"]*)"/g)].map(m => m[1]);
+  check('図: range を減らしながらは「2 減らす」', labels('for i in range(10, 0, -2):\n    print(i)').includes('i を 2 減らす'));
+  check('図: 日本語の名前の range', labels('for 番号 in range(3):\n    print(番号)').includes('番号 は 3 より小さい？'));
+  const two = labels('x = 1; y = 2');
+  check('図: ; で並べた文は 2 つの図形', two.includes('x に 1 を入れる') && two.includes('y に 2 を入れる'), `\n  ${two.join(' / ')}`);
+  const forever = pythonToMermaid('while True:\n    n = int(input())\n    if n == 0:\n        break\n    continue\nprint(n)').definition;
+  check('図: while True は「ずっとくり返す」', forever.includes('{{"ずっとくり返す"}}'), `\n${forever}`);
+  check('図: break と continue の言葉', forever.includes('"くり返しを抜ける"') && forever.includes('"次のくり返しへ"'), `\n${forever}`);
+  check('図: 抜けないくり返しには終了を置かない', !pythonToMermaid('while True:\n    pass').definition.includes('終了'));
+
+  // ステップの注釈
+  const V = (o) => Object.fromEntries(Object.entries(o).map(([k, v]) => [k, { repr: String(v) }]));
+  const S = (line, vars, output = '', event = 'line') => ({ line, event, func: '<module>', vars: V(vars), output });
+  const noteOf = (L, st, i, status) => explainLine(st, i, describeStep(st, i, status), (n) => L[n - 1] || '');
+  {
+    const L = ['for i in [1, 2]:', '    if i == 1:', '        continue', '    break', 'print(i)'];
+    const st = [S(1, {}), S(2, { i: 1 }), S(3, { i: 1 }), S(1, { i: 1 }), S(2, { i: 2 }), S(4, { i: 2 }), S(5, { i: 2 })];
+    equal('注釈: continue', noteOf(L, st, 3), '次のくり返しへ（for の行にもどる）');
+    equal('注釈: break は抜けた先の行', noteOf(L, st, 6), 'くり返しを抜けた → 5 行目へ');
+  }
+  {
+    const L = ['x = int(input("点数: "))', 'print()', 'print(x)'];
+    const st = [S(1, {}), S(2, { x: 50 }, '点数: 50\n'), S(3, { x: 50 }, '点数: 50\n\n'), S(3, { x: 50 }, '点数: 50\n\n50\n', 'return')];
+    equal('注釈: input は聞いて受け取った', noteOf(L, st, 1), '「点数: 」と聞いて 50 を受け取った、x に 50 が入った');
+    equal('注釈: print() は改行した', noteOf(L, st, 2), '改行した');
+  }
+  {
+    const L = ['def f():', '    return 1 / 0', 'f()'];
+    const F = (line, event = 'line') => ({ line, event, func: 'f', vars: {}, output: '' });
+    const st = [S(1, {}), S(3, {}), F(2), F(2, 'return'), { line: 2, event: 'end', func: 'f', vars: {}, output: '' }];
+    const status = { error: 'ZeroDivisionError' };
+    equal('注釈: エラーは 1 回だけ書く（はじめ）', noteOf(L, st, 3, status), 'ここでエラーになった');
+    equal('注釈: エラーは 1 回だけ書く（終わり）', noteOf(L, st, 4, status), '');
+  }
+}
+
+section('見直しで見つかった、まちがった案内を出さないこと');
+{
+  const hint = (code, message, type = 'NameError') => explainError({ type, message, line: 1 }, code);
+  check('// 案内: 10 // x は本当の割り算なので、コメントの案内を出さない',
+    !hint('y = 10 // x\n', "name 'x' is not defined").includes('# で書きます'));
+  check('// 案内: // のあとに日本語のメモがあれば、コメントの案内を出す',
+    hint('print(1) // メモ x\n', "name 'x' is not defined").includes('# で書きます'));
+  check('None 案内: b = a.sort() には、sort が値を返さないと言う',
+    hint('a = [3, 1]\nb = a.sort()\nprint(b[0])\n', "'NoneType' object is not subscriptable", 'TypeError').includes('sort()'));
+  const unterminated = { type: 'SyntaxError', message: 'unterminated string literal (detected at line 1)', line: 1 };
+  equal('文字を閉じる: input("名前: の : は文字の中に残す',
+    suggestSyntaxFix('name = input("名前:\n', unterminated)?.code, 'name = input("名前:"\n');
+  equal('文字を閉じる: if の行の : は文字の外に出す',
+    suggestSyntaxFix('if x == "a:\n', unterminated)?.code, 'if x == "a":\n');
+  for (const name of ['list1', 'sum1', 'inputs']) {
+    equal(`名前の候補: ${name} を組み込みの名前に直さない`, suggestName(name, 'x = 1'), null);
+  }
+  check('答え: "5" は文字列なので、数の 5 とは区別する', !sameAnswer('"5"', '5'));
+  check('答え: 「5」は、かぎかっこを外して 5 とみなす', sameAnswer('「5」', '5'));
 }
 
 /* ============================================================

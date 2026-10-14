@@ -5,5 +5,19 @@
   "expected": "23",
   "template": "# 3つの数値を入力\nnum1 = int(input())\nnum2 = int(input())\nnum3 = int(input())\n\n# 最大値を見つけて出力\n# ヒント：max関数を使うか、if文で比較\n",
   "solution": "num1 = int(input())\nnum2 = int(input())\nnum3 = int(input())\nprint(max(num1, num2, num3))\n",
-  "hint": "3 つのうちいちばん大きいものを選びます。`max()` を使うか、`if` で 2 つずつ見くらべます。"
+  "hint": "3 つのうちいちばん大きいものを選びます。`max()` を使うか、`if` で 2 つずつ見くらべます。",
+  "tests": [
+    {
+      "input": "15\n8\n23",
+      "expected": "23"
+    },
+    {
+      "input": "30\n8\n12",
+      "expected": "30"
+    },
+    {
+      "input": "5\n41\n9",
+      "expected": "41"
+    }
+  ]
 }

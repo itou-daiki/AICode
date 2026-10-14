@@ -134,10 +134,17 @@
       #shell { height: auto; flex-direction: column; }
       .sidebar { flex-basis: auto; width: auto; border-right: none; border-bottom: 1px solid var(--c-line); }
       #workbench { flex-direction: column; }
-      .stage-column { min-height: 460px; }
+      /* 区画の見出しと記号ボタンが何段にもなるぶん、コードを書く場所が潰れないよう高さをとる */
+      .stage-column { min-height: 560px; }
       .side-column { flex: 1 1 auto; }
+      /* 実行結果は、エラーの案内（押せば直るボタン・つまずき解説）まで見えるよう、中でスクロールする */
+      #panel-output { flex: 0 0 auto; min-height: 180px; }
+      #panel-output .panel-body { overflow-y: auto; max-height: 55vh; }
       /* 縦に積むときは区画の高さが決まらないので、大きなキャンバスは区画の中でスクロールさせる */
       #canvas-body { max-height: 75vh; }
+    }
+    @media (max-width: 600px) {
+      .stage-column { min-height: 680px; }
     }
   </style>
 </head>
@@ -158,9 +165,9 @@
       <button id="run-btn" class="btn btn-run" disabled><svg viewBox="0 0 20 20" class="icon" aria-hidden="true"><path d="M6 4l10 6-10 6z"/></svg>実行</button>
       <button id="stop-btn" class="btn" disabled><svg viewBox="0 0 20 20" class="icon" aria-hidden="true"><path d="M5 5h10v10H5z"/></svg>停止</button>
       <span class="topbar-divider"></span>
-      <button id="share-btn" class="btn" title="今のコードが入ったリンクを作ります"><svg viewBox="0 0 20 20" class="icon" aria-hidden="true"><path d="M6 10a2 2 0 1 1-4 0 2 2 0 0 1 4 0z"/><path d="M18 5a2 2 0 1 1-4 0 2 2 0 0 1 4 0z"/><path d="M18 15a2 2 0 1 1-4 0 2 2 0 0 1 4 0z"/><path d="m6 9 8-3M6 11l8 3"/></svg>共有</button>
-      <button id="clear-btn" class="btn"><svg viewBox="0 0 20 20" class="icon" aria-hidden="true"><path d="M4 6h12"/><path d="M7 6V4h6v2"/><path d="M6 6l1 11h6l1-11"/></svg>全消去</button>
+      <button id="share-btn" class="btn" title="今のコードが入ったリンクを作ります"><svg viewBox="0 0 20 20" class="icon" aria-hidden="true"><path d="M6 10a2 2 0 1 1-4 0 2 2 0 0 1 4 0z"/><path d="M18 5a2 2 0 1 1-4 0 2 2 0 0 1 4 0z"/><path d="M18 15a2 2 0 1 1-4 0 2 2 0 0 1 4 0z"/><path d="m6 9 8-3M6 11l8 3"/></svg>リンクを作る</button>
       <button id="save-png" class="btn"><svg viewBox="0 0 20 20" class="icon" aria-hidden="true"><path d="M4 4h9l3 3v9H4z"/><path d="M7 4v4h5V4"/><path d="M7 16v-4h6v4"/></svg>画像を保存</button>
+      <button id="clear-btn" class="btn btn-danger btn-clear" title="コードを最初の形に戻し、キャンバスも消します"><svg viewBox="0 0 20 20" class="icon" aria-hidden="true"><path d="M4 6h12"/><path d="M7 6V4h6v2"/><path d="M6 6l1 11h6l1-11"/></svg>すべて消す</button>
     </div>
 
     <div class="topbar-end">
@@ -177,9 +184,10 @@
     <aside id="sidebar" class="sidebar">
       <p class="sidebar-title">ヒント</p>
 
-      <details class="expander" open>
+      <details class="expander" id="sketch-howto" open>
         <summary><svg viewBox="0 0 20 20" class="icon" aria-hidden="true"><path d="M10 3v3"/><path d="M10 6 5 17M10 6l5 11"/><path d="M6.5 13.5h7"/></svg>03 スケッチの使い方</summary>
         <div class="expander-body stack">
+          <p><strong>はじめは</strong>：① 「サンプル」のタブから選ぶ → ②「実行」を押す。サンプルは <code>draw()</code> の中に足されます。</p>
           <p>キャンバスは <strong>400 × 400</strong>。左上が <code>(0, 0)</code>、右下が <code>(400, 400)</code> です。</p>
           <p><strong>そのまま描く</strong>：<code>circle(200, 200, 100)</code> などを並べると、その順に1回だけ描かれます。</p>
           <p>書き方は <a href="https://p5js.org/reference/" target="_blank" rel="noopener"><strong>p5.js のリファレンス</strong></a>と同じです。<code>strokeWeight(4)</code> のような英語のつづりも、<code>stroke_weight(4)</code> のような Python らしいつづりも、どちらでも動きます。</p>
@@ -192,11 +200,14 @@
       <details class="expander">
         <summary><svg viewBox="0 0 20 20" class="icon" aria-hidden="true"><path d="M3 5h3M3 10h3M3 15h3"/><path d="M9 5h8M9 10h8M9 15h8"/></svg>キーボード操作</summary>
         <div class="expander-body keylist">
-          <div><span class="keys"><kbd>Tab</kbd></span><span>字下げ（スペース4つ）／補完の確定</span></div>
+          <div><span class="keys"><kbd>Enter</kbd></span><span><code>:</code> のあとで押すと、次の行が自動で 1 段下がる</span></div>
+          <div><span class="keys"><kbd>Backspace</kbd></span><span>行の頭で 1 回押すと、1 段もどる</span></div>
+          <div><span class="keys"><kbd>Tab</kbd></span><span>字下げ（スペース4つ）／薄い字の候補を入れる</span></div>
           <div><span class="keys"><kbd>Shift</kbd><kbd>Tab</kbd></span><span>字下げを1段もどす</span></div>
           <div><span class="keys"><kbd>Ctrl</kbd><kbd>Space</kbd></span><span>補完の候補一覧（描画の命令も出ます）</span></div>
           <div><span class="keys"><kbd>Ctrl</kbd><kbd>/</kbd></span><span>コメントの切り替え</span></div>
-          <div><span class="keys"><kbd>Ctrl</kbd><kbd>⇧</kbd><kbd>F</kbd></span><span>コード整形（<kbd>Shift</kbd><kbd>Alt</kbd><kbd>F</kbd> でも同じ）</span></div>
+          <div><span class="keys"><kbd>Ctrl</kbd><kbd>⇧</kbd><kbd>F</kbd></span><span>すき間をととのえる（<kbd>Shift</kbd><kbd>Alt</kbd><kbd>F</kbd> でも同じ）</span></div>
+          <div><span class="keys"><kbd>⇅</kbd></span><span>カーソルのある行の左に出る ⇅ をつかんで上下に動かすと、行を動かせます（<kbd>Alt</kbd><kbd>↑</kbd><kbd>↓</kbd> でも同じ）</span></div>
           <div><span class="keys"><kbd>Esc</kbd></span><span>補完を取り消す／拡大を戻す</span></div>
         </div>
       </details>
@@ -222,23 +233,17 @@
 
       <p class="sidebar-title">AIサポート</p>
 
-      <details class="expander">
+      <!-- AI の相談とチャットは、API キーが入るまで隠しておく（drawing.js） -->
+      <details class="expander" id="ai-box" style="display:none">
         <summary><svg viewBox="0 0 20 20" class="icon" aria-hidden="true"><path d="M5 8h10v7H5z"/><path d="M10 5v3"/><path d="M7.5 11h1M11.5 11h1"/></svg>AI に相談</summary>
         <div class="expander-body stack">
-          <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noopener">Gemini API キーを取得する →</a>
-          <div id="api-key-form" class="field">
-            <label for="api-key">APIキー</label>
-            <input type="password" id="api-key" placeholder="Gemini APIキー">
-            <button id="save-api-key" class="btn btn-mark btn-sm btn-block">保存</button>
-          </div>
-          <div id="api-key-status" class="muted" style="font-size:var(--text-xs);"></div>
           <button id="btn-review" class="btn btn-sm btn-block">AI 添削</button>
           <button id="ai-fix-code" class="btn btn-sm btn-block">AI 修正</button>
           <div id="review" style="font-size:var(--text-sm); white-space:pre-wrap;"></div>
         </div>
       </details>
 
-      <details class="expander">
+      <details class="expander" id="chat-box" style="display:none">
         <summary><svg viewBox="0 0 20 20" class="icon" aria-hidden="true"><path d="M3 4h14v9H8l-5 4z"/></svg>AI チャット</summary>
         <div class="expander-body">
           <div id="chat-container">
@@ -248,6 +253,19 @@
               <button id="chat-send" class="btn btn-mark btn-sm">送信</button>
             </div>
           </div>
+        </div>
+      </details>
+      <details class="expander" id="ai-key-box">
+        <summary><svg viewBox="0 0 20 20" class="icon" aria-hidden="true"><path d="M7 11a3 3 0 1 1 2.8-4H17v3h-2v2h-2v-2H9.8A3 3 0 0 1 7 11z"/></svg>AI を使う（先生向け）</summary>
+        <div class="expander-body stack">
+          <p>Gemini の API キーを入れると、「AI に相談」と「AI チャット」が出てきます。キーが無くても、ほかの機能はすべて使えます。</p>
+          <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noopener">Gemini API キーを取得する →</a>
+          <div id="api-key-form" class="field">
+            <label for="api-key">APIキー</label>
+            <input type="password" id="api-key" placeholder="Gemini APIキー">
+            <button id="save-api-key" class="btn btn-mark btn-sm btn-block">保存</button>
+          </div>
+          <div id="api-key-status" class="muted" style="font-size:var(--text-xs);"></div>
         </div>
       </details>
       <details class="expander">
@@ -272,24 +290,26 @@
         <div class="stage-holder">
           <section class="panel" id="panel-code" data-stage>
             <div class="panel-head">
-              <span class="panel-title"><span class="lane">A</span><svg viewBox="0 0 20 20" class="icon" aria-hidden="true"><path d="M7 6 3 10l4 4"/><path d="m13 6 4 4-4 4"/></svg>Python コード <span class="chip is-live" id="sync-chip">ブロックと同期中</span></span>
+              <span class="panel-title"><span class="lane">A</span><svg viewBox="0 0 20 20" class="icon" aria-hidden="true"><path d="M7 6 3 10l4 4"/><path d="m13 6 4 4-4 4"/></svg>Python コード <span class="chip is-live" id="sync-chip">ブロックと連動中</span></span>
               <span class="panel-tools">
-                <button class="tool-btn" id="code-undo" title="元に戻す（Ctrl+Z）" aria-label="コードを元に戻す"><svg viewBox="0 0 20 20" class="icon" aria-hidden="true"><path d="M4 9h8a4 4 0 1 1 0 8H8"/><path d="M7 6 4 9l3 3"/></svg></button>
-                <button class="tool-btn" id="code-redo" title="やり直す（Ctrl+Shift+Z）" aria-label="コードをやり直す"><svg viewBox="0 0 20 20" class="icon" aria-hidden="true"><path d="M16 9H8a4 4 0 1 0 0 8h4"/><path d="m13 6 3 3-3 3"/></svg></button>
-                <button class="tool-btn" id="code-indent" title="字下げをそろえます"><svg viewBox="0 0 20 20" class="icon" aria-hidden="true"><path d="M3 5h14M7 10h10M7 15h10"/><path d="M3 8l2 2-2 2"/></svg>字下げ</button>
-                <button class="tool-btn" id="code-format" title="記号まわりの空白や空行も整えます"><svg viewBox="0 0 20 20" class="icon" aria-hidden="true"><path d="M3 5h14M3 10h9M3 15h12"/></svg>整形</button>
+                <button class="tool-btn" id="code-undo" title="元に戻す（Ctrl+Z）" aria-label="コードを元に戻す"><svg viewBox="0 0 20 20" class="icon" aria-hidden="true"><path d="M4 9h8a4 4 0 1 1 0 8H8"/><path d="M7 6 4 9l3 3"/></svg><span class="touch-label">戻す</span></button>
+                <button class="tool-btn" id="code-redo" title="やり直す（Ctrl+Shift+Z）" aria-label="コードをやり直す"><svg viewBox="0 0 20 20" class="icon" aria-hidden="true"><path d="M16 9H8a4 4 0 1 0 0 8h4"/><path d="m13 6 3 3-3 3"/></svg><span class="touch-label">やり直す</span></button>
+                <button class="tool-btn" id="code-indent" title="行のはじめの空白を、4 文字ずつにそろえます"><svg viewBox="0 0 20 20" class="icon" aria-hidden="true"><path d="M3 5h14M7 10h10M7 15h10"/><path d="M3 8l2 2-2 2"/></svg>字下げをそろえる</button>
+                <button class="tool-btn" id="code-format" title="記号のまわりの空白や空行をととのえます"><svg viewBox="0 0 20 20" class="icon" aria-hidden="true"><path d="M3 5h14M3 10h9M3 15h12"/></svg>すき間をととのえる</button>
                 <button class="tool-btn panel-max" data-panel="panel-code" title="このパネルを大きく表示"><svg viewBox="0 0 20 20" class="icon" aria-hidden="true"><path d="M4 8V4h4M16 12v4h-4"/></svg></button>
               </span>
             </div>
             <div class="panel-body"><textarea id="code"></textarea></div>
+            <!-- 記号ボタン（symbolbar.js が作る） -->
+            <div id="code-symbols"></div>
           </section>
 
           <section class="panel" id="panel-blocks" data-stage>
             <div class="panel-head">
               <span class="panel-title"><span class="lane">B</span><svg viewBox="0 0 20 20" class="icon" aria-hidden="true"><path d="M3 4h6v4H3z"/><path d="M5 8v3h8V8"/><path d="M11 11h6v4h-6z"/></svg>ブロックエディタ</span>
               <span class="panel-tools">
-                <button class="tool-btn" id="blocks-undo" title="元に戻す"><svg viewBox="0 0 20 20" class="icon" aria-hidden="true"><path d="M4 9h8a4 4 0 1 1 0 8H8"/><path d="M7 6 4 9l3 3"/></svg></button>
-                <button class="tool-btn" id="blocks-redo" title="やり直す"><svg viewBox="0 0 20 20" class="icon" aria-hidden="true"><path d="M16 9H8a4 4 0 1 0 0 8h4"/><path d="m13 6 3 3-3 3"/></svg></button>
+                <button class="tool-btn" id="blocks-undo" title="元に戻す" aria-label="ブロックを元に戻す"><svg viewBox="0 0 20 20" class="icon" aria-hidden="true"><path d="M4 9h8a4 4 0 1 1 0 8H8"/><path d="M7 6 4 9l3 3"/></svg><span class="touch-label">戻す</span></button>
+                <button class="tool-btn" id="blocks-redo" title="やり直す" aria-label="ブロックをやり直す"><svg viewBox="0 0 20 20" class="icon" aria-hidden="true"><path d="M16 9H8a4 4 0 1 0 0 8h4"/><path d="m13 6 3 3-3 3"/></svg><span class="touch-label">やり直す</span></button>
                 <button class="tool-btn" id="blocks-tidy" title="ブロックを整列して画面に収めます"><svg viewBox="0 0 20 20" class="icon" aria-hidden="true"><path d="M3 4h14M3 10h14M3 16h14"/><path d="M6 4v12M14 4v12"/></svg>整列</button>
                 <button class="tool-btn panel-max" data-panel="panel-blocks" title="このパネルを大きく表示"><svg viewBox="0 0 20 20" class="icon" aria-hidden="true"><path d="M4 8V4h4M16 12v4h-4"/></svg></button>
               </span>
@@ -317,7 +337,7 @@
 
           <section class="panel" id="panel-samples" data-stage>
             <div class="panel-head">
-              <span class="panel-title"><span class="lane">D</span><svg viewBox="0 0 20 20" class="icon" aria-hidden="true"><path d="M3 5h3M3 10h3M3 15h3"/><path d="M9 5h8M9 10h8M9 15h8"/></svg>サンプルと使い方 <span class="chip">クリックでコードに追加</span></span>
+              <span class="panel-title"><span class="lane">D</span><svg viewBox="0 0 20 20" class="icon" aria-hidden="true"><path d="M3 5h3M3 10h3M3 15h3"/><path d="M9 5h8M9 10h8M9 15h8"/></svg>サンプルと使い方 <span class="chip">押すと draw() の中に足します</span></span>
               <span class="panel-tools">
                 <button class="tool-btn panel-max" data-panel="panel-samples" title="このパネルを大きく表示"><svg viewBox="0 0 20 20" class="icon" aria-hidden="true"><path d="M4 8V4h4M16 12v4h-4"/></svg></button>
               </span>

@@ -75,6 +75,8 @@
       display: flex; align-items: center; gap: var(--sp-1);
       margin: 0 0 var(--sp-2); font-size: var(--text-xs); color: var(--c-ink-2); cursor: pointer;
     }
+    /* 2 回まちがえたあとに見せる正解 */
+    .answer-reveal { font-weight: 600; }
     .nav-filter input { accent-color: var(--c-mark); width: 1rem; height: 1rem; margin: 0; }
     .lesson-list { display: flex; flex-direction: column; gap: 2px; margin-bottom: var(--sp-2); }
     .lesson-item {
@@ -244,15 +246,16 @@
     #problem-col .expander-body { padding: 0 0 var(--sp-3); }
 
     /* ===== 右: エディタと結果 ===== */
-    #work-col { flex: 1 1 60%; min-width: 0; display: flex; flex-direction: column; gap: var(--sp-2); padding: var(--sp-2); }
-    #panel-program { flex: 1 1 60%; min-height: 220px; }
-    #panel-output { flex: 1 1 40%; min-height: 160px; }
+    #work-col { flex: 1 1 60%; min-width: 0; display: flex; flex-direction: column; gap: var(--sp-2); padding: var(--sp-2); overflow-y: auto; }
+    /* 字を大きくしても、コードを書く場所は潰さない（足りなければ列ごとスクロールする） */
+    #panel-program { flex: 3 0 auto; min-height: 220px; }
+    #panel-output { flex: 2 1 0; min-height: 200px; }
 
     /* 見出しの道具が多い。狭いときは横に流して、切れたまま隠さない */
     #panel-program .panel-head { flex-wrap: wrap; row-gap: var(--sp-1); }
     #panel-program .panel-tools { margin-left: auto; }
 
-    #program-body { position: relative; }
+    #program-body { position: relative; min-height: 160px; }
     .stage { position: absolute; inset: 0; display: none; }
     .stage.is-shown { display: block; }
     .stage .CodeMirror { position: absolute; inset: 0; height: auto; }
@@ -304,8 +307,9 @@
 
     #ktph-warning { margin: 0; border-radius: 0; border-width: 0 0 1px; }
 
-    #output-body { display: flex; flex-direction: column; }
-    #output { flex: 1 1 auto; }
+    /* 案内が長いときは、結果の欄の中をスクロールして読めるようにする */
+    #output-body { display: flex; flex-direction: column; overflow-y: auto; }
+    #output { flex: 1 0 auto; min-height: 4em; }
 
     #step-panel { flex: 0 0 auto; border-bottom: 1px solid var(--c-line); background: var(--c-surface-2); }
     .step-bar { display: flex; align-items: center; gap: var(--sp-2); padding: var(--sp-2); }
@@ -376,7 +380,7 @@
       <span class="chip" id="current-label">レッスン</span>
       <button id="next-problem" class="btn btn-sm">次 ›</button>
       <span class="topbar-divider"></span>
-      <button id="free-coding" class="btn btn-sm"><svg viewBox="0 0 20 20" class="icon" aria-hidden="true"><path d="M4 16v-3l9-9 3 3-9 9z"/><path d="M11 6l3 3"/></svg>自由記述</button>
+      <button id="free-coding" class="btn btn-sm"><svg viewBox="0 0 20 20" class="icon" aria-hidden="true"><path d="M4 16v-3l9-9 3 3-9 9z"/><path d="M11 6l3 3"/></svg>自由に書く</button>
       <span class="chip is-warn" id="mock-chip" style="display:none;">模試の途中</span>
     </div>
 
@@ -412,7 +416,7 @@
           </div>
 
           <div class="field" id="api-key-form">
-            <label for="api-key">Gemini API キー（省略できます）</label>
+            <label for="api-key">AI を使う（先生向け）：Gemini API キー</label>
             <input type="password" id="api-key" placeholder="AIza…">
             <button id="save-api-key" class="btn btn-sm">保存</button>
             <p class="muted" id="api-key-status"></p>
@@ -459,7 +463,7 @@
         <div class="expander-body" id="explain-text"></div>
       </details>
 
-      <details class="expander" id="ai-box">
+      <details class="expander" id="ai-box" style="display:none;">
         <summary><svg viewBox="0 0 20 20" class="icon" aria-hidden="true"><path d="M5 8h10v7H5z"/><path d="M10 5v3"/><path d="M7.5 11h1M11.5 11h1"/></svg>AI に相談</summary>
         <div class="expander-body stack">
           <button id="btn-explain" class="btn btn-sm btn-block">AI 解説</button>
@@ -469,7 +473,7 @@
         </div>
       </details>
 
-      <details class="expander" id="chat-box">
+      <details class="expander" id="chat-box" style="display:none;">
         <summary><svg viewBox="0 0 20 20" class="icon" aria-hidden="true"><path d="M3 4h14v9H8l-5 4z"/></svg>AI チャット</summary>
         <div class="expander-body stack">
           <div id="chat-messages" class="stack"></div>
@@ -487,8 +491,8 @@
         <div class="panel-head">
           <span class="tabs-label">表示するもの</span>
           <div class="tabs" id="program-tabs" role="tablist">
-            <button type="button" data-stage="ktph" role="tab" aria-selected="false"><svg viewBox="0 0 20 20" class="icon" aria-hidden="true"><path d="M4 4h12"/><path d="M6 4v12"/><path d="M9 8h7M9 12h5"/></svg>共通テスト表記</button>
             <button type="button" data-stage="python" role="tab" aria-selected="true"><svg viewBox="0 0 20 20" class="icon" aria-hidden="true"><path d="M7 6 3 10l4 4"/><path d="m13 6 4 4-4 4"/></svg>Python</button>
+            <button type="button" data-stage="ktph" role="tab" aria-selected="false"><svg viewBox="0 0 20 20" class="icon" aria-hidden="true"><path d="M4 4h12"/><path d="M6 4v12"/><path d="M9 8h7M9 12h5"/></svg>共通テスト表記</button>
             <button type="button" data-stage="flow" role="tab" aria-selected="false"><svg viewBox="0 0 20 20" class="icon" aria-hidden="true"><path d="M7 3h6v3H7z"/><path d="M10 6v3"/><path d="M10 9l3 2.5-3 2.5-3-2.5z"/><path d="M10 14v3"/></svg>フローチャート</button>
             <button type="button" data-stage="pair" role="tab" aria-selected="false" title="Python と共通テスト表記を、同じ行番号で結んで並べます"><svg viewBox="0 0 20 20" class="icon" aria-hidden="true"><path d="M3 3h5v14H3zM12 3h5v14h-5z"/><path d="M8 7h4M8 13h4"/></svg>並べて結ぶ</button>
           </div>
@@ -515,10 +519,13 @@
             </div>
           </div>
         </div>
+        <!-- 記号ボタン（symbolbar.js が作る）。Python を見ているときだけ出す -->
+        <div id="code-symbols"></div>
         <div class="button-group" style="display:flex; gap:var(--sp-2); padding:var(--sp-2); border-top:1px solid var(--c-line); flex-wrap:wrap;">
           <button id="run-btn" class="btn btn-run" disabled><svg viewBox="0 0 20 20" class="icon" aria-hidden="true"><path d="M6 4l10 6-10 6z"/></svg>実行</button>
-          <button id="step-btn" class="btn btn-sm"><svg viewBox="0 0 20 20" class="icon" aria-hidden="true"><path d="M5 4l7 6-7 6z"/><path d="M15 4v12"/></svg>ステップ実行</button>
+          <button id="step-btn" class="btn btn-sm"><svg viewBox="0 0 20 20" class="icon" aria-hidden="true"><path d="M5 4l7 6-7 6z"/><path d="M15 4v12"/></svg>1行ずつ実行</button>
           <button id="check-btn" class="btn btn-mark"><svg viewBox="0 0 20 20" class="icon" aria-hidden="true"><path d="M4 10l4 4 8-9"/></svg>答え合わせ</button>
+          <button id="skip-btn" class="btn btn-sm" style="display:none;" title="分からない問題をとばします（まちがいとして数えます）">この問題をとばす</button>
           <button id="ai-fix-code" class="btn btn-sm"><svg viewBox="0 0 20 20" class="icon" aria-hidden="true"><path d="M5 8h10v7H5z"/><path d="M10 5v3"/><path d="M7.5 11h1M11.5 11h1"/></svg>AI 修正</button>
         </div>
       </div>
@@ -539,7 +546,7 @@
               <button id="step-next" class="btn btn-mark btn-sm" title="1つ進む（→）">進む<svg viewBox="0 0 20 20" class="icon" aria-hidden="true"><path d="M6 4l10 6-10 6z"/></svg></button>
               <input type="range" id="step-slider" min="0" max="0" value="0">
               <span class="chip" id="step-label">0 / 0</span>
-              <button id="step-exit" class="btn btn-sm btn-quiet"><svg viewBox="0 0 20 20" class="icon" aria-hidden="true"><path d="M5 5h10v10H5z"/></svg>終了</button>
+              <button id="step-exit" class="btn btn-sm btn-quiet"><svg viewBox="0 0 20 20" class="icon" aria-hidden="true"><path d="M5 5h10v10H5z"/></svg>1行ずつ実行をやめる</button>
             </div>
             <div id="step-caption" class="step-caption" aria-live="polite" aria-atomic="true"></div>
             <div id="step-vars"></div>

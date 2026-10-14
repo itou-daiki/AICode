@@ -105,7 +105,8 @@ export function confirmDialog({ title, message = '', okLabel = '実行', tone = 
   ok.className = `btn ${tone === 'danger' ? 'btn-danger' : 'btn-primary'}`;
 
   dialog.showModal();
-  ok.focus();
+  // 消すなどの取り消せない操作では、うっかり Enter を押しても実行しないよう、「取り消し」を先に選んでおく
+  (tone === 'danger' ? dialog.querySelector('[data-role="cancel"]') : ok).focus();
 
   return new Promise((resolve) => {
     // close イベントは、裏に回ったタブなどで遅れて届くことがある。押したボタンでもすぐ決める
@@ -542,7 +543,7 @@ export async function takeCodeFromUrl() {
     return decodeURIComponent(plain[1]);
   } catch {
     // 黙って無視すると「リンクを開いたのに何も起きない」になる
-    toast('共有リンクが途中で切れているため、コードを開けませんでした。リンクをもう一度コピーしてもらいましょう。', 5200);
+    toast('リンクが途中で切れているため、コードを開けませんでした。リンクをもう一度コピーしてもらいましょう。', 5200);
     return null;
   }
 }
@@ -573,7 +574,7 @@ export function showShareDialog(url) {
     shareElement.className = 'dialog';
     shareElement.innerHTML = `
       <div class="dialog-body">
-        <h3>共有リンク</h3>
+        <h3>このコードのリンク</h3>
         <p>このリンクを開くと、今のコードがそのまま入った状態で始められます。</p>
         <input type="text" data-role="url" readonly style="margin-top:0.75rem;font-family:var(--font-mono);font-size:var(--text-xs);">
       </div>
@@ -588,7 +589,7 @@ export function showShareDialog(url) {
       const field = shareElement.querySelector('[data-role="url"]');
       try {
         await navigator.clipboard.writeText(field.value);
-        toast('共有リンクをコピーしました');
+        toast('リンクをコピーしました。送った相手が開くと、このコードが入ります');
       } catch {
         field.select();
         toast('リンクを選択しました。Ctrl+C でコピーしてください');
@@ -699,6 +700,20 @@ export async function bootPython({ prepare, statusEl } = {}) {
  */
 export function makeEditorFriendly(cm, label) {
   if (label) cm.setOption('screenReaderLabel', label);
+  // 行のはじめの空白の中で Backspace を押したら、1 字ではなく 1 段（4 文字）もどす。
+  // 1 字ずつだと、中身から出るつもりで 1 回押したとき空白が 3 つ残り、エラーになる
+  cm.addKeyMap({
+    Backspace: (editor) => {
+      if (editor.getOption('readOnly') || editor.somethingSelected() || editor.listSelections().length > 1) return CodeMirror.Pass;
+      const cursor = editor.getCursor();
+      const before = editor.getLine(cursor.line).slice(0, cursor.ch);
+      if (cursor.ch === 0 || /[^ ]/.test(before)) return CodeMirror.Pass;
+      const unit = editor.getOption('indentUnit') || 4;
+      const target = Math.ceil(cursor.ch / unit) * unit - unit;
+      editor.replaceRange('', { line: cursor.line, ch: target }, cursor, '+delete');
+      return undefined;
+    },
+  });
   // コードを書きかえたら、前のエラーに向けた「押せば直る」案内は合わなくなるので消す
   // （読むだけの表記のように、プログラムが書きかえる setValue では消さない）
   cm.on('change', (_, change) => {
@@ -795,22 +810,27 @@ if (typeof document !== 'undefined') {
  * ========================================================== */
 
 const CODE_ZOOM_KEY = 'easycode_code_zoom';
-const CODE_ZOOMS = [80, 90, 100, 115, 130, 150, 175, 200];
+const CODE_ZOOMS = [80, 90, 100, 115, 130, 150, 175, 200, 250, 300, 400];
 
 /**
- * コードの区画の見出しに「− 100% ＋」を置き、エディタの字を大きく・小さくする（全ページで同じ大きさを覚える）
- * @param {object[]} editors CodeMirror（いっしょに大きさを変えるもの）
+ * 区画の見出しに「− 100% ＋」を置く（コード・ブロック・実行結果で同じ形にする）
+ * 真ん中の「100%」を押すと元の大きさにもどる。大きさはページをまたいで覚える
  * @param {HTMLElement} tools ボタンを置く場所（区画の見出しの道具の列）
+ * @param {object} options
+ * @param {string} options.storageKey 覚えておく名前
+ * @param {string} options.what 「コードの字」「ブロック」のような、大きさを変えるものの名前
+ * @param {(zoom: number) => void} options.onApply 倍率（100 が元の大きさ）を受け取って大きさを変える
+ * @returns {{set: (zoom: number) => void}|null} 外から倍率を変えたとき（ホイールなど）に表示を合わせる
  */
-export function addCodeZoom(editors, tools) {
-  if (!tools || !editors.length) return;
-  let zoom = Number(safeStorage.get(CODE_ZOOM_KEY)) || 100;
+export function addZoomButtons(tools, { storageKey, what, onApply }) {
+  if (!tools) return null;
+  let zoom = Number(safeStorage.get(storageKey)) || 100;
   if (!CODE_ZOOMS.includes(zoom)) zoom = 100;
 
   const group = document.createElement('span');
   group.className = 'code-zoom';
   group.setAttribute('role', 'group');
-  group.setAttribute('aria-label', 'コードの字の大きさ');
+  group.setAttribute('aria-label', `${what}の大きさ`);
   const make = (text, label) => {
     const b = document.createElement('button');
     b.type = 'button';
@@ -820,32 +840,103 @@ export function addCodeZoom(editors, tools) {
     b.setAttribute('aria-label', label);
     return b;
   };
-  const smaller = make('−', 'コードの字を小さくする');
-  const value = make('', 'コードの字を元の大きさ（100%）にもどす');
+  const smaller = make('−', `${what}を小さくする`);
+  const value = make('', `${what}を元の大きさ（100%）にもどす`);
   value.classList.add('code-zoom-value');
-  const larger = make('＋', 'コードの字を大きくする');
+  const larger = make('＋', `${what}を大きくする`);
   group.append(smaller, value, larger);
   tools.prepend(group);
 
-  const apply = () => {
-    for (const cm of editors) {
-      // .CodeMirror の字の大きさ（--text-sm）に倍率をかける。字下げの塗りやまとまりの罫は ch で決めているので、いっしょに大きくなる
-      cm.getWrapperElement().style.fontSize = zoom === 100 ? '' : `calc(var(--text-sm) * ${zoom / 100})`;
-      cm.refresh();
-    }
+  const show = () => {
     value.textContent = `${zoom}%`;
-    smaller.disabled = zoom === CODE_ZOOMS[0];
-    larger.disabled = zoom === CODE_ZOOMS[CODE_ZOOMS.length - 1];
-    safeStorage.set(CODE_ZOOM_KEY, String(zoom));
+    smaller.disabled = zoom <= CODE_ZOOMS[0];
+    larger.disabled = zoom >= CODE_ZOOMS[CODE_ZOOMS.length - 1];
+  };
+  const apply = () => {
+    onApply(zoom);
+    show();
+    safeStorage.set(storageKey, String(zoom));
   };
   const step = (dir) => {
-    const i = CODE_ZOOMS.indexOf(zoom) + dir;
-    if (i < 0 || i >= CODE_ZOOMS.length) return;
-    zoom = CODE_ZOOMS[i];
+    // 外から半端な倍率になっていても、次の段へ進める
+    const next = dir > 0 ? CODE_ZOOMS.find(z => z > zoom) : [...CODE_ZOOMS].reverse().find(z => z < zoom);
+    if (next === undefined) return;
+    zoom = next;
     apply();
   };
+  smaller.addEventListener('mousedown', (e) => e.preventDefault());
+  larger.addEventListener('mousedown', (e) => e.preventDefault());
   smaller.addEventListener('click', () => step(-1));
   larger.addEventListener('click', () => step(1));
   value.addEventListener('click', () => { zoom = 100; apply(); });
   apply();
+  return {
+    set(next) {
+      zoom = Math.round(next);
+      show();
+      safeStorage.set(storageKey, String(zoom));
+    },
+  };
+}
+
+/**
+ * コードの区画の見出しに「− 100% ＋」を置き、エディタの字を大きく・小さくする（全ページで同じ大きさを覚える）
+ * @param {object[]} editors CodeMirror（いっしょに大きさを変えるもの）
+ * @param {HTMLElement} tools ボタンを置く場所（区画の見出しの道具の列）
+ */
+export function addCodeZoom(editors, tools) {
+  if (!editors.length) return;
+  addZoomButtons(tools, {
+    storageKey: CODE_ZOOM_KEY,
+    what: 'コードの字',
+    onApply: (zoom) => {
+      for (const cm of editors) {
+        // .CodeMirror の字の大きさ（--text-sm）に倍率をかける。字下げの塗りやまとまりの罫は ch で決めているので、いっしょに大きくなる
+        cm.getWrapperElement().style.fontSize = zoom === 100 ? '' : `calc(var(--text-sm) * ${zoom / 100})`;
+        cm.refresh();
+      }
+    },
+  });
+}
+
+/**
+ * 実行結果の区画の見出しに「− 100% ＋」を置く。結果の字も、エラーの案内も、いっしょに大きくする
+ * @param {HTMLElement} body 実行結果の中身（.panel-body）
+ * @param {HTMLElement} tools ボタンを置く場所
+ */
+export function addOutputZoom(body, tools) {
+  if (!body) return;
+  addZoomButtons(tools, {
+    storageKey: 'easycode_output_zoom',
+    what: '実行結果の字',
+    onApply: (zoom) => { body.style.zoom = zoom === 100 ? '' : String(zoom / 100); },
+  });
+}
+
+/**
+ * ブロックの区画の見出しに「− 100% ＋」を置く。ブロックの作業場の拡大と同じもの
+ * （作業場の中でホイールやピンチで大きさを変えたときも、数字を合わせる）
+ * @param {object} workspace Blockly の作業場
+ * @param {HTMLElement} tools ボタンを置く場所
+ * @param {number} base 100% にあたる作業場の倍率
+ */
+export function addBlocksZoom(workspace, tools, base) {
+  if (!workspace) return;
+  let applying = false;
+  const control = addZoomButtons(tools, {
+    storageKey: 'easycode_blocks_zoom',
+    what: 'ブロック',
+    onApply: (zoom) => {
+      applying = true;
+      workspace.setScale(base * zoom / 100);
+      applying = false;
+    },
+  });
+  // ホイール・ピンチ・「整列」も最後は setScale を通るので、そこで数字を合わせる
+  // （viewport_change の知らせは 1 回遅れて届くことがあり、数字がずれる）
+  const setScale = workspace.setScale.bind(workspace);
+  workspace.setScale = (scale) => {
+    setScale(scale);
+    if (!applying && control) control.set(workspace.scale / base * 100);
+  };
 }

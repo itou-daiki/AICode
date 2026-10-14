@@ -1571,21 +1571,22 @@ button.indent-demo-line:focus-visible { outline: 2px solid var(--c-mark); outlin
 .namefix-skip { border-left: 1px solid var(--c-rule) !important; color: var(--c-ink-3) !important; }
 .namefix-skip:hover, .namefix-skip:focus-visible { background: var(--c-paper-3); }
 
-/* 行番号の左のつまみ（linedrag.js）。ふだんは薄く、行に重ねると濃く */
-.cm-drag-gutter { width: 16px; }
+/* 行番号の左のつまみ（linedrag.js）。カーソルのある行にだけ出し、ほかの行はマウスを重ねたときだけ薄く出す */
+.cm-drag-gutter { width: 18px; }
 .cm-drag-handle {
   display: inline-block;
-  width: 16px;
+  width: 18px;
   color: var(--c-ink-2);
-  opacity: 0.75;
-  font-size: 11px;
-  letter-spacing: -3px;
+  opacity: 0;
+  font-size: 13px;
+  font-weight: 700;
   text-align: center;
   cursor: grab;
   touch-action: none;
   user-select: none;
 }
-.CodeMirror-code > div:hover .cm-drag-handle { opacity: 1; color: var(--c-ink); }
+.CodeMirror-code > div:hover .cm-drag-handle { opacity: 0.55; }
+.CodeMirror-code > .cm-drag-current .cm-drag-handle { opacity: 1; color: var(--c-mark); }
 .is-line-dragging, .is-line-dragging .cm-drag-handle { cursor: grabbing; }
 /* つかんでいる行と、入れる場所の朱の線 */
 .CodeMirror-linebackground.cm-drag-source { background: rgba(31, 78, 121, 0.14); }
@@ -1617,3 +1618,129 @@ button.indent-demo-line:focus-visible { outline: 2px solid var(--c-mark); outlin
 .code-zoom { display: inline-flex; align-items: center; gap: 0; margin-right: var(--sp-1); }
 .code-zoom .tool-btn { min-width: 1.8em; justify-content: center; font-weight: 700; }
 .code-zoom-value { font-family: var(--font-mono); font-size: var(--text-2xs); min-width: 3.2em !important; color: var(--c-ink-2); }
+
+/* ------------------------------------------------------------
+ * 記号ボタンの列（symbolbar.js）
+ * コードの区画の、エディタのすぐ下に置く。入りきらなければ折り返す
+ * ---------------------------------------------------------- */
+.symbol-bar {
+  flex: 0 0 auto;
+  padding: var(--sp-1);
+  background: var(--c-paper-2);
+  border-top: 1px solid var(--c-rule);
+}
+.symbol-bar-keys { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; }
+/* 画面のキーボードの上に出しているとき：1 列にして、横にすべらせて選ぶ */
+.symbol-bar.is-docked {
+  position: fixed;
+  z-index: 60;
+  margin: 0;
+  padding: 4px 6px;
+  background: var(--c-surface-2);
+  border-top: 1px solid var(--c-line);
+  box-shadow: 0 -2px 6px rgba(0, 0, 0, 0.08);
+}
+.symbol-bar.is-docked .symbol-bar-keys { flex-wrap: nowrap; overflow-x: auto; }
+.symbol-bar.is-docked .symbol-bar-keys > * { flex: 0 0 auto; }
+.symbol-bar.is-docked .symbol-help { display: none; }
+/* 横に並ぶ区画（02 の広い画面など）で高さが足りないときは、記号ボタンを 1 行にして横にすべらせる。
+   折り返して何段にもなると、コードを書く場所が押しつぶされる */
+@media (min-width: 1001px) and (max-height: 900px) {
+  .symbol-bar-keys { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: thin; }
+  .symbol-bar-keys > * { flex: 0 0 auto; }
+}
+.symbol-key, .symbol-help {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 34px;
+  min-height: 32px;
+  padding: 0 0.45em;
+  border: 1px solid var(--c-ink-3);
+  border-radius: var(--r-sm);
+  background: var(--c-paper);
+  color: var(--c-ink);
+  font-family: var(--font-mono);
+  font-size: var(--text-base);
+  font-weight: 700;
+  line-height: 1;
+  white-space: nowrap;
+  cursor: pointer;
+  touch-action: manipulation;
+  transition: background var(--t-fast) var(--ease), border-color var(--t-fast) var(--ease);
+}
+.symbol-key:hover, .symbol-help:hover { border-color: var(--c-ink); background: var(--c-paper-3); }
+.symbol-key:active { background: var(--c-mark-faint); border-color: var(--c-mark); }
+/* 字下げ・改行のボタンは、ことばで書く */
+.symbol-key.is-wide { font-family: inherit; font-size: var(--text-xs); }
+.symbol-help {
+  margin-left: auto;
+  border-color: transparent;
+  background: transparent;
+  color: var(--c-ink-2);
+  font-family: inherit;
+  font-size: var(--text-xs);
+}
+.symbol-help[aria-expanded='true'] { border-color: var(--c-mark); color: var(--c-ink); }
+.symbol-guide {
+  margin-top: var(--sp-1);
+  padding: var(--sp-2);
+  border: 1px solid var(--c-rule);
+  background: var(--c-paper);
+  font-size: var(--text-xs);
+  line-height: 1.7;
+  max-height: 30vh;
+  overflow-y: auto;
+}
+.symbol-guide ul {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(13em, 1fr));
+  gap: 0 var(--sp-3);
+  margin: 0 0 var(--sp-1);
+  padding: 0;
+  list-style: none;
+}
+.symbol-guide code { display: inline-block; min-width: 2.2em; font-weight: 700; color: var(--c-ink); }
+.symbol-guide p { margin: 0; color: var(--c-ink-2); }
+@media (pointer: coarse) {
+  .symbol-key, .symbol-help { min-width: 44px; min-height: 44px; }
+}
+
+/* 区画の見出しの、ひとことの説明（「ここにプログラムを書く」など） */
+.panel-sub {
+  flex: 0 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  margin-left: 0.6em;
+  color: var(--c-ink-3);
+  font-weight: 400;
+  letter-spacing: 0;
+}
+
+/* 「すべて消す」は道具の列の最後に、ほかのボタンから離して置く */
+.topbar-tools .btn-clear { margin-left: auto; }
+
+/* 画面の分けかた（4面・3面・2面）の、ことばの添え書き。広い画面でだけ見せる */
+.layout-hint { display: none; margin-left: 0.35em; font-family: var(--font-sans); font-size: 0.9em; font-weight: 400; letter-spacing: 0; }
+@media (min-width: 1500px) {
+  .layout-hint { display: inline; }
+}
+
+/* 図だけのボタン（戻す・やり直す・大きく）の字。指で使う画面でだけ見せる */
+.touch-label { display: none; }
+@media (hover: none) {
+  .touch-label { display: inline; }
+  /* 拡大ボタンの中身は ui.js が押すたびに描きなおすので、字は CSS で添える */
+  .tool-btn.panel-max::after { content: '大きく'; }
+  .tool-btn.panel-max.is-on::after { content: 'もどす'; }
+}
+
+/* 指で使う画面では、行を動かすつまみを太くして、指でつかみやすくする */
+@media (pointer: coarse) {
+  .cm-drag-gutter { width: 28px; }
+  .cm-drag-handle { width: 28px; font-size: 17px; }
+}
+
+/* 01 の実行結果の下に出す「気づいたこと」（エラーではないが、思いどおりに動かないかもしれない書き方） */
+.common-notes { flex: 0 0 auto; margin: 0 var(--sp-2) var(--sp-2); max-height: 30%; overflow-y: auto; font-size: var(--text-xs); }

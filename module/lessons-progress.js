@@ -41,6 +41,7 @@ export function loadProgress() {
     tried: obj(data.tried),
     drafts: obj(data.drafts),
     origins: obj(data.origins),
+    first: obj(data.first),
     last: typeof data.last === 'string' ? data.last : '',
   };
 }
@@ -52,18 +53,34 @@ export function loadProgress() {
 export function markSolved(ref) {
   const progress = loadProgress();
   const before = progress.solved[ref];
-  progress.solved[ref] = { at: Date.now(), tries: (before && before.tries) || progress.tried[ref] || 1 };
+  const row = { at: Date.now(), tries: (before && before.tries) || progress.tried[ref] || 1 };
+  // 1 回目で正解できたか（markTried で記録したもの）
+  if (typeof progress.first[ref] === 'boolean') row.firstTry = progress.first[ref];
+  progress.solved[ref] = row;
   write(PROGRESS_KEY, progress);
 }
 
 /**
  * 挑んだ回数を数える
  * @param {string} ref
+ * @param {boolean} [ok] 今回正解したか。はじめて答えたときだけ「1 回目の正誤」として残す
  */
-export function markTried(ref) {
+export function markTried(ref, ok) {
   const progress = loadProgress();
-  progress.tried[ref] = (progress.tried[ref] || 0) + 1;
+  const before = progress.tried[ref] || 0;
+  progress.tried[ref] = before + 1;
+  // 1 回目の正誤は、ほんとうに 1 回目のときだけ残す（この記録を足す前に挑んでいた問題は、分からないので残さない）
+  if (typeof ok === 'boolean' && before === 0 && typeof progress.first[ref] !== 'boolean') progress.first[ref] = ok;
   write(PROGRESS_KEY, progress);
+}
+
+/**
+ * 復習したい問題か（1 回目の答えがまちがっていた）
+ * @param {string} ref
+ * @returns {boolean}
+ */
+export function needsReview(ref) {
+  return loadProgress().first[ref] === false;
 }
 
 /**
@@ -229,7 +246,12 @@ export function importProgress(text) {
     // 先に解けた方を残す
     if (!mine || (Number(row.at) && Number(row.at) < Number(mine.at))) {
       progress.solved[ref] = { at: Number(row.at) || Date.now(), tries: Number(row.tries) || 1 };
+      if (typeof row.firstTry === 'boolean') progress.solved[ref].firstTry = row.firstTry;
     }
+  }
+  // 1 回目の正誤は、この端末に記録が無いものだけ入れる（先に答えた方の記録を残す）
+  for (const [ref, ok] of Object.entries(obj(incoming.first))) {
+    if (typeof ok === 'boolean' && typeof progress.first[ref] !== 'boolean') progress.first[ref] = ok;
   }
   for (const [ref, count] of Object.entries(obj(incoming.tried))) {
     progress.tried[ref] = Math.max(progress.tried[ref] || 0, Number(count) || 0);

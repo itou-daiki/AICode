@@ -362,6 +362,50 @@ function needsBlankLineBefore(block) {
   return isDefLike(block) || isDefLike(previous);
 }
 
+/**
+ * 読みこんだコードで、一番外側のこの文の前にあった空行の数（py2blocks.js が覚えておく）。
+ * ブロックを少し動かしただけで、書いた空行が全部消えてしまわないようにする
+ */
+function keptBlankLines(block) {
+  const kept = block.workspace && block.workspace.__easycodeBlankLines;
+  if (!kept || !block.data || !block.previousConnection || block.getSurroundParent() || !block.getPreviousBlock()) return 0;
+  return kept.get(block.data) || 0;
+}
+
+/** Blockly にもとからあるブロックの言葉のうち、置きかえるもの */
+const BLOCKLY_MESSAGES = {
+  // コードに出てくる言葉のまま見せる
+  LOGIC_BOOLEAN_TRUE: 'True',
+  LOGIC_BOOLEAN_FALSE: 'False',
+  LOGIC_BOOLEAN_TOOLTIP: 'True（はい）か False（いいえ）です',
+  LOGIC_NULL: 'None',
+  LOGIC_NULL_TOOLTIP: '「何もない」を表す None です',
+  LOGIC_TERNARY_CONDITION: 'もし',
+  LOGIC_TERNARY_IF_TRUE: 'True なら',
+  LOGIC_TERNARY_IF_FALSE: 'False なら',
+  LOGIC_TERNARY_TOOLTIP: '条件が True なら「True なら」の値、False なら「False なら」の値になります（a if 条件 else b）',
+  CONTROLS_FLOW_STATEMENTS_OPERATOR_BREAK: 'くり返しを抜ける',
+  CONTROLS_FLOW_STATEMENTS_OPERATOR_CONTINUE: '次のくり返しへ',
+  CONTROLS_FLOW_STATEMENTS_TOOLTIP_BREAK: 'いちばん内側のくり返しを、ここで終わりにします（break）',
+  CONTROLS_FLOW_STATEMENTS_TOOLTIP_CONTINUE: 'くり返しの残りをとばして、次の回へ進みます（continue）',
+  // Python の round は四捨五入ではない（round(2.5) は 2）ので「丸める」
+  MATH_ROUND_OPERATOR_ROUND: '丸める',
+  MATH_ROUND_TOOLTIP: '丸める は round(x)、切り上げ は math.ceil(x)、切り捨て は math.floor(x) です',
+  // 「サブディレクトリ」は誤訳。番号は 0 から数える
+  LISTS_GET_SUBLIST_START_FROM_START: 'の 番号',
+  LISTS_GET_SUBLIST_START_FROM_END: 'の 後ろから番号',
+  LISTS_GET_SUBLIST_START_FIRST: 'の 最初',
+  LISTS_GET_SUBLIST_END_FROM_START: 'から 番号',
+  LISTS_GET_SUBLIST_END_FROM_END: 'から 後ろから番号',
+  LISTS_GET_SUBLIST_END_LAST: 'から 最後',
+  LISTS_GET_SUBLIST_TAIL: 'までを取り出す',
+  LISTS_GET_SUBLIST_TOOLTIP: 'リストの一部を取り出します。番号は 0 から数えます',
+  TEXT_INDEXOF_TITLE: '%1 の中で %3 が %2',
+  TEXT_INDEXOF_OPERATOR_FIRST: '最初に見つかる位置',
+  TEXT_INDEXOF_OPERATOR_LAST: '最後に見つかる位置',
+  TEXT_INDEXOF_TOOLTIP: '文字の中で、さがす文字がある位置です。位置は 0 から数え、見つからなければ %1 です',
+};
+
 /* ============================================================
  * 1.6 いろいろな書き方を受けとめるブロック
  *
@@ -488,6 +532,60 @@ function extraBlocksJson() {
   ];
 }
 
+/** いくつかの値を表示するブロック（print(a, b, c)）を用意する個数 */
+const PRINT_SIZES = [3, 4, 5];
+/** 区切りを決めて表示するブロック（print(a, b, sep=",")）を用意する個数 */
+const PRINT_SEP_SIZES = [2, 3, 4, 5];
+const STMT_JSON = { previousStatement: null, nextStatement: null };
+/** 穴を n 個並べた文（%1 と %2 と %3） */
+const andHoles = (n) => Array.from({ length: n }, (_, i) => `%${i + 1}`).join(' と ');
+const valueHoles = (n, prefix) => Array.from({ length: n }, (_, i) => ({ type: 'input_value', name: `${prefix}${i}` }));
+
+/** 表示・くり返し・入力など、よく使う書き方を 1 つで表すブロックの JSON */
+function printBlocksJson() {
+  const loopVar = { type: 'field_variable', name: 'VAR', variable: 'i' };
+  const doInput = [{ type: 'input_dummy' }, { type: 'input_statement', name: 'DO' }];
+  return [
+    { type: 'py_print_noline', message0: '%1 を改行しないで表示', args0: [{ type: 'input_value', name: 'TEXT' }],
+      ...STMT_JSON, colour: '#6B8E6B', inputsInline: true,
+      tooltip: 'print(…, end="") と同じです。次に表示するものが、同じ行に続きます' },
+    ...PRINT_SIZES.map(n => ({
+      type: `py_print_${n}`, message0: `${andHoles(n)} を空白で区切って表示`, args0: valueHoles(n, 'A'),
+      ...STMT_JSON, colour: '#6B8E6B', inputsInline: true,
+      tooltip: 'print(a, b, c) と同じです。あいだに空白が 1 つずつ入ります',
+    })),
+    ...PRINT_SEP_SIZES.map(n => ({
+      type: `py_print_sep_${n}`, message0: `${andHoles(n)} を、あいだに %${n + 1} をはさんで表示`,
+      args0: [...valueHoles(n, 'A'), { type: 'field_input', name: 'SEP', text: ',' }],
+      ...STMT_JSON, colour: '#6B8E6B', inputsInline: true,
+      tooltip: 'print(a, b, sep=",") と同じです。あいだにはさむ文字を決めて表示します',
+    })),
+    // range(…) をそのまま表すくり返し。「手前まで」なので、書いた数がそのまま見える（range(5) は 0 から 5 の手前まで）
+    { type: 'py_for_range1', message0: '%1 を 0 から %2 の手前まで 1 ずつ %3 %4',
+      args0: [loopVar, { type: 'input_value', name: 'STOP' }, ...doInput],
+      ...STMT_JSON, style: 'loop_blocks', inputsInline: true,
+      tooltip: 'for i in range(n): と同じです。i は 0, 1, 2, … と増えて、n にはなりません（n 回くり返す）' },
+    { type: 'py_for_range2', message0: '%1 を %2 から %3 の手前まで 1 ずつ %4 %5',
+      args0: [loopVar, { type: 'input_value', name: 'START' }, { type: 'input_value', name: 'STOP' }, ...doInput],
+      ...STMT_JSON, style: 'loop_blocks', inputsInline: true,
+      tooltip: 'for i in range(a, b): と同じです。i は a から 1 ずつ増えて、b にはなりません' },
+    { type: 'py_for_range', message0: '%1 を %2 から %3 の手前まで %4 ずつ %5 %6',
+      args0: [loopVar, { type: 'input_value', name: 'START' }, { type: 'input_value', name: 'STOP' },
+        { type: 'input_value', name: 'STEP' }, ...doInput],
+      ...STMT_JSON, style: 'loop_blocks', inputsInline: true,
+      tooltip: 'for i in range(a, b, c): と同じです。c がマイナスなら、減らしながらくり返します' },
+    { type: 'py_forever', message0: 'ずっとくり返す %1 %2', args0: doInput,
+      ...STMT_JSON, style: 'loop_blocks', tooltip: 'while True: と同じです。「くり返しを抜ける」で止めます' },
+    { type: 'py_sleep', message0: '%1 秒待つ', args0: [{ type: 'input_value', name: 'SECS' }],
+      ...STMT_JSON, colour: '#6E7378', inputsInline: true, tooltip: 'time.sleep(秒) と同じです。少しのあいだ止まります' },
+    { type: 'py_random_choice', message0: '%1 からランダムに 1 つ選ぶ', args0: [{ type: 'input_value', name: 'LIST' }],
+      output: null, colour: '#8A7391', inputsInline: true, tooltip: 'random.choice(リスト) と同じです' },
+    { type: 'py_input_int', message0: '数を入力 %1', args0: [{ type: 'input_value', name: 'PROMPT' }],
+      output: 'Number', colour: '#6B8E6B', inputsInline: true,
+      tooltip: 'int(input()) と同じです。キーボードから受け取った文字を整数にします' },
+  ];
+}
+
 /** Blockly の Python 生成器と同じ、演算子の強さ（数が小さいほど強い） */
 const PY_ORDER = {
   ATOMIC: 0, COLLECTION: 1, MEMBER: 2.1, FUNCTION_CALL: 2.2, EXPONENTIATION: 3, UNARY_SIGN: 4,
@@ -495,6 +593,8 @@ const PY_ORDER = {
   CONDITIONAL: 15, LAMBDA: 16, NONE: 99,
 };
 
+/** 「比べる」ブロックの記号（Python の書き方のまま） */
+const COMPARE_OPS = [['==', 'EQ'], ['!=', 'NEQ'], ['<', 'LT'], ['<=', 'LTE'], ['>', 'GT'], ['>=', 'GTE']];
 const CHAIN_OPS = [['<', '<'], ['<=', '<='], ['>', '>'], ['>=', '>='], ['==', '=='], ['!=', '!=']];
 const ASSIGN_OPS = [['= 入れる', '='], ['+= 増やす', '+='], ['-= 減らす', '-='], ['*= 倍にする', '*='],
   ['/= 割る', '/='], ['//= 商にする', '//='], ['%= 余りにする', '%='], ['**= 乗する', '**=']];
@@ -537,7 +637,7 @@ function defineExtraGenerators(python, Order = PY_ORDER) {
     `${code(b, g, 'A', Order.RELATIONAL) || '0'} ${b.getFieldValue('OP1')} ${code(b, g, 'B', Order.RELATIONAL) || '0'} ${b.getFieldValue('OP2')} ${code(b, g, 'C', Order.RELATIONAL) || '0'}`,
     Order.RELATIONAL];
   python.forBlock['py_repeat'] = (b, g) => [
-    `${code(b, g, 'VALUE', Order.MULTIPLICATIVE) || "''"} * ${code(b, g, 'TIMES', Order.MULTIPLICATIVE + 0.5) || '1'}`, Order.MULTIPLICATIVE];
+    `${code(b, g, 'VALUE', Order.MULTIPLICATIVE) || '""'} * ${code(b, g, 'TIMES', Order.MULTIPLICATIVE + 0.5) || '1'}`, Order.MULTIPLICATIVE];
   for (const n of TUPLE_SIZES) {
     python.forBlock[`py_tuple_${n}`] = (b, g) => {
       const items = Array.from({ length: n }, (_, i) => code(b, g, `I${i}`) || 'None');
@@ -640,6 +740,31 @@ export function defineBlocks({ drawing = false } = {}) {
     Blockly.ConnectionChecker.prototype.__easycodeLoose = true;
   }
 
+  // Blockly にもとからあるブロックの言葉を、Python の書き方と、やさしい日本語に合わせる
+  Object.assign(Blockly.Msg, BLOCKLY_MESSAGES);
+  // 「等しい」は = ではなく == と見せる（= は「入れる」と区別するため）。ほかの記号も Python の書き方にする
+  if (Blockly.Blocks['logic_compare'] && !Blockly.Blocks['logic_compare'].__easycodeOps) {
+    const originalCompareInit = Blockly.Blocks['logic_compare'].init;
+    Blockly.Blocks['logic_compare'].init = function () {
+      originalCompareInit.call(this);
+      const field = this.getField('OP');
+      const holder = field && field.getParentInput();
+      if (!holder) return;
+      const index = holder.fieldRow.indexOf(field);
+      holder.removeField('OP');
+      holder.insertFieldAt(index, new Blockly.FieldDropdown(COMPARE_OPS), 'OP');
+    };
+    Blockly.Blocks['logic_compare'].__easycodeOps = true;
+  }
+
+  // 文字は "…" で書く（教科書と同じ）。中に " があるときだけ '…' にする
+  python.quote_ = function (text) {
+    const body = String(text).replace(/\\/g, '\\\\').replace(/\n/g, '\\n');
+    if (!body.includes('"')) return `"${body}"`;
+    if (!body.includes("'")) return `'${body}'`;
+    return `"${body.replace(/"/g, '\\"')}"`;
+  };
+
   if (!python.__easycodeInit) {
     const originalInit = python.init.bind(python);
     python.init = function (workspace) {
@@ -719,6 +844,7 @@ export function defineBlocks({ drawing = false } = {}) {
       previousStatement: null, nextStatement: null, colour: '#6B8E6B', inputsInline: true,
       tooltip: 'print(a, b) と同じです。あいだに空白が 1 つ入ります',
     },
+    ...printBlocksJson(),
     {
       type: 'py_index', message0: '%1 の %2 番目',
       args0: [
@@ -814,7 +940,7 @@ export function defineBlocks({ drawing = false } = {}) {
   python.forBlock['py_input'] = (b, g) => [`input(${g.valueToCode(b, 'PROMPT', Order.NONE)})`, Order.FUNCTION_CALL];
   python.forBlock['py_to_int'] = (b, g) => [`int(${value(b, g, 'VALUE', '0')})`, Order.FUNCTION_CALL];
   python.forBlock['py_to_float'] = (b, g) => [`float(${value(b, g, 'VALUE', '0')})`, Order.FUNCTION_CALL];
-  python.forBlock['py_to_text'] = (b, g) => [`str(${value(b, g, 'VALUE', "''")})`, Order.FUNCTION_CALL];
+  python.forBlock['py_to_text'] = (b, g) => [`str(${value(b, g, 'VALUE', '""')})`, Order.FUNCTION_CALL];
   // Python の演算子の強さ（Blockly の Python 生成器と同じ数）。
   // ここを NONE のままにすると (a + b) // 2 の括弧が落ちて、意味が変わってしまう。
   const MEMBER = 2.1;
@@ -825,9 +951,55 @@ export function defineBlocks({ drawing = false } = {}) {
 
   python.forBlock['py_newline'] = () => 'print()\n';
   python.forBlock['py_print_end'] = (b, g) =>
-    `print(${value(b, g, 'TEXT', "''")}, end=${quote(g, b.getFieldValue('END') ?? '')})\n`;
+    `print(${value(b, g, 'TEXT', '""')}, end=${quote(g, b.getFieldValue('END') ?? '')})\n`;
   python.forBlock['py_print_two'] = (b, g) =>
-    `print(${value(b, g, 'A', "''")}, ${value(b, g, 'B', "''")})\n`;
+    `print(${value(b, g, 'A', '""')}, ${value(b, g, 'B', '""')})\n`;
+  const printed = (b, g, n) => Array.from({ length: n }, (_, i) => value(b, g, `A${i}`, '""')).join(', ');
+  python.forBlock['py_print_noline'] = (b, g) => `print(${value(b, g, 'TEXT', '""')}, end="")\n`;
+  for (const n of PRINT_SIZES) python.forBlock[`py_print_${n}`] = (b, g) => `print(${printed(b, g, n)})\n`;
+  for (const n of PRINT_SEP_SIZES) {
+    python.forBlock[`py_print_sep_${n}`] = (b, g) => `print(${printed(b, g, n)}, sep=${quote(g, b.getFieldValue('SEP') ?? '')})\n`;
+  }
+  // くり返し。中が空なら pass を入れて、読める Python にする
+  const loopVar = (b, g) => g.getVariableName(b.getFieldValue('VAR'));
+  const loopBody = (b, g) => g.statementToCode(b, 'DO') || `${g.INDENT}pass\n`;
+  python.forBlock['py_for_range1'] = (b, g) =>
+    `for ${loopVar(b, g)} in range(${value(b, g, 'STOP', '0')}):\n${loopBody(b, g)}`;
+  python.forBlock['py_for_range2'] = (b, g) =>
+    `for ${loopVar(b, g)} in range(${value(b, g, 'START', '0')}, ${value(b, g, 'STOP', '0')}):\n${loopBody(b, g)}`;
+  python.forBlock['py_for_range'] = (b, g) =>
+    `for ${loopVar(b, g)} in range(${value(b, g, 'START', '0')}, ${value(b, g, 'STOP', '0')}, ${value(b, g, 'STEP', '1')}):\n${loopBody(b, g)}`;
+  python.forBlock['py_forever'] = (b, g) => `while True:\n${loopBody(b, g)}`;
+  // Blockly にもとからある「a から b まで c ずつ」は、upRange などの関数を足さずに、range(…) 1 行で書く
+  python.forBlock['controls_for'] = (b, g) => {
+    const from = value(b, g, 'FROM', '0');
+    const to = g.valueToCode(b, 'TO', ADDITIVE) || '0';
+    const by = value(b, g, 'BY', '1');
+    const down = /^-/.test(by);
+    // 「b まで」は b もふくむので、range には 1 つ先（減らすときは 1 つ手前）を渡す
+    const end = /^-?\d+$/.test(to) ? String(Number(to) + (down ? -1 : 1)) : `${to} ${down ? '-' : '+'} 1`;
+    return `for ${loopVar(b, g)} in range(${from}, ${end}${by === '1' ? '' : `, ${by}`}):\n${loopBody(b, g)}`;
+  };
+  // 「丸める」は round(x)。Blockly のままだと、使わない import math が先頭に足されてしまう
+  python.forBlock['math_round'] = (b, g) => {
+    const op = b.getFieldValue('OP');
+    const num = value(b, g, 'NUM', '0');
+    if (op === 'ROUND') return [`round(${num})`, Order.FUNCTION_CALL];
+    g.definitions_['import_math'] = 'import math';
+    return [`math.${op === 'ROUNDUP' ? 'ceil' : 'floor'}(${num})`, Order.FUNCTION_CALL];
+  };
+  // 「x を 1 増やす」は x += 1 にする（数かどうかを確かめる長いコードにしない）
+  python.forBlock['math_change'] = (b, g) =>
+    `${g.getVariableName(b.getFieldValue('VAR'))} += ${value(b, g, 'DELTA', '0')}\n`;
+  python.forBlock['py_sleep'] = (b, g) => {
+    g.definitions_['import_time'] = 'import time';
+    return `time.sleep(${value(b, g, 'SECS', '1')})\n`;
+  };
+  python.forBlock['py_random_choice'] = (b, g) => {
+    g.definitions_['import_random'] = 'import random';
+    return [`random.choice(${value(b, g, 'LIST', '[]')})`, Order.FUNCTION_CALL];
+  };
+  python.forBlock['py_input_int'] = (b, g) => [`int(input(${g.valueToCode(b, 'PROMPT', Order.NONE)}))`, Order.FUNCTION_CALL];
   python.forBlock['py_index'] = (b, g) => {
     const list = g.valueToCode(b, 'LIST', MEMBER) || '[]';
     const index = g.valueToCode(b, 'INDEX', Order.NONE) || '0';
@@ -854,9 +1026,9 @@ export function defineBlocks({ drawing = false } = {}) {
     // 左に「つなぐ」が続くときは、かっこが無くても同じ意味（"a" + b + "c"）なので付けない
     const leftBlock = b.getInputTargetBlock('A');
     const leftOrder = leftBlock && leftBlock.type === 'py_join' ? Order.NONE : ADDITIVE;
-    const left = g.valueToCode(b, 'A', leftOrder) || "''";
+    const left = g.valueToCode(b, 'A', leftOrder) || '""';
     // 右にくる足し算・引き算は、かっこが要る（'a' + (x - y)）
-    const right = g.valueToCode(b, 'B', ADDITIVE) || "''";
+    const right = g.valueToCode(b, 'B', ADDITIVE) || '""';
     return [`${left} + ${right}`, ADDITIVE];
   };
   python.forBlock['py_def'] = (b, g) => {
@@ -897,7 +1069,8 @@ export function defineBlocks({ drawing = false } = {}) {
       }
       const next = block.nextConnection && block.nextConnection.targetBlock();
       const result = out + (thisOnly ? '' : this.blockToCode(next));
-      return needsBlankLineBefore(block) ? `\n${result}` : result;
+      const blanks = Math.max(needsBlankLineBefore(block) ? 1 : 0, keptBlankLines(block));
+      return '\n'.repeat(blanks) + result;
     };
     python.__easycodeBlankLines = true;
   }
@@ -970,7 +1143,7 @@ export function defineBlocks({ drawing = false } = {}) {
 
 /** 引数のはじめの値 */
 function defaultFor(arg) {
-  if (arg.text !== undefined) return `'${arg.text}'`;
+  if (arg.text !== undefined) return `"${arg.text}"`;
   if (arg.constant !== undefined) return arg.constant;
   return String(arg.shadow ?? 0);
 }
@@ -1067,8 +1240,10 @@ export function buildToolbox({ drawing = false } = {}) {
           { kind: 'block', type: 'text_print', inputs: { TEXT: textShadow('こんにちは') } },
           { kind: 'block', type: 'py_print_two' },
           { kind: 'block', type: 'py_print_end', inputs: { TEXT: textShadow('*') } },
+          { kind: 'block', type: 'py_print_noline', inputs: { TEXT: textShadow('*') } },
           { kind: 'block', type: 'py_newline' },
           { kind: 'block', type: 'py_input', inputs: { PROMPT: textShadow('入力してください: ') } },
+          { kind: 'block', type: 'py_input_int', inputs: { PROMPT: textShadow('数を入力: ') } },
           { kind: 'block', type: 'py_to_int' },
           { kind: 'block', type: 'py_to_float' },
           { kind: 'block', type: 'py_to_text' },
@@ -1079,14 +1254,17 @@ export function buildToolbox({ drawing = false } = {}) {
         contents: [
           { kind: 'block', type: 'controls_if' },
           { kind: 'block', type: 'controls_if', extraState: { elseIfCount: 0, hasElse: true } },
+          // elif は歯車を開かないと出せないので、はじめから 1 つ入れたものも置く
+          { kind: 'block', type: 'controls_if', extraState: { elseIfCount: 1, hasElse: true } },
           { kind: 'block', type: 'controls_repeat_ext', inputs: { TIMES: numberShadow(10) } },
+          { kind: 'block', type: 'py_forever' },
           { kind: 'block', type: 'controls_whileUntil' },
-          {
-            kind: 'block', type: 'controls_for',
-            inputs: { FROM: numberShadow(1), TO: numberShadow(10), BY: numberShadow(1) },
-          },
+          { kind: 'block', type: 'py_for_range1', inputs: { STOP: numberShadow(10) } },
+          { kind: 'block', type: 'py_for_range2', inputs: { START: numberShadow(1), STOP: numberShadow(11) } },
+          { kind: 'block', type: 'py_for_range', inputs: { START: numberShadow(10), STOP: numberShadow(0), STEP: numberShadow(-1) } },
           { kind: 'block', type: 'controls_forEach' },
           { kind: 'block', type: 'controls_flow_statements' },
+          { kind: 'block', type: 'py_sleep', inputs: { SECS: numberShadow(1) } },
         ],
       },
       {
@@ -1106,7 +1284,7 @@ export function buildToolbox({ drawing = false } = {}) {
           { kind: 'block', type: 'math_number' },
           { kind: 'block', type: 'math_arithmetic', inputs: { A: numberShadow(1), B: numberShadow(1) } },
           { kind: 'block', type: 'math_single', inputs: { NUM: numberShadow(9) } },
-          { kind: 'block', type: 'math_round', inputs: { NUM: numberShadow(3.1) } },
+          { kind: 'block', type: 'math_round', fields: { OP: 'ROUND' }, inputs: { NUM: numberShadow(3.1) } },
           { kind: 'block', type: 'math_modulo', inputs: { DIVIDEND: numberShadow(64), DIVISOR: numberShadow(10) } },
           { kind: 'block', type: 'py_floor_div', inputs: { A: numberShadow(7), B: numberShadow(2) } },
           { kind: 'block', type: 'math_number_property', inputs: { NUMBER_TO_CHECK: numberShadow(0) } },
@@ -1139,11 +1317,10 @@ export function buildToolbox({ drawing = false } = {}) {
           { kind: 'block', type: 'py_append' },
           { kind: 'block', type: 'math_on_list' },
           { kind: 'block', type: 'lists_isEmpty' },
-          { kind: 'block', type: 'lists_indexOf' },
           { kind: 'block', type: 'lists_getIndex' },
           { kind: 'block', type: 'lists_setIndex' },
           { kind: 'block', type: 'lists_getSublist' },
-          { kind: 'block', type: 'lists_sort' },
+          { kind: 'block', type: 'py_random_choice' },
           { kind: 'block', type: 'lists_split', inputs: { DELIM: textShadow(',') } },
         ],
       },

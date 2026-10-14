@@ -8,19 +8,22 @@ import { createWorkbench } from './workbench.js';
 import { P5_CALL_BLOCKS, P5_NAME_BLOCKS } from './blockdefs.js';
 import {
   confirmDialog, toast, initSidebar, initTabs, initMaximize,
-  takeCodeFromUrl, makeShareUrl, showShareDialog, showFix, bootPython,
-  makeEditorFriendly, bindRunShortcut, addTextSizeControl, addCodeZoom,
+  takeCodeFromUrl, makeShareUrl, showShareDialog, showFix, bootPython, safeStorage,
+  makeEditorFriendly, bindRunShortcut, addTextSizeControl, addCodeZoom, addBlocksZoom, addOutputZoom,
 } from './ui.js';
 import { addHalfWidthControl } from './halfwidth.js';
 import { addTipsLinks } from './tipslinks.js';
-import { callGemini, chatWithAI } from './ai.js';
+import { callGemini, chatWithAI, hasApiKey } from './ai.js';
 import { runUserCode, explainError, suggestFix } from './pyrun.js';
-import { noticeSilentMistakes } from './pyfix.js';
+import { noticeSilentMistakes, noticeSketchNames, noticeCommonMistakes } from './pyfix.js';
 import { toKtph } from './ktph.js';
 import { SKETCH_NAMES } from './humanize.js';
 import { setIconLabel } from './icons.js';
+import { attachSymbolBar } from './symbolbar.js';
 
 const STORAGE_KEY = 'easycode_drawing_workspace_v2';
+/** はじめて開いたかを覚えるキー（はじめてのときだけ使い方を開いて見せる） */
+const FIRST_VISIT_KEY = 'easycode_drawing_seen';
 
 /** 最初に置いておくコード（説明はサンプルパネルにまとめてある） */
 const STARTER_CODE = `def setup():
@@ -45,7 +48,7 @@ let runGeneration = 0;
  * p5.js の mouseX / mouseY / mouseIsPressed / key / keyIsPressed にあたる。
  * draw() を呼ぶ直前に Python 側へ渡す。
  */
-const pointer = { x: 0, y: 0, down: false, key: '', code: 0, keyDown: false };
+const pointer = { x: 0, y: 0, down: false, button: 'left', key: '', code: 0, keyDown: false, keys: [] };
 
 /**
  * p5.js の mousePressed() / mouseReleased() / keyPressed() にあたる出来事。
@@ -55,8 +58,28 @@ const events = [];
 const EVENT_NAMES = {
   pointerdown: ['mousePressed', 'mouse_pressed'],
   pointerup: ['mouseReleased', 'mouse_released'],
+  click: ['mouseClicked', 'mouse_clicked'],
+  drag: ['mouseDragged', 'mouse_dragged'],
+  move: ['mouseMoved', 'mouse_moved'],
   keydown: ['keyPressed', 'key_pressed'],
+  keyup: ['keyReleased', 'key_released'],
 };
+
+/** いまのコードが作っている出来事の関数（作っていない出来事は積まない。マウスを動かすたびに Python を呼ばないように） */
+let handledEvents = new Set();
+
+/** コードの中の def から、受け取る出来事を決める */
+function updateHandledEvents(code) {
+  handledEvents = new Set(Object.entries(EVENT_NAMES)
+    .filter(([, names]) => names.some(n => new RegExp(`^def\\s+${n}\\s*\\(`, 'm').test(code)))
+    .map(([event]) => event));
+}
+
+/** 動かすたびに積もる出来事（drag・move）は、続けて同じものを積まない */
+function pushEvent(name) {
+  if ((name === 'drag' || name === 'move') && (!handledEvents.has(name) || events[events.length - 1] === name)) return;
+  events.push(name);
+}
 
 /** キャンバスとキーボードの見張りを始める */
 function watchPointer() {
@@ -73,10 +96,28 @@ function watchPointer() {
     };
   };
 
-  canvas.addEventListener('pointermove', (e) => { Object.assign(pointer, toCanvas(e)); });
-  canvas.addEventListener('pointerdown', (e) => { Object.assign(pointer, toCanvas(e)); pointer.down = true; events.push('pointerdown'); });
-  window.addEventListener('pointerup', () => { if (pointer.down) events.push('pointerup'); pointer.down = false; });
+  canvas.addEventListener('pointermove', (e) => {
+    Object.assign(pointer, toCanvas(e));
+    pushEvent(pointer.down ? 'drag' : 'move');
+  });
+  canvas.addEventListener('pointerdown', (e) => {
+    Object.assign(pointer, toCanvas(e));
+    pointer.down = true;
+    // p5.js の mouseButton と同じ値（LEFT / CENTER / RIGHT）
+    pointer.button = ['left', 'center', 'right'][e.button] || 'left';
+    events.push('pointerdown');
+  });
+  window.addEventListener('pointerup', (e) => {
+    if (pointer.down) {
+      events.push('pointerup');
+      // キャンバスの上で離したときだけ「クリックした」とみなす（p5.js の mouseClicked）
+      if (e.target === canvas) events.push('click');
+    }
+    pointer.down = false;
+  });
   canvas.addEventListener('pointerleave', () => { pointer.down = false; });
+  // 右クリックで出るメニューは、mouseButton == RIGHT を使うスケッチのじゃまになるので出さない
+  canvas.addEventListener('contextmenu', (e) => e.preventDefault());
 
   window.addEventListener('keydown', (e) => {
     // 入力欄やエディタで打っているキーは、絵のほうに渡さない
@@ -84,9 +125,27 @@ function watchPointer() {
     pointer.key = e.key.length === 1 ? e.key : '';
     pointer.code = e.keyCode || 0;
     pointer.keyDown = true;
+    // keyIsDown() のために、押されているキーの番号を覚えておく（同じキーは 1 つだけ）
+    if (pointer.code && !pointer.keys.includes(pointer.code)) pointer.keys.push(pointer.code);
     events.push('keydown');
   });
-  window.addEventListener('keyup', () => { pointer.keyDown = false; pointer.key = ''; pointer.code = 0; });
+  window.addEventListener('keyup', (e) => {
+    const code = e.keyCode || 0;
+    // 離したキーだけを外す（ほかのキーは押されたまま）
+    const wasDown = pointer.keys.includes(code);
+    pointer.keys = pointer.keys.filter(k => k !== code);
+    pointer.keyDown = pointer.keys.length > 0;
+    if (!pointer.keyDown) { pointer.key = ''; pointer.code = 0; }
+    if (wasDown) events.push('keyup');
+  });
+  // ほかの窓に移ると keyup が届かないので、押されていることにしたままにしない
+  window.addEventListener('blur', () => {
+    pointer.keys = [];
+    pointer.keyDown = false;
+    pointer.key = '';
+    pointer.code = 0;
+    pointer.down = false;
+  });
 }
 
 const $ = (id) => document.getElementById(id);
@@ -177,7 +236,7 @@ function buildSamples() {
   note.className = 'note';
   note.textContent =
     'キャンバスは 400 × 400 です。左上が (0, 0)、右下が (400, 400)。'
-    + ' サンプルを押すと、コードの最後に追加されます。';
+    + ' サンプルを押すと、draw() の中（draw() が無ければコードの最後）に足します。';
   container.appendChild(note);
 
   for (const section of SAMPLES) {
@@ -206,26 +265,84 @@ function buildSamples() {
 }
 
 /**
- * サンプルをコードの最後に足す
+ * 関数の中身の終わり（最後の中身の行の番号）と、中身の字下げを探す
+ * @param {string[]} lines コードの行
+ * @param {string} name 関数の名前（draw など）
+ * @returns {{ last: number, indent: string }|null} 見つからなければ null
+ */
+function findFunctionBody(lines, name) {
+  const head = lines.findIndex(line => new RegExp(`^def\\s+${name}\\s*\\(`).test(line));
+  if (head < 0) return null;
+  let last = head;
+  let indent = '';
+  for (let i = head + 1; i < lines.length; i++) {
+    const line = lines[i];
+    // 空の行と、左はしに書いたコメントは、中身の終わりとみなさない
+    if (!line.trim() || /^\s*#/.test(line)) continue;
+    // 行のはじめに空白が無い行が来たら、中身はそこで終わり
+    if (!/^\s/.test(line)) break;
+    if (!indent) indent = line.match(/^\s*/)[0];
+    last = i;
+  }
+  return { last, indent: indent || '    ' };
+}
+
+/**
+ * サンプルを足したコードを作る
+ *
+ * draw() があればその中身の終わりに、無ければ setup() の中身の終わりに、
+ * どちらも無ければコードの最後に足す。draw() の外に足すと、
+ * アニメーションのたびに塗りなおされて、実行しても何も見えないため。
+ * setup() や draw() を自分で作るサンプルは、関数の中には入れずに最後へ足す。
+ * @param {string} current 今のコード
+ * @param {string} sample 足すコード
+ * @returns {{ code: string, line: number, where: 'draw'|'setup'|'end' }} line は足した最後の行（0 から）
+ */
+function addSampleTo(current, sample) {
+  const trimmed = current.replace(/\s*$/, '');
+  const sampleLines = sample.replace(/\s*$/, '').split('\n');
+  const lines = trimmed ? trimmed.split('\n') : [];
+  const definesFunction = sampleLines.some(line => /^def\s/.test(line));
+
+  // 背景を塗るサンプルは、中身のはじめに入れる（終わりに入れると、それまでに描いたものを塗りつぶす）
+  const paintsBackground = sampleLines.some(line => /^background\s*\(/.test(line));
+  for (const where of definesFunction ? [] : ['draw', 'setup']) {
+    const body = findFunctionBody(lines, where);
+    if (!body) continue;
+    const added = sampleLines.map(line => (line ? body.indent + line : line));
+    const at = paintsBackground ? lines.findIndex(line => new RegExp(`^def\\s+${where}\\s*\\(`).test(line)) + 1 : body.last + 1;
+    lines.splice(at, 0, ...added);
+    return { code: `${lines.join('\n')}\n`, line: at + added.length - 1, where };
+  }
+
+  // 関数を作るサンプルは、前のコードとのあいだを 1 行あける
+  if (definesFunction && lines.length) lines.push('');
+  lines.push(...sampleLines);
+  return { code: `${lines.join('\n')}\n`, line: lines.length - 1, where: 'end' };
+}
+
+/**
+ * サンプルをコードに足す
  *
  * 足したあとはコードの面に移る。サンプルの面を見たままだと、
  * 押しても何も起きていないように見えるため。
- * @param {string} code 足す 1 行
+ * @param {string} code 足すコード
  */
 function insertSample(code) {
-  const current = bench.getCode().replace(/\s*$/, '');
-  bench.setCode(current ? `${current}\n${code}\n` : `${code}\n`);
+  const result = addSampleTo(bench.getCode(), code);
+  bench.setCode(result.code);
 
   if (stageTabs) stageTabs.select('panel-code');
   requestAnimationFrame(() => {
     const editor = bench.editor;
     // 足した行の終わりにカーソルを置き、そこまでスクロールする
-    const line = Math.max(0, editor.lineCount() - 2);
+    const line = Math.max(0, Math.min(result.line, editor.lineCount() - 1));
     editor.setCursor({ line, ch: editor.getLine(line).length });
     editor.scrollIntoView({ line, ch: 0 }, 60);
     editor.focus();
   });
-  toast('コードの最後に足しました');
+  const place = { draw: 'draw() の中', setup: 'setup() の中', end: 'コードの最後' }[result.where];
+  toast(`${place}に足しました。『実行』を押してみましょう`, 3600);
 }
 
 /* ============================================================
@@ -259,6 +376,46 @@ function stopAnimation(message = '停止しました') {
   if (message) $('output').textContent += `\n${message}\n`;
 }
 
+/**
+ * ライブラリを読みこんだ直後の状態を覚える（Python の準備のときに 1 回だけ）。
+ * 実行のたびにここへ戻すので、前のプログラムの関数（mousePressed など）や
+ * 色・モードの設定が、次のプログラムに残らない
+ */
+const BASELINE_SOURCE = `
+import copy as _ec_copy
+_ec_style0 = {k: _ec_copy.deepcopy(getattr(p5, k)) for k in tuple(P5._STYLE_KEYS) + ('_color_maxes',)}
+_ec_baseline = dict(globals())
+`;
+
+/** 実行の前に、覚えておいた状態に戻す（_ で始まる名前は、実行のしくみのものなので残す） */
+const RESET_SOURCE = `
+for _ec_k in [k for k in globals() if not k.startswith('_') and k not in _ec_baseline]:
+    del globals()[_ec_k]
+for _ec_k, _ec_v in _ec_baseline.items():
+    if not _ec_k.startswith('_') and globals().get(_ec_k, _ec_baseline) is not _ec_v:
+        globals()[_ec_k] = _ec_v
+for _ec_k, _ec_v in _ec_style0.items():
+    setattr(p5, _ec_k, _ec_copy.deepcopy(_ec_v))
+p5.color_max_values = p5._color_maxes[p5._color_mode]
+p5._style_stack = []
+# noise の細かさと、マウスの形も、前の実行のものを持ちこまない
+_perlin_octaves, _perlin_falloff = 4, 0.5
+p5.canvas.style.cursor = ''
+p5.create_canvas(400, 400)
+_ec_keys_down.clear()
+# millis() が、この実行のはじめから数えるように
+p5.start_time = _ec_time.time()
+`;
+
+/**
+ * エラーにはならないが思いどおりに動かない書き方を、出力欄に書き足す
+ * @param {string} code
+ */
+function appendNotes(code) {
+  const notes = [...noticeSilentMistakes(code), ...noticeSketchNames(code), ...noticeCommonMistakes(code)];
+  for (const note of notes) $('output').textContent += `\n→ ${note}\n`;
+}
+
 /** コードを実行する */
 async function runCode() {
   const output = $('output');
@@ -273,10 +430,12 @@ async function runCode() {
   }
 
   output.textContent = '実行中…\n';
+  updateHandledEvents(code);
   showFix(null);
   // コードは Python の変数として渡す（""" を含むコードでも安全に実行できる）
   pyodide.globals.set('_user_code', code);
-  // 前回の回転や拡大が残らないように、まっさらから始める
+  // 前回の関数・色・回転や拡大が残らないように、まっさらから始める
+  await pyodide.runPythonAsync(RESET_SOURCE);
   await pyodide.runPythonAsync('begin_frame()');
 
   try {
@@ -288,6 +447,7 @@ async function runCode() {
         ? explainError(result.error, code)
         : (result.output || '描きました（出力はありません）');
       showFix(suggestFix(code, result.error), applyFix, result.error);
+      if (!result.error) appendNotes(code);
       setCanvasState(result.error ? '停止中' : '描画ずみ', false);
     }
   } catch (error) {
@@ -309,7 +469,9 @@ async function runAnimation(code) {
   await pyodide.runPythonAsync(`
 import time as _ec_time
 frameCount = 0
+frame_count = 0
 deltaTime = 0
+delta_time = 0
 p5.frame_count = 0
 p5.start_time = _ec_time.time()
 p5._last_time = _ec_time.time()
@@ -342,6 +504,7 @@ p5._looping = True
   if (isStale()) return;
   if (!hasDraw) {
     output.textContent += 'setup() だけ実行しました。\n';
+    appendNotes(code);
     setCanvasState('描画ずみ', false);
     return;
   }
@@ -350,7 +513,7 @@ p5._looping = True
   events.length = 0;
   setCanvasState('アニメーション中', true);
   output.textContent += 'アニメーション実行中…（停止 で止まります）\n';
-  for (const note of noticeSilentMistakes(code)) output.textContent += `\n→ ${note}\n`;
+  appendNotes(code);
 
   // p5.js と同じく、1 秒あたりのコマ数をそろえる。
   // そろえないと、図形の少ないプログラムは速く、多いプログラムは遅く動いてしまい、
@@ -388,23 +551,27 @@ import time as _ec_time, json as _ec_json
 # p5.js と同じく、毎フレーム座標系をもどしてから draw() を呼ぶ
 begin_frame()
 
-frameCount = frameCount + 1
+# frame_count のような snake_case のつづりにも、同じ値を入れる
+frameCount = frame_count = frameCount + 1
 p5.frame_count = frameCount
 _now = _ec_time.time()
-deltaTime = (_now - p5._last_time) * 1000 if p5._last_time else 0
+deltaTime = delta_time = (_now - p5._last_time) * 1000 if p5._last_time else 0
 p5._last_time = _now
 p5._recent_fps = (1000 / deltaTime) if deltaTime > 0 else 0
 
 # p5.js と同じ名前で、マウスとキーの今の値を使えるようにする
 _ec = _ec_json.loads(_ec_pointer)
-pmouseX = mouseX
-pmouseY = mouseY
+pmouseX = pmouse_x = mouseX
+pmouseY = pmouse_y = mouseY
 mouseX = mouse_x = _ec['x']
 mouseY = mouse_y = _ec['y']
 mouseIsPressed = mouse_is_pressed = _ec['down']
+mouseButton = mouse_button = _ec.get('button', 'left')
 key = _ec['key']
-keyCode = _ec['code']
+keyCode = key_code = _ec['code']
 keyIsPressed = key_is_pressed = _ec['keyDown']
+# keyIsDown() が答えられるように、押されているキーをまとめて渡す
+_ec_set_keys(_ec.get('keys', []))
 width = p5.width
 height = p5.height
 
@@ -617,7 +784,7 @@ function setupControls() {
     const ok = await confirmDialog({
       title: 'すべて消しますか？',
       message: 'コードとブロックを消して、最初の形（setup と draw だけ）に戻します。キャンバスも消えます。',
-      okLabel: '全消去',
+      okLabel: 'すべて消す',
     });
     if (!ok) return;
     stopAnimation(null);
@@ -631,7 +798,7 @@ function setupControls() {
 
   $('share-btn').addEventListener('click', async () => {
     const code = bench.getCode();
-    if (!code.trim()) { toast('共有するコードがありません'); return; }
+    if (!code.trim()) { toast('リンクにするコードがありません'); return; }
     showShareDialog(await makeShareUrl('drawing.html', code));
   });
 
@@ -739,8 +906,22 @@ $('flow-zoom-in').addEventListener('click', () => bench.zoomFlowchart(1.25));
 
   $('btn-review').addEventListener('click', reviewDrawing);
   $('ai-fix-code').addEventListener('click', improveDrawing);
+  // キーを保存・削除したら、AI の欄を出す・隠すを合わせる（保存そのものは ai.js がする）
+  $('save-api-key').addEventListener('click', () => setTimeout(showAiControls, 0));
 
   window.addEventListener('resize', () => bench.refreshLayout());
+}
+
+/**
+ * AI の相談とチャットは、API キーが入っているときだけ出す。
+ * キーが無いのに押せるボタンがあると、押してもエラーになるだけで迷わせる
+ */
+function showAiControls() {
+  const on = hasApiKey();
+  for (const id of ['ai-box', 'chat-box']) {
+    const box = $(id);
+    if (box) box.style.display = on ? '' : 'none';
+  }
 }
 
 /** 同期の状態をコードパネルのラベルに出す */
@@ -751,10 +932,10 @@ function showSyncState({ rawCount }) {
     chip.textContent = 'ブロックにできませんでした';
     chip.className = 'chip is-warn';
   } else if (rawCount > 0) {
-    chip.textContent = `同期中（${rawCount} か所は Python ブロック）`;
+    chip.textContent = `${rawCount} か所はブロックにできず、そのまま入っています`;
     chip.className = 'chip is-warn';
   } else {
-    chip.textContent = 'ブロックと同期中';
+    chip.textContent = 'ブロックと連動中';
     chip.className = 'chip is-live';
   }
 }
@@ -777,7 +958,11 @@ async function init() {
       onStatus: showSyncState,
     });
     makeEditorFriendly(bench.editor, 'Python のスケッチのコード');
+    // コードの下に記号ボタンを並べる（キーの場所が分からなくても打てるように）
+    attachSymbolBar(bench.editor, $('code-symbols'));
     addCodeZoom([bench.editor], $('code-undo').parentElement);
+    addBlocksZoom(bench.workspace, $('blocks-undo').parentElement, 0.8);
+    addOutputZoom($('output-body') || $('output').parentElement, $('output-clear').parentElement);
     bindRunShortcut($('run-btn'));
     const shared = await takeCodeFromUrl();
     // 共有リンクで開いたときは、前のプログラムを控えてから上書きする（知らせも restore が出す）
@@ -796,12 +981,26 @@ async function init() {
     addHalfWidthControl($('display-settings'));
     // つまずき解説へのリンク（「表示」の前に入れる）
     addTipsLinks($('sidebar'), $('display-settings').closest('details'));
-    initSidebar({
+    const sidebar = initSidebar({
       sidebarId: 'sidebar',
       toggleId: 'toggle-sidebar',
       storageKey: 'easycode_drawing_sidebar',
       onToggle: () => bench.refreshLayout(),
     });
+    showAiControls();
+    // はじめて開いた人には、使い方を開いて見せ、出力欄で最初の一歩を伝える
+    // （出力欄の字は、Python の準備が終わると bootPython がここに戻してくれる）
+    // 画面がせまい（iPad を縦にしたときなど）と使い方の欄が上に重なり、コードとキャンバスが下に隠れるので開かない
+    if (!safeStorage.get(FIRST_VISIT_KEY)) {
+      const wide = window.matchMedia('(min-width: 1081px)').matches;
+      if (wide) {
+        sidebar.toggle(true);
+        $('sketch-howto').open = true;
+      }
+      $('output').textContent = 'はじめての人へ：① 『サンプル』のタブから選ぶ → ② ▶ 実行\n'
+        + `（サンプルは draw() の中に足されます。使い方は${wide ? '左の' : '「ヒント・AIを開く」で出る'}「03 スケッチの使い方」にあります）`;
+      safeStorage.set(FIRST_VISIT_KEY, '1');
+    }
     initMaximize(() => bench.refreshLayout());
     stageTabs = initTabs({
       tabsId: 'stage-tabs',
@@ -841,7 +1040,11 @@ async function init() {
   try {
     pyodide = await bootPython({
       statusEl: $('output'),
-      prepare: (py) => py.runPythonAsync(P5_PYTHON_LIBRARY),
+      prepare: async (py) => {
+        await py.runPythonAsync(P5_PYTHON_LIBRARY);
+        // 実行のたびに戻す「まっさらな状態」を覚えておく
+        await py.runPythonAsync(BASELINE_SOURCE);
+      },
     });
     // p5.js と同じく、マウスとキーの今の値を draw() から使えるようにする
     watchPointer();

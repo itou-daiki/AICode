@@ -18,8 +18,8 @@ let aiBlockedUntil = 0;
 /** モード名と説明（サイドバーの表示に使う） */
 const MODE_TEXT = {
   'inline-only': ['インライン補完のみ', '続きを薄い文字で表示（Tabで確定）'],
-  'popup-only': ['複数候補のみ', 'Ctrl+Space で候補一覧'],
-  both: ['インライン + 複数候補', '薄い文字＋候補一覧（Ctrl+Space）'],
+  'popup-only': ['複数候補のみ', 'Ctrl+Space で候補一覧（↑↓で選んで Enter）'],
+  both: ['インライン + 複数候補', '薄い文字＋候補一覧（Ctrl+Space。↑↓で選んで Enter）'],
   none: ['補完なし', '補完機能は無効'],
 };
 
@@ -43,6 +43,8 @@ export class CodeCompletionEngine {
     this.items = [];
     this.replaceLength = 0;
     this.selectedIndex = 0;
+    // 候補一覧を矢印キーで選んだか。選んでいなければ Enter はふつうの改行にする
+    this.navigated = false;
 
     this.inlineWidget = null;
     this.inlineText = '';
@@ -111,10 +113,16 @@ export class CodeCompletionEngine {
         return;
       }
 
+      // 行のはじめの空白の中（字下げをしたいところ）では、Tab は字下げに使う
+      const inIndent = event.key === 'Tab' && this.cursorInIndent();
+
       if (this.popup.style.display === 'block') {
         if (event.key === 'ArrowDown') { event.preventDefault(); this.moveSelection(1); return; }
         if (event.key === 'ArrowUp') { event.preventDefault(); this.moveSelection(-1); return; }
-        if (event.key === 'Enter' || event.key === 'Tab') {
+        // Enter で候補を入れるのは、矢印キーで候補を選んだときだけ。
+        // 改行のつもりで押した Enter が、知らない名前を勝手に入れてしまわないように。
+        if (event.key === 'Enter' && !this.navigated) { this.hidePopup(); return; }
+        if ((event.key === 'Enter' || event.key === 'Tab') && !inIndent) {
           event.preventDefault();
           this.applyItem(this.items[this.selectedIndex]);
           return;
@@ -123,10 +131,18 @@ export class CodeCompletionEngine {
       }
 
       if (this.inlineText) {
-        if (event.key === 'Tab') { event.preventDefault(); this.acceptInline(); return; }
+        if (event.key === 'Tab' && !inIndent) { event.preventDefault(); this.acceptInline(); return; }
+        if (event.key === 'Tab') { this.hideInline(); return; }
         if (event.key === 'Escape') { event.preventDefault(); this.hideInline(); return; }
       }
     });
+  }
+
+  /** カーソルが行のはじめの空白の中（左に空白しかない）にあるか */
+  cursorInIndent() {
+    const cursor = this.editor.getCursor();
+    const before = (this.editor.getLine(cursor.line) || '').slice(0, cursor.ch);
+    return !before.trim();
   }
 
   /* ---------------- 候補の取得 ---------------- */
@@ -182,6 +198,7 @@ export class CodeCompletionEngine {
 
   showPopup(cursor) {
     this.hideInline();
+    this.navigated = false;
     this.popup.replaceChildren();
 
     this.items.forEach((entry, index) => {
@@ -218,11 +235,13 @@ export class CodeCompletionEngine {
 
   hidePopup() {
     this.popup.style.display = 'none';
+    this.navigated = false;
   }
 
   moveSelection(delta) {
     const rows = this.popup.querySelectorAll('.completion-item');
     if (!rows.length) return;
+    this.navigated = true;
     rows[this.selectedIndex]?.classList.remove('selected');
     this.selectedIndex = (this.selectedIndex + delta + rows.length) % rows.length;
     rows[this.selectedIndex].classList.add('selected');

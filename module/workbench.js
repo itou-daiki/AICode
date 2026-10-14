@@ -144,11 +144,14 @@ export function createWorkbench(options) {
     renderer: 'geras',
     theme: inkTheme,
     grid: { spacing: 8, length: 1, colour: '#E9EAE5', snap: true },
-    zoom: { controls: true, wheel: true, startScale: 0.8, minScale: 0.3, maxScale: 2 },
+    // 大きさは区画の見出しの「− 100% ＋」で変える（作業場の中の小さな丸いボタンは出さない）
+    zoom: { controls: false, wheel: true, startScale: 0.8, minScale: 0.3, maxScale: 3.2 },
     trashcan: true,
     // 教室で一斉に鳴らないように、音は出さない
     sounds: false,
     move: { scrollbars: true, drag: true, wheel: true },
+    // リストや文字の番号は、Python と同じく 0 から数える（1 から数えると、作るコードに + 1 や - 1 がまざる）
+    oneBasedIndex: false,
   });
 
   /* ---------- 補完 ---------- */

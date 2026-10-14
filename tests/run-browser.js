@@ -634,6 +634,105 @@ p5.stroke_weight(9)
 p5.point(50, 50)
 check('点は線の太さで描かれる', lambda: px(50, 50)[:3], [0, 0, 255])
 
+# --- 色の書き方（文字列・color()・灰色と透明度・HSB）---
+p5.begin_frame()
+p5.no_stroke()
+
+
+def painted(*args):
+    """fill(*args) で四角を塗り、真ん中の色を返す"""
+    p5.background(255)
+    p5.fill(*args)
+    p5.rect(150, 150, 100, 100)
+    return px(200, 200)[:3]
+
+
+check("fill('red')", lambda: painted('red'), [255, 0, 0])
+check("fill('#00ff00')", lambda: painted('#00ff00'), [0, 255, 0])
+check('fill(color(0, 0, 255))', lambda: painted(color(0, 0, 255)), [0, 0, 255])
+check('fill([10, 20, 30])', lambda: painted([10, 20, 30]), [10, 20, 30])
+check('fill(0, 128) は半分すける', lambda: 120 <= painted(0, 128)[0] <= 135, True)
+check("color('red') の赤", lambda: red(color('red')), 255)
+check('color(0, 100) は灰色と透明度', lambda: alpha(color(0, 100)), 100)
+
+
+def hsb_green():
+    p5.color_mode('hsb')
+    try:
+        return painted(120, 100, 100)
+    finally:
+        p5.color_mode('rgb')
+
+
+check('color_mode(HSB) の色', hsb_green, [0, 255, 0])
+
+
+def bad_color():
+    try:
+        p5.fill('あか')
+        return 'エラーが出なかった'
+    except ValueError as e:
+        return 'fill()' in str(e)
+
+
+check('使えない色はエラーになる', bad_color, True)
+
+
+def background_own_color():
+    p5.fill(255, 0, 0)
+    p5.background('white')
+    return px(5, 5)[:3]
+
+
+check("background('white') は自分の色で塗る", background_own_color, [255, 255, 255])
+
+
+def trail():
+    p5.background(255)
+    p5.background(0, 20)
+    return px(5, 5)[0]
+
+
+check('background(0, 20) は少しだけ暗くなる（残像）', lambda: 225 <= trail() <= 240, True)
+
+# --- push / pop は色や太さももどす ---
+
+
+def push_pop_style():
+    p5.fill(255, 0, 0)
+    p5.stroke(0)
+    p5.stroke_weight(4)
+    p5.push()
+    p5.fill(0, 0, 255)
+    p5.stroke_weight(1)
+    p5.no_stroke()
+    p5.angle_mode('degrees')
+    p5.pop()
+    return [p5.fill_color, p5.stroke_width, p5.no_stroke_flag, p5._angle_mode]
+
+
+check('pop で色・太さ・モードがもどる', push_pop_style, ['rgb(255,0,0)', 4, False, 'radians'])
+p5.stroke_weight(1)
+
+# --- 乱数・時間・角度・距離・キー ---
+check('random(リスト) は中から選ぶ', lambda: random(['a', 'b', 'c']) in ['a', 'b', 'c'], True)
+check('millis は動かし始めてからの時間', lambda: 0 <= millis() < 24 * 3600 * 1000, True)
+
+
+def degree_trig():
+    p5.angle_mode('degrees')
+    try:
+        return [round(sin(90), 9), round(cos(180), 9), round(atan2(1, 1), 9)]
+    finally:
+        p5.angle_mode('radians')
+
+
+check('angle_mode(DEGREES) で三角関数も度になる', degree_trig, [1.0, -1.0, 45.0])
+check('dist(6 つ) は p5.js の順', lambda: dist(0, 0, 0, 1, 2, 2), 3)
+check('noise はなめらか', lambda: abs(noise(0.50) - noise(0.51)) < 0.05, True)
+check('keyIsDown（押していない）', lambda: keyIsDown(LEFT_ARROW), False)
+check('キーの番号', lambda: [LEFT_ARROW, ENTER, ESCAPE], [37, 13, 27])
+
 json.dumps({'total': len(results), 'failed': [r for r in results if not r[1]]}, ensure_ascii=False)
 `;
 
@@ -837,6 +936,9 @@ async function testBlockCorpus(workspace) {
   const keepRaw = new Set([
     'Data = [\n    1,  # a\n    2,\n]',
     'for x in a:\n    pass\nelse:\n    print(1)',
+    // Blockly の変数は大文字と小文字を区別しないので、Data と data があるとき、その文はコードのまま持つ
+    'Data = [3, 5]\nfor data in Data:\n    print(data)',
+    'Total = 0\ntotal = 1\nprint(Total, total)',
   ]);
   const sameMeaning = (a, b) => {
     pyodide.globals.set('_ast_a', a);
@@ -880,10 +982,10 @@ async function testSketchesRun(workspace) {
   const name = (n) => ({ block: { type: 'variables_get', fields: { VAR: { name: n } } } });
   const setX = (value) => ({ type: 'variables_set', fields: { VAR: { name: 'x' } }, inputs: { VALUE: value } });
   Blockly.serialization.blocks.append(setX(join(join(text('a'), name('b')), text('c'))), workspace, { recordUndo: false });
-  equal('つなぐ: 左に続くときはかっこを付けない', Blockly.Python.workspaceToCode(workspace).trim(), "x = 'a' + b + 'c'");
+  equal('つなぐ: 左に続くときはかっこを付けない', Blockly.Python.workspaceToCode(workspace).trim(), 'x = "a" + b + "c"');
   workspace.clear();
   Blockly.serialization.blocks.append(setX(join(text('a'), join(name('b'), text('c')))), workspace, { recordUndo: false });
-  equal('つなぐ: 右に入れたときはかっこを付ける', Blockly.Python.workspaceToCode(workspace).trim(), "x = 'a' + (b + 'c')");
+  equal('つなぐ: 右に入れたときはかっこを付ける', Blockly.Python.workspaceToCode(workspace).trim(), 'x = "a" + (b + "c")');
   workspace.clear();
 
   // 関数の前後の空行は、ブロックを通しても残ること（setup と draw がくっつかない）
@@ -908,6 +1010,34 @@ async function testSketchesRun(workspace) {
   pythonToBlocks('Data = [3, 1]\ndef first(data):\n    return data[0]\nprint(first([5]))\n', workspace);
   const clash = Blockly.Python.workspaceToCode(workspace);
   check('関数: data と Data を取りちがえない', clash.includes('return data[0]'), `\n${clash}`);
+
+  // 大文字と小文字だけがちがう名前を、1 つの変数にまとめてしまわないこと
+  pythonToBlocks('Data = [3, 5]\nfor data in Data:\n    print(data)\n', workspace);
+  const caseClash = Blockly.Python.workspaceToCode(workspace);
+  check('変数: for data in Data が for Data in Data にならない', caseClash.includes('for data in Data:'), `\n${caseClash}`);
+
+  // 字下げのまちがい・: の書きわすれ・閉じないかっこの行は、消さずにそのまま残すこと
+  const keepsLines = (source) => {
+    pythonToBlocks(source, workspace);
+    const made = Blockly.Python.workspaceToCode(workspace);
+    return source.split('\n').filter(l => l.trim()).every(l => made.includes(l)) ? '' : made;
+  };
+  equal('こわれたコード: 字下げが深すぎる行が消えない', keepsLines('x = 1\n    y = 2\n        z = 3\nprint(x)'), '');
+  equal('こわれたコード: : を忘れた if の中身が消えない', keepsLines('if x > 0\n    print(x)\nprint(1)'), '');
+  equal('こわれたコード: 閉じないかっこのあとの行が消えない', keepsLines('x = [1, 2\nprint(x)\ny = 3'), '');
+
+  // 一番外側の文のあいだの空行は、ブロックを通しても残ること
+  pythonToBlocks('x = 1\n\nprint(x)\n\n\ny = 2\n', workspace);
+  equal('空行: 文のあいだの空行が残る', Blockly.Python.workspaceToCode(workspace), 'x = 1\n\nprint(x)\n\n\ny = 2\n');
+
+  // range(…) は書いた数のまま。range(5) が「0 から 4 まで」にならない
+  pythonToBlocks('for i in range(5):\n    print(i)\n', workspace);
+  check('くり返し: range(5) は専用のブロック', workspace.getAllBlocks(false).some(b => b.type === 'py_for_range1'));
+  equal('くり返し: range(5) のまま', Blockly.Python.workspaceToCode(workspace), 'for i in range(5):\n    print(i)\n');
+
+  // round(x) は「丸める」ブロックになり、使わない import math を足さない
+  pythonToBlocks('x = round(3.7)\n', workspace);
+  equal('丸める: round(x) のまま', Blockly.Python.workspaceToCode(workspace), 'x = round(3.7)\n');
 
   // def key_pressed(): のつづりは、ブロックを通しても変わらないこと（呼んでいる所が動かなくなる）
   pythonToBlocks('def key_pressed():\n    print(1)\n', workspace);

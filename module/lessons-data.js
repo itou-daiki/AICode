@@ -135,6 +135,11 @@ export function normalizeProblem(raw, courseId = '', lessonId = '') {
 
   if (problem.type === 'trace' && !problem.check) problem.check = { kind: 'output' };
 
+  // 別の書き方でも正しい答え（例: "3 2" のほかに "3あまり2"）。1 つだけ書いてあっても並びにする
+  if (problem.accept !== undefined) {
+    problem.accept = (Array.isArray(problem.accept) ? problem.accept : [problem.accept]).map(String);
+  }
+
   return problem;
 }
 
@@ -190,4 +195,37 @@ export function correctPicks(problem) {
  */
 export function problemRef(problem) {
   return `${problem.courseId}#${problem.id}`;
+}
+
+/**
+ * 選択肢を見せる順番（もとの番号を、見せる順に並べたもの）
+ *
+ * 問題ファイルでは正解を先頭に書きがちなので、そのまま見せると
+ * 「とりあえず 1 番目」で当たってしまう。問題ごとに決まった順に混ぜる
+ * （読み直しても同じ順なので、見直したときに迷わない）。
+ * @param {number} count 選択肢の数
+ * @param {string} seedText 混ぜ方を決める文字（'kyotsu#bin-search' など）
+ * @returns {number[]} 例 [2, 0, 3, 1]
+ */
+export function choiceOrder(count, seedText) {
+  const order = Array.from({ length: Math.max(0, count) }, (_, index) => index);
+  // 文字から種を作る（FNV-1a）
+  let seed = 2166136261;
+  const text = String(seedText ?? '');
+  for (let i = 0; i < text.length; i++) seed = Math.imul(seed ^ text.charCodeAt(i), 16777619) >>> 0;
+  // 種から決まる乱数（mulberry32）で、フィッシャー–イェーツの混ぜ方をする
+  const next = () => {
+    seed = (seed + 0x6D2B79F5) >>> 0;
+    let t = seed;
+    t = Math.imul(t ^ (t >>> 15), t | 1);
+    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+  for (let i = order.length - 1; i > 0; i--) {
+    const j = Math.floor(next() * (i + 1));
+    [order[i], order[j]] = [order[j], order[i]];
+  }
+  // たまたま書いたままの順になったら、1 つずらす（正解が先頭のまま残らないように）
+  if (order.length > 1 && order.every((value, index) => value === index)) order.push(order.shift());
+  return order;
 }

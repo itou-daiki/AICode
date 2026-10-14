@@ -13,7 +13,7 @@ import { CodeCompletionEngine } from './completion.js';
 import { autoIndent, formatCode } from './pyformat.js';
 import {
   initSidebar, initTabs, initMaximize, toast, confirmDialog, debounce, showFix, bootPython,
-  makeEditorFriendly, bindRunShortcut, addTextSizeControl, safeStorage, addCodeZoom,
+  makeEditorFriendly, bindRunShortcut, addTextSizeControl, safeStorage, addCodeZoom, addOutputZoom,
 } from './ui.js';
 import { EDITOR_CONFIG } from './config.js';
 import { attachHalfWidth, addHalfWidthControl } from './halfwidth.js';
@@ -27,11 +27,11 @@ import {
 } from './lessons-run.js';
 import { gradeTrace, gradeBlanks, gradeTests, scoreMock, sameOutput } from './grade.js';
 import {
-  loadIndex, loadCourse, loadMockSet, findByRef, findBlankKeys, fillBlanks, correctPicks, problemRef,
+  loadIndex, loadCourse, loadMockSet, findByRef, findBlankKeys, fillBlanks, correctPicks, problemRef, choiceOrder,
 } from './lessons-data.js';
 import {
   markSolved, markTried, isSolved, saveDraft, getDraft, isDraftStale, clearDraft, rememberLast, lastOpened,
-  recordMock, bestMock, clearProgress, exportProgress, importProgress,
+  recordMock, bestMock, clearProgress, exportProgress, importProgress, needsReview,
 } from './lessons-progress.js';
 import { recordTrace, namesInLine } from './stepper.js';
 import {
@@ -42,6 +42,7 @@ import { attachBlockScope, showBlockAt } from './blockscope.js';
 import { attachNameFix } from './namefix.js';
 import { attachLineDrag } from './linedrag.js';
 import { attachIndentCheck } from './indentcheck.js';
+import { attachSymbolBar } from './symbolbar.js';
 import * as ai from './ai.js';
 import { icon, iconHtml, setIconLabel } from './icons.js';
 
@@ -89,6 +90,9 @@ let wrongInRow = 0;
 /** 一覧で、まだ解けていない問題だけを見せるか */
 const UNSOLVED_KEY = 'easycode_lessons_unsolved_only';
 let unsolvedOnly = safeStorage.get(UNSOLVED_KEY) === '1';
+/** 一覧で、1 回目にまちがえた問題（要復習）だけを見せるか */
+const REVIEW_KEY = 'easycode_lessons_review_only';
+let reviewOnly = safeStorage.get(REVIEW_KEY) === '1';
 
 /** ステップ実行 */
 const step = { list: [], index: 0, active: false, error: null };
@@ -224,19 +228,25 @@ function renderNav() {
   const body = $('nav-body');
   body.innerHTML = '';
 
-  // 試験前に「まだのところ」だけ回せるように
-  const filter = document.createElement('label');
-  filter.className = 'nav-filter';
-  const box = document.createElement('input');
-  box.type = 'checkbox';
-  box.checked = unsolvedOnly;
-  box.addEventListener('change', () => {
-    unsolvedOnly = box.checked;
-    safeStorage.set(UNSOLVED_KEY, unsolvedOnly ? '1' : '0');
-    renderNav();
+  // 試験前に「まだのところ」「1 回目でまちがえたところ」だけ回せるように
+  const addFilter = (label, checked, onChange) => {
+    const filter = document.createElement('label');
+    filter.className = 'nav-filter';
+    const box = document.createElement('input');
+    box.type = 'checkbox';
+    box.checked = checked;
+    box.addEventListener('change', () => { onChange(box.checked); renderNav(); });
+    filter.append(box, document.createTextNode(label));
+    body.appendChild(filter);
+  };
+  addFilter('まだ解けていない問題だけ', unsolvedOnly, (on) => {
+    unsolvedOnly = on;
+    safeStorage.set(UNSOLVED_KEY, on ? '1' : '0');
   });
-  filter.append(box, document.createTextNode('まだ解けていない問題だけ'));
-  body.appendChild(filter);
+  addFilter('要復習（1 回目でまちがえた問題）', reviewOnly, (on) => {
+    reviewOnly = on;
+    safeStorage.set(REVIEW_KEY, on ? '1' : '0');
+  });
 
   for (const entry of courseOrder) {
     const course = courses[entry.id];
@@ -297,9 +307,9 @@ function renderNav() {
 
     for (const lesson of course.lessons || []) {
       const lessonSolved = lesson.problems.filter(p => isSolved(problemRef(p))).length;
-      const shown = lesson.problems.filter(p => !unsolvedOnly || !isSolved(problemRef(p))
-        || (current && problemRef(current) === problemRef(p)));
-      // 「未解決だけ」で、この課がぜんぶ解けていたら、課ごと畳む
+      const shown = lesson.problems.filter(p => (current && problemRef(current) === problemRef(p))
+        || ((!unsolvedOnly || !isSolved(problemRef(p))) && (!reviewOnly || needsReview(problemRef(p)))));
+      // しぼりこみで、この課に見せる問題が無ければ、課ごと畳む
       if (!shown.length) continue;
       const title = document.createElement('p');
       title.className = 'lesson-title';
@@ -346,7 +356,7 @@ function kindLabel(type) {
  * 4. 問題を開く
  * ========================================================== */
 
-/** 自由記述のはじめのコード */
+/** 「自由に書く」のはじめのコード */
 const FREE_START = '# 好きなように書いてみましょう\nprint("こんにちは")\n';
 
 /** その問題の最初のコード（書きかけが無いときに開くもの） */
@@ -362,12 +372,33 @@ function problemByRef(ref) {
 }
 
 /**
+ * 模試の途中なら、やめてよいか確かめる
+ * @returns {Promise<boolean>} やめた（または模試の途中ではない）なら true
+ */
+async function quitMock() {
+  if (!mock) return true;
+  const ok = await confirmDialog({
+    title: '模試をやめますか？',
+    message: 'ここまでの答えは残りません。',
+    okLabel: '中止',
+  });
+  if (!ok) return false;
+  mock = null;
+  $('mock-chip').style.display = 'none';
+  renderNav();
+  return true;
+}
+
+/**
  * 問題を開く
  * @param {string} ref 'kyotsu#bin-search'
+ * @param {{explain?: boolean}} [options] explain: 解説を開いた状態で見せる（模試の結果から開くとき）
  */
-function openProblem(ref) {
+async function openProblem(ref, options = {}) {
   const problem = problemByRef(ref);
   if (!problem || busyNotice()) return;
+  // 模試の途中で一覧の問題を押したら、黙って模試に混ぜずに、やめるか確かめる
+  if (mock && !(await quitMock())) return;
 
   current = problem;
   answered = false;
@@ -402,6 +433,7 @@ function openProblem(ref) {
   if (window.matchMedia('(max-width: 1000px)').matches && nav) nav.toggle(false);
 
   renderProblem(problem);
+  if (options.explain) revealExplanation();
   renderNav();
   rememberLast(ref);
   if (!mock) history.replaceState(null, '', `#${ref}`);
@@ -444,13 +476,13 @@ function renderProblem(problem) {
   // ヒントと解説（模試の間は出さない）
   renderHints(problem);
 
+  // 解説は答えを言ってしまうので、読む課のほかは、正解したか 2 回まちがえたあとに出す
   const explainBox = $('explain-box');
-  explainBox.style.display = !mock && problem.explanation ? '' : 'none';
+  explainBox.style.display = !mock && problem.explanation && problem.type === 'read' ? '' : 'none';
   explainBox.open = false;
   $('explain-text').innerHTML = toSafeHtml(problem.explanation || '');
 
-  $('ai-box').style.display = mock ? 'none' : '';
-  $('chat-box').style.display = mock ? 'none' : '';
+  showAiControls();
   $('explanation').textContent = '';
   $('review').textContent = '';
 
@@ -458,6 +490,8 @@ function renderProblem(problem) {
   $('check-btn').style.display = problem.type === 'read' ? 'none' : '';
   if (mock) { setIconLabel($('check-btn'), 'next', '記録して次へ'); }
   else { setIconLabel($('check-btn'), 'check', '答え合わせ'); }
+  // 模試では、分からない問題をとばせる（まちがいとして数える）
+  $('skip-btn').style.display = mock && problem.type !== 'read' ? '' : 'none';
   updateRunAvailability();
 
   $('output').textContent = '「実行」で動かせます';
@@ -546,7 +580,9 @@ function renderAnswerArea(problem) {
     if (Array.isArray(problem.choices)) {
       const list = document.createElement('div');
       list.className = 'choice-list';
-      problem.choices.forEach((choice, index) => {
+      // 見せる順は混ぜるが、選んだ値はもとの番号のまま（答え合わせは answerIndex と見くらべる）
+      choiceOrder(problem.choices.length, problemRef(problem)).forEach((index) => {
+        const choice = problem.choices[index];
         const label = document.createElement('label');
         label.className = 'choice-item';
         const radio = document.createElement('input');
@@ -594,7 +630,9 @@ function renderAnswerArea(problem) {
       empty.value = '';
       empty.textContent = '選んでください';
       select.appendChild(empty);
-      blank.choices.forEach((choice, index) => {
+      // 見せる順は混ぜるが、option の値はもとの番号のまま（gradeBlanks は answer と見くらべる）
+      choiceOrder(blank.choices.length, `${problemRef(problem)}#${blank.key}`).forEach((index) => {
+        const choice = blank.choices[index];
         const option = document.createElement('option');
         option.value = String(index);
         // 共通テスト対策では、プログラムと同じ表記で選択肢を見せる（// ではなく ÷ など）
@@ -633,11 +671,15 @@ function renderAnswerArea(problem) {
   }
 }
 
-/** trace は答えるまで実行できない（先に予想してもらう） */
+/**
+ * trace は答えるまで実行できない（先に予想してもらう）。
+ * 模試では trace と blank は実行できない（実行すれば答えが見えてしまう）
+ */
 function updateRunAvailability() {
-  const locked = current && current.type === 'trace' && !answered && !mock;
+  const guarded = current && (current.type === 'trace' || (mock && current.type === 'blank'));
+  const locked = Boolean(guarded) && (mock || !answered);
   const title = running ? '実行が終わるまでお待ちください'
-    : (locked ? 'まず答えを書いてから実行できます' : '');
+    : (locked ? (mock ? '模試のあいだ、この問題は実行できません' : 'まず答えを書いてから実行できます') : '');
   for (const id of ['run-btn', 'step-btn']) {
     const button = $(id);
     button.disabled = running || locked || !pyodide;
@@ -754,12 +796,28 @@ async function runCurrent() {
  * 6. 答え合わせ
  * ========================================================== */
 
+/** 選択肢の中身を、画面に見せている書き方にそろえる（共通テスト対策は ÷ などの表記） */
+function choiceText(problem, choice) {
+  return problem.courseId === 'kyotsu' ? toKtphFragment(choice) : String(choice ?? '');
+}
+
+/** 穴埋めの選び方を「【ア】x　【イ】y」の文にする（正解の表示と、模試の結果に使う） */
+function describePicks(problem, chosen) {
+  return (problem.blanks || []).map((blank) => {
+    const pick = chosen ? chosen[blank.key] : undefined;
+    const text = pick === undefined || pick === null || pick === ''
+      ? '（選んでいない）' : choiceText(problem, blank.choices[Number(pick)]);
+    return `【${blank.key}】${text}`;
+  }).join('　');
+}
+
 async function checkCurrent() {
   if (!current || current.type === 'read' || busyNotice()) return;
   const ref = problemRef(current);
 
   if (current.type === 'trace') {
-    const given = Array.isArray(current.choices)
+    const choices = Array.isArray(current.choices);
+    const given = choices
       ? picks.choice
       : ($('trace-answer') ? $('trace-answer').value : '');
     if (given === undefined || given === '') {
@@ -772,7 +830,8 @@ async function checkCurrent() {
     const result = gradeTrace(current, given);
     finishAnswer(ref, result.ok,
       result.ok ? '正解です。' :
-        'ちがいます。「実行」で実際に動かして、どこがちがうか確かめてみましょう。');
+        'ちがいます。「実行」で実際に動かして、どこがちがうか確かめてみましょう。',
+      { given: choices ? String(current.choices[given] ?? '') : String(given), expected: result.expected });
     return;
   }
 
@@ -788,7 +847,8 @@ async function checkCurrent() {
     }
     finishAnswer(ref, result.ok, result.ok
       ? '正解です。'
-      : '✕ のところを選び直しましょう。「実行」で埋めたプログラムを動かすと、どこがちがうか分かります。');
+      : '✕ のところを選び直しましょう。「実行」で埋めたプログラムを動かすと、どこがちがうか分かります。',
+    { given: describePicks(current, picks), expected: describePicks(current, correctPicks(current)) });
     return;
   }
 
@@ -807,7 +867,10 @@ async function checkCurrent() {
     const summary = gradeTests(results);
 
     if (mock) {
-      finishAnswer(ref, summary.ok, '');
+      finishAnswer(ref, summary.ok, '', {
+        given: `${summary.total} 個のテストのうち ${summary.passed} 個が通った`,
+        expected: 'すべてのテストが通る',
+      });
       return;
     }
 
@@ -838,35 +901,61 @@ function escapeHtml(text) {
   return String(text ?? '').replace(/[&<>]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c]));
 }
 
-/** 答え合わせのあとの共通の処理 */
-function finishAnswer(ref, ok, message) {
-  markTried(ref);
+/** 解説を出して開く（正解したとき・2 回まちがえたとき・模試の結果から開いたとき） */
+function revealExplanation() {
+  if (!current || !current.explanation) return;
+  const box = $('explain-box');
+  box.style.display = '';
+  box.open = true;
+}
+
+/** 答え合わせの知らせの下に、短い一文を足す */
+function addToNote(text, className = 'muted') {
+  const box = $('check-result').querySelector('.note');
+  if (!box) return;
+  const line = document.createElement('p');
+  line.className = className;
+  line.style.margin = 'var(--sp-1) 0 0';
+  line.textContent = text;
+  box.appendChild(line);
+}
+
+/**
+ * 答え合わせのあとの共通の処理
+ * @param {string} ref
+ * @param {boolean} ok
+ * @param {string|null} message
+ * @param {{given?: string, expected?: string}} [detail] 何と答えたかと正解（模試の結果と、正解の表示に使う）
+ */
+function finishAnswer(ref, ok, message, detail = {}) {
+  // 1 回目の正誤も残す（「要復習」のしぼりこみに使う）
+  markTried(ref, ok);
   if (ok) markSolved(ref);
   renderNav();
 
   if (mock) {
-    mock.outcomes[ref] = ok;
+    mock.outcomes[ref] = { ok, given: detail.given ?? '', expected: detail.expected ?? '' };
     nextMockProblem();
     return;
   }
 
   if (message !== null) showNote('check-result', ok ? 'ok' : 'bad', message);
-  if (ok && current.explanation) $('explain-box').open = true;
+  if (ok) revealExplanation();
 
   // 2 回続けてまちがえたら、ヒントを開いてあげる（ひとりで抱えこまないように）
   wrongInRow = ok ? 0 : wrongInRow + 1;
   const hintBox = $('hint-box');
   if (wrongInRow >= 2 && hintBox.style.display !== 'none' && !hintBox.open) {
     hintBox.open = true;
-    const box = $('check-result').querySelector('.note');
-    if (box) {
-      const tip = document.createElement('p');
-      tip.className = 'muted';
-      tip.style.margin = 'var(--sp-1) 0 0';
-      tip.textContent = '下の「ヒント」を開きました。1 つずつ読んでみましょう。';
-      box.appendChild(tip);
-    }
+    addToNote('下の「ヒント」を開きました。1 つずつ読んでみましょう。');
     hintBox.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+  }
+  // 2 回まちがえたら、正解と解説も見せる（答えが分からないまま止まってしまわないように）
+  if (!ok && wrongInRow >= 2) {
+    if ((current.type === 'trace' || current.type === 'blank') && detail.expected) {
+      addToNote(`正解: ${detail.expected}`, 'answer-reveal');
+    }
+    revealExplanation();
   }
 
   // 正解したら、その場から次へ進めるようにする（上のボタンを探させない）
@@ -936,7 +1025,7 @@ async function startStepMode() {
     showStep(0);
     $('step-next').focus();
   } catch (e) {
-    $('output').textContent = 'ステップ実行にしくじりました: ' + e.message;
+    $('output').textContent = '1行ずつ実行が、うまくいきませんでした: ' + e.message;
   } finally {
     running = false;
     updateRunAvailability();
@@ -1085,6 +1174,7 @@ function showMockIntro(set, best) {
 
   showNote('check-result', 'ok', '');
   $('check-btn').style.display = 'none';
+  $('skip-btn').style.display = 'none';
   for (const id of ['hint-box', 'explain-box', 'ai-box', 'chat-box']) $(id).style.display = 'none';
 }
 
@@ -1110,6 +1200,23 @@ function openMockProblem() {
   syncViews();
 }
 
+/** 模試で、今の問題をとばす（まちがいとして数える） */
+function skipMockProblem() {
+  if (!mock || !current || busyNotice()) return;
+  const ref = problemRef(current);
+  // とばした問題も「1 回目でまちがえた」として要復習に入れる
+  markTried(ref, false);
+  mock.outcomes[ref] = { ok: false, given: '（とばした）', expected: mockExpected(current) };
+  nextMockProblem();
+}
+
+/** とばした問題の正解の書き方 */
+function mockExpected(problem) {
+  if (problem.type === 'blank') return describePicks(problem, correctPicks(problem));
+  if (problem.type === 'trace') return gradeTrace(problem, '').expected;
+  return 'すべてのテストが通る';
+}
+
 function nextMockProblem() {
   mock.index += 1;
   if (mock.index >= mock.entries.length) { finishMock(); return; }
@@ -1121,12 +1228,15 @@ function finishMock() {
   const result = scoreMock(set, mock.outcomes);
   recordMock(mock.set.id, result);
 
+  // 何と答えて、正解は何だったかを並べる（どこでまちがえたかを、その場で見直せるように）
   const rows = result.rows.map((row) => {
     const problem = problemByRef(row.ref);
     return `<tr>
       <td>${escapeHtml(problem ? problem.title : row.ref)}</td>
       <td>${row.points} 点</td>
       <td>${iconHtml(row.ok ? 'check' : 'cross')}</td>
+      <td class="mono">${escapeHtml(row.given ?? '')}</td>
+      <td class="mono">${escapeHtml(row.expected ?? '')}</td>
       <td><button class="btn btn-sm" data-open="${escapeHtml(row.ref)}">解説を見る</button></td>
     </tr>`;
   }).join('');
@@ -1141,14 +1251,16 @@ function finishMock() {
   $('ktph-note').style.display = 'none';
   $('problem-text').innerHTML =
     `<p class="mock-score">${result.score} / ${result.total} 点</p>` +
-    `<table class="mock-table"><tr><th>問題</th><th>配点</th><th>正誤</th><th></th></tr>${rows}</table>`;
+    '<table class="mock-table"><tr><th>問題</th><th>配点</th><th>正誤</th><th>あなたの答え</th><th>正解</th><th></th></tr>'
+    + `${rows}</table>`;
 
   $('problem-text').querySelectorAll('[data-open]').forEach((button) => {
-    button.addEventListener('click', () => openProblem(button.dataset.open));
+    button.addEventListener('click', () => openProblem(button.dataset.open, { explain: true }));
   });
 
   $('answer-area').innerHTML = '';
   $('check-btn').style.display = 'none';
+  $('skip-btn').style.display = 'none';
   showNote('check-result', result.score === result.total ? 'ok' : 'warn',
     result.score === result.total ? '全問正解です。' : 'まちがえた問題の解説を読んでみましょう。');
   renderNav();
@@ -1239,7 +1351,17 @@ function setupChat() {
   $('chat-input').addEventListener('keypress', (e) => { if (e.key === 'Enter') send(); });
 }
 
+/** AI の欄は、キーが入っているときだけ出す（キーの無い生徒には、使えないボタンを見せない） */
+function showAiControls() {
+  const on = ai.hasApiKey() && !mock;
+  $('ai-box').style.display = on ? '' : 'none';
+  $('chat-box').style.display = on ? '' : 'none';
+  $('ai-fix-code').style.display = on ? '' : 'none';
+}
+
 function setupAiButtons() {
+  // キーを保存・消去したら、AI の欄を出し入れしなおす
+  $('save-api-key').addEventListener('click', () => setTimeout(showAiControls, 0));
   $('btn-explain').addEventListener('click', async () => {
     $('explanation').textContent = '聞いています…';
     $('explanation').textContent = await ai.explainProblem(current);
@@ -1256,7 +1378,8 @@ function setupAiButtons() {
       if (fixed) {
         editorPy.setValue(fixed);
         syncViews();
-        toast('AI がコードを書き直しました。「元に戻す」で前のコードに戻せます', 3600);
+        // 確かめずに書きかえたので、その場で戻せるボタンを添える
+        toast('AI がコードを書き直しました。', 10000, { label: '元に戻す', onClick: () => editorPy.undo() });
       } else {
         showNote('check-result', 'warn', escapeHtml(ai.getLastAiError() || 'AI に直してもらえませんでした。'));
       }
@@ -1266,22 +1389,27 @@ function setupAiButtons() {
   });
 }
 
+/**
+ * 記録をファイルにして保存させる
+ * @param {string} prefix ファイル名の頭
+ */
+function downloadProgress(prefix) {
+  const blob = new Blob([exportProgress()], { type: 'application/json' });
+  const link = document.createElement('a');
+  link.href = URL.createObjectURL(blob);
+  link.download = `${prefix}-${new Date().toISOString().slice(0, 10)}.json`;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  setTimeout(() => URL.revokeObjectURL(link.href), 1000);
+}
+
 async function enterFreeCoding() {
   if (busyNotice()) return;
   // 模試の途中なら、黙って抜けない
-  if (mock) {
-    const ok = await confirmDialog({
-      title: '模試をやめますか？',
-      message: 'ここまでの答えは残りません。',
-      okLabel: '中止',
-    });
-    if (!ok) return;
-    mock = null;
-    $('mock-chip').style.display = 'none';
-    renderNav();
-  }
+  if (!(await quitMock())) return;
   current = {
-    id: 'free', courseId: 'free', type: 'code', title: '自由記述',
+    id: 'free', courseId: 'free', type: 'code', title: '自由に書く',
     description: '好きなプログラムを書いて動かせます。答え合わせはありません。',
     view: 'python', tests: [],
   };
@@ -1310,8 +1438,10 @@ async function init() {
     attachNameFix(editorPy);
     attachLineDrag(editorPy);
     attachIndentCheck(editorPy);
+    attachSymbolBar(editorPy, $('code-symbols'));
     makeEditorFriendly(editorKtph, '共通テスト用プログラム表記（読むだけ）');
     addCodeZoom([editorPy, editorKtph], $('code-undo').parentElement);
+    addOutputZoom($('output-body'), $('output-clear').parentElement);
 
     editorPy.on('change', () => {
       // コードを書きかえたら、記録と合わなくなるのでステップ実行を終える
@@ -1330,6 +1460,8 @@ async function init() {
         }
         $('ktph-warning').style.display =
           (stage === 'ktph' || stage === 'pair') && $('ktph-warning').textContent ? '' : 'none';
+        // 記号ボタンは Python のエディタに入れるので、Python が見えているときだけ出す
+        $('code-symbols').style.display = stage === 'python' || stage === 'pair' ? '' : 'none';
         requestAnimationFrame(() => {
           if (stage === 'python' || stage === 'pair') editorPy.refresh();
           if (stage === 'ktph' || stage === 'pair') editorKtph.refresh();
@@ -1381,6 +1513,7 @@ async function init() {
     bindRunShortcut($('run-btn'));
     $('step-btn').addEventListener('click', startStepMode);
     $('check-btn').addEventListener('click', checkCurrent);
+    $('skip-btn').addEventListener('click', skipMockProblem);
     $('prev-problem').addEventListener('click', () => move(-1));
     $('next-problem').addEventListener('click', () => move(1));
     $('free-coding').addEventListener('click', enterFreeCoding);
@@ -1438,15 +1571,18 @@ async function init() {
     $('reset-progress').addEventListener('click', async () => {
       const ok = await confirmDialog({
         title: '記録を消しますか？',
-        message: '解けた印・模試の成績・書きかけのコードが、すべて消えます。元にはもどせません。',
-        okLabel: '全消去',
+        message: '解けた印・模試の成績・書きかけのコードが、すべて消えます。'
+          + '念のため、消す前に今の記録をファイルに書き出します（「ファイルから読みこむ」で戻せます）。',
+        okLabel: '記録をすべて消す',
       });
       if (!ok) return;
+      // 押しまちがえても取りもどせるように、消す前に控えを保存する
+      downloadProgress('easycode-lessons-backup');
       clearProgress();
       // 開いている問題も、最初のコードに戻す（書きかけが消えたのと見た目をそろえる）
       if (current) { editorPy.setValue(originalCode(current)); editorPy.clearHistory(); }
       renderNav();
-      toast('記録を消しました');
+      toast('記録を消しました。消す前の記録は、ファイルに保存してあります', 4200);
     });
 
     addTextSizeControl($('display-settings'));
@@ -1454,14 +1590,7 @@ async function init() {
     // つまずき解説へのリンク（「設定」の前に入れる）
     addTipsLinks($('course-nav'), $('display-settings').closest('details'));
     $('export-progress').addEventListener('click', () => {
-      const blob = new Blob([exportProgress()], { type: 'application/json' });
-      const link = document.createElement('a');
-      link.href = URL.createObjectURL(blob);
-      link.download = `easycode-lessons-${new Date().toISOString().slice(0, 10)}.json`;
-      document.body.appendChild(link);
-      link.click();
-      link.remove();
-      setTimeout(() => URL.revokeObjectURL(link.href), 1000);
+      downloadProgress('easycode-lessons');
       toast('記録をファイルに書き出しました。別の端末の「ファイルから読みこむ」で続けられます', 4200);
     });
     $('import-progress').addEventListener('click', () => $('import-progress-file').click());
@@ -1509,7 +1638,7 @@ async function init() {
   } catch (e) {
     console.error('レッスンモードの立ち上げに失敗:', e);
     $('loader').innerHTML =
-      `<p>読み込みにしくじりました。<br>${escapeHtml(e.message)}</p>`;
+      `<p>読み込みが、うまくいきませんでした。<br>${escapeHtml(e.message)}</p>`;
     return;
   }
 
