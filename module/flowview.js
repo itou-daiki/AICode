@@ -29,7 +29,7 @@ export function setupMermaid() {
   return mermaidLoading;
 }
 
-function configureMermaid() {
+function configureMermaid(htmlLabels = true) {
   mermaid.initialize({
     startOnLoad: false,
     securityLevel: 'strict',
@@ -43,7 +43,7 @@ function configureMermaid() {
       fontSize: '13px',
     },
     flowchart: {
-      htmlLabels: true,
+      htmlLabels,
       // 教科書のフローチャートは線を必ず直角に曲げる。
       // linear のままだと斜めに走って、見なれた図と別物になる。
       curve: 'step',
@@ -60,6 +60,17 @@ function configureMermaid() {
 }
 
 let renderCount = 0;
+// 図ごとの Mermaid 定義（画像保存で、文字をふつうの SVG 文字として描き直すのに使う）
+const definitions = new WeakMap();
+
+// Mermaid の設定は全体で 1 つなので、描く処理は 1 つずつ順番に行う
+// （画像保存が一時的に設定を変えている間に、ふつうの描画が割りこまないように）
+let renderLock = Promise.resolve();
+function exclusive(task) {
+  const run = renderLock.then(task, task);
+  renderLock = run.catch(() => {});
+  return run;
+}
 
 /**
  * Python のコードからフローチャートを描く
@@ -80,6 +91,7 @@ export async function renderFlowchart(container, python, options = {}) {
   if (!result.definition) {
     // 文章は textContent で入れる（HTML として解釈させない）
     container.innerHTML = '';
+    definitions.delete(container);
     const empty = document.createElement('div');
     empty.className = 'empty-state';
     const mark = document.createElement('span');
@@ -93,8 +105,9 @@ export async function renderFlowchart(container, python, options = {}) {
   const id = `lesson-flow-${++renderCount}`;
   try {
     await setupMermaid();
-    const { svg } = await mermaid.render(id, result.definition);
+    const { svg } = await exclusive(() => mermaid.render(id, result.definition));
     container.innerHTML = svg;
+    definitions.set(container, result.definition);
     fitFlowchart(container, { fit });
     scrollToTop(container);
 
@@ -110,6 +123,7 @@ export async function renderFlowchart(container, python, options = {}) {
     document.getElementById(id)?.remove();
     document.getElementById(`d${id}`)?.remove();
     container.innerHTML = '';
+    definitions.delete(container);
     const failed = document.createElement('div');
     failed.className = 'empty-state';
     const mark = document.createElement('span');
@@ -209,4 +223,87 @@ export function highlightFlowLine(container, lineByNode, line) {
     const node = container.querySelector(`g.node[id*="${nodeId}"]`);
     if (node) node.classList.add('step-active');
   }
+}
+
+/**
+ * 今の図を PNG にして保存する
+ *
+ * 画面の図は文字を HTML（foreignObject）で描いていて、そのまま画像にすると
+ * ブラウザによっては保存できない。そこで、文字を SVG の文字にした図を
+ * 見えないところで描き直し、白い背景に 2 倍の大きさで書き出す。
+ * @param {HTMLElement} container 図が入っている場所
+ * @param {string} [filename]
+ * @returns {Promise<Blob>} 保存した PNG
+ */
+export async function saveFlowchartPng(container, filename = 'flowchart.png') {
+  const definition = container && definitions.get(container);
+  if (!definition || !container.querySelector('svg[id^="lesson-flow-"]')) {
+    const empty = new Error('保存できる図がありません');
+    empty.noDiagram = true;
+    throw empty;
+  }
+
+  await setupMermaid();
+  const id = `export-flow-${++renderCount}`;
+  const svgText = await exclusive(async () => {
+    try {
+      configureMermaid(false);
+      return (await mermaid.render(id, definition)).svg;
+    } finally {
+      configureMermaid(true);
+      document.getElementById(id)?.remove();
+      document.getElementById(`d${id}`)?.remove();
+    }
+  });
+
+  const doc = new DOMParser().parseFromString(svgText, 'image/svg+xml');
+  const svg = doc.documentElement;
+  const box = (svg.getAttribute('viewBox') || '').split(/[\s,]+/).map(Number);
+  if (!(box[2] > 0) || !(box[3] > 0)) throw new Error('図の大きさを調べられませんでした');
+  // 保存時は画面と別のフォントで描かれることがあるので、ふちに少し余白をとって文字の欠けを防ぐ
+  const pad = 10;
+  const width = box[2] + pad * 2;
+  const height = box[3] + pad * 2;
+  svg.setAttribute('viewBox', `${box[0] - pad} ${box[1] - pad} ${width} ${height}`);
+  svg.setAttribute('xmlns', 'http://www.w3.org/2000/svg');
+  svg.setAttribute('width', String(width));
+  svg.setAttribute('height', String(height));
+  svg.removeAttribute('style');
+  // 日本語が出るように、フォントを図そのものに書きこむ
+  svg.setAttribute('font-family', '"BIZ UDPGothic", "Hiragino Sans", "Yu Gothic", "Meiryo", sans-serif');
+
+  const url = URL.createObjectURL(new Blob([new XMLSerializer().serializeToString(svg)], { type: 'image/svg+xml;charset=utf-8' }));
+  try {
+    const image = new Image();
+    await new Promise((resolve, reject) => {
+      image.onload = resolve;
+      image.onerror = () => reject(new Error('図を画像にできませんでした'));
+      image.src = url;
+    });
+    const scale = 2;
+    const canvas = document.createElement('canvas');
+    canvas.width = Math.ceil(width * scale);
+    canvas.height = Math.ceil(height * scale);
+    const ctx = canvas.getContext('2d');
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    ctx.drawImage(image, 0, 0, canvas.width, canvas.height);
+    const blob = await new Promise((resolve) => canvas.toBlob(resolve, 'image/png'));
+    if (!blob) throw new Error('PNG を作れませんでした');
+    if (filename) downloadBlob(blob, filename);
+    return blob;
+  } finally {
+    URL.revokeObjectURL(url);
+  }
+}
+
+function downloadBlob(blob, filename) {
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = filename;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
 }

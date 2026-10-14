@@ -884,6 +884,15 @@ function setupControls() {
 
 $('flow-zoom-in').addEventListener('click', () => bench.zoomFlowchart(1.25));
   $('flow-zoom-out').addEventListener('click', () => bench.zoomFlowchart(0.8));
+$('flow-save-png').addEventListener('click', async () => {
+  try {
+    await bench.savePng('flowchart.png');
+    toast('図を画像（flowchart.png）で保存しました');
+  } catch (e) {
+    console.error(e);
+    toast(e.noDiagram ? '保存できる図がありません。コードを書いて図を出してから押してください' : '画像を保存できませんでした。もう一度ためしてください');
+  }
+});
 
   $('flow-fit').addEventListener('click', (e) => {
     const fit = !bench.isFlowFit();

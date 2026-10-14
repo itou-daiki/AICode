@@ -66,7 +66,7 @@ export const BUILTINS = [
 
 /** よく使う書き方のひな形 */
 export const SNIPPETS = [
-  ['if', 'if 文', 'if :', 1],
+  ['if', 'if 文', 'if __CURSOR__:', null],
   ['ifelse', 'if / else 文', 'if :\n    pass\nelse:\n    pass', null],
   ['for', 'for（回数を指定して繰り返す）', 'for i in range(10):\n    ', null],
   ['foreach', 'for（リストの要素ごとに繰り返す）', 'for item in items:\n    ', null],
@@ -76,7 +76,56 @@ export const SNIPPETS = [
   ['try', 'try / except（エラーに備える）', 'try:\n    pass\nexcept Exception as e:\n    print(e)', null],
   ['with', 'with open（ファイルを読む）', 'with open("data.txt") as f:\n    ', null],
   ['main', 'if __name__ == "__main__"', 'if __name__ == "__main__":\n    ', null],
+  ['random', 'import random（乱数を使う準備）', 'import random', null],
 ].map(([trigger, label, insert, moveBack]) => ({ trigger, label, insert, moveBack, detail: 'ひな形', kind: 'snippet' }));
+
+/**
+ * 日本語で探せるようにする言葉。
+ * 「表示」と打つと print() が出るように、候補の label ごとに日本語の呼び名をつける。
+ * 日本語入力の変換が終わってから探す（変換中は補完を出さない）。
+ */
+export const JAPANESE_ALIASES = {
+  print: ['表示', '出力', 'ひょうじ'],
+  input: ['入力', 'にゅうりょく'],
+  if: ['もし'],
+  'if 文': ['もし'],
+  for: ['繰り返し', 'くりかえし', '繰返し'],
+  'for（回数を指定して繰り返す）': ['繰り返し', 'くりかえし'],
+  'for（リストの要素ごとに繰り返す）': ['繰り返し', 'くりかえし'],
+  while: ['繰り返し', 'くりかえし'],
+  'while（条件が成り立つ間くり返す）': ['繰り返し', 'くりかえし'],
+  len: ['長さ', '要素数'],
+  range: ['範囲'],
+  def: ['関数'],
+  'def（関数を作る）': ['関数'],
+  return: ['戻り値', '返す', 'もどりち'],
+  random: ['乱数'],
+  'import random（乱数を使う準備）': ['乱数'],
+  int: ['整数'],
+  float: ['小数', '実数'],
+  str: ['文字列'],
+  sum: ['合計'],
+  max: ['最大'],
+  min: ['最小'],
+  else: ['そうでなければ'],
+  elif: ['そうでなくもし'],
+};
+
+for (const entry of [...KEYWORDS, ...BUILTINS, ...SNIPPETS]) {
+  if (JAPANESE_ALIASES[entry.label]) entry.aliases = JAPANESE_ALIASES[entry.label];
+}
+
+// 授業でよく使う組み込み関数は、同じくらい合うときに少し上に（p → pow より print）
+const COMMON_BUILTINS = { print: 6, input: 4, range: 3, len: 3, int: 3 };
+for (const entry of BUILTINS) {
+  if (COMMON_BUILTINS[entry.label]) entry.boost = COMMON_BUILTINS[entry.label];
+}
+
+/** 挿入したあとのカーソルの位置を表す印（ひな形の中に書く） */
+export const CURSOR_MARK = '__CURSOR__';
+/** ブロックの中身の字下げを表す印（今の行の字下げ ＋ 4 文字になる） */
+export const BODY_MARK = '__BODY__';
+const INDENT_UNIT = '    ';
 
 /** 型ごとのメソッド */
 export const TYPE_METHODS = {
@@ -214,7 +263,7 @@ function inferType(expr, known) {
   if (call) {
     const byCall = {
       input: 'str', str: 'str', repr: 'str', format: 'str',
-      int: 'int', len: 'int', ord: 'int', sum: 'int', round: 'int',
+      int: 'int', len: 'int', ord: 'int',
       float: 'float', abs: 'float',
       list: 'list', sorted: 'list', split: 'list',
       dict: 'dict', set: 'set', tuple: 'tuple', open: 'file',
@@ -254,6 +303,10 @@ export function analyzeCode(code, lineIndex = Number.MAX_SAFE_INTEGER) {
   const classes = [];
   const modules = {};     // 使える名前 → モジュール名
   const imported = {};    // from ... import した名前 → 説明
+  const assigned = new Set(); // for 以外で値を入れた名前（ループ変数の名前を選ぶときに避ける）
+  const loopNames = new Set(); // for の数え役・取り出し役にした名前
+  // range() に渡せる「回数」の変数。int(...)・len(...)・整数で決めて、あとで += などで足しこんでいないもの
+  const counts = new Set();
 
   lines.forEach((raw, index) => {
     const line = raw.split('#')[0];
@@ -290,6 +343,7 @@ export function analyzeCode(code, lineIndex = Number.MAX_SAFE_INTEGER) {
           const name = param.trim().split(/[:=]/)[0].trim();
           if (name && name !== 'self' && /^[A-Za-z_]\w*$/.test(name)) {
             variables[name] = variables[name] || null;
+            assigned.add(name);
           }
         }
       }
@@ -310,6 +364,7 @@ export function analyzeCode(code, lineIndex = Number.MAX_SAFE_INTEGER) {
         const clean = name.trim();
         if (!/^[A-Za-z_]\w*$/.test(clean)) continue;
         variables[clean] = /^range\s*\(/.test(iterable) ? 'int' : null;
+        loopNames.add(clean);
       }
       return;
     }
@@ -325,19 +380,197 @@ export function analyzeCode(code, lineIndex = Number.MAX_SAFE_INTEGER) {
     const assignMatch = text.match(/^([A-Za-z_]\w*)\s*(?::[^=]+)?=(?!=)\s*(.+)$/);
     if (assignMatch) {
       variables[assignMatch[1]] = inferType(assignMatch[2], variables);
+      assigned.add(assignMatch[1]);
+      if (/^(?:int|len)\s*\(|^\d+$/.test(assignMatch[2].trim())) counts.add(assignMatch[1]);
+      else counts.delete(assignMatch[1]);
+      return;
+    }
+
+    // a, b = 1, 2
+    const tupleMatch = text.match(/^([A-Za-z_]\w*(?:\s*,\s*[A-Za-z_]\w*)+)\s*=(?!=)/);
+    if (tupleMatch) {
+      for (const name of tupleMatch[1].split(',')) {
+        const clean = name.trim();
+        if (!(clean in variables)) variables[clean] = null;
+        assigned.add(clean);
+      }
+      return;
+    }
+
+    // total += x は数として使っている
+    // （足しこむ変数は合計なので、range() の回数にはしない。小数を足せば小数）
+    const augMatch = text.match(/^([A-Za-z_]\w*)\s*(\+|-|\*|\/\/|\/|%)=\s*(.*)$/);
+    if (augMatch && augMatch[1] in variables) {
+      const [, name, op, rhs] = augMatch;
+      counts.delete(name);
+      if (op === '/' || /\d\.\d|\.\d|float\s*\(/.test(rhs) || variables[rhs.trim()] === 'float') variables[name] = 'float';
+      else if (!variables[name]) variables[name] = 'int';
+    }
+
+    // scores.append(...) はリストとして使っている
+    const appendMatch = text.match(/^([A-Za-z_]\w*)\.append\s*\(/);
+    if (appendMatch && appendMatch[1] in variables && !variables[appendMatch[1]]) {
+      variables[appendMatch[1]] = 'list';
     }
   });
 
-  return { variables, functions, classes, modules, imported };
+  // カーソルの行から、それぞれの変数を最後に使った行までの近さ（行数）
+  const near = {};
+  lines.forEach((raw, index) => {
+    if (index === lineIndex) return;
+    for (const match of raw.split('#')[0].matchAll(/[A-Za-z_]\w*/g)) {
+      const name = match[0];
+      if (!(name in variables)) continue;
+      const distance = Math.abs(index - lineIndex);
+      if (near[name] === undefined || distance < near[name]) near[name] = distance;
+    }
+  });
+
+  return { variables, functions, classes, modules, imported, near, assigned, loopNames, counts, lines };
 }
 
 /* ============================================================
  * 3. 候補の組み立て
  * ========================================================== */
 
+
 /** 候補を作るときの共通形 */
-const item = (label, insert, detail, kind, moveBack) =>
-  ({ label, insert: insert ?? label, detail, kind, moveBack });
+const item = (label, insert, detail, kind, moveBack, extra = {}) =>
+  ({ label, insert: insert ?? label, detail, kind, moveBack, ...extra });
+
+// 日本語の字（ひらがな・カタカナ・漢字）。「表示」のように日本語で探すときに使う
+const JP = '\\u3040-\\u30ff\\u3400-\\u9fff\\uf900-\\ufaff々ー';
+const WORD_AT_END = new RegExp(`[A-Za-z_${JP}][\\w${JP}]*$`);
+const ONE_WORD = new RegExp(`^[A-Za-z_${JP}][\\w${JP}]*$`);
+const HAS_JAPANESE = new RegExp(`[${JP}]`);
+
+/** この言葉で始まる行では、行まるごとの候補（for score in scores: など）を出す */
+const LINE_HEAD = /^(for|if|elif|while)\s[\w\s%=+\-*<>!.,]*$/;
+
+/** 行まるごとの候補は、多くてもこの数まで（多すぎると選べない） */
+export const MAX_LINE_ITEMS = 5;
+
+/** 変数名として使えない名前（キーワード・組み込み関数） */
+const RESERVED = new Set([...KEYWORDS, ...BUILTINS].map(entry => entry.label));
+
+/**
+ * カーソルが文字列やコメントの中にあるか（その行の、カーソルより前だけで判断する）
+ * @param {string} beforeCursor
+ * @returns {boolean}
+ */
+export function isInStringOrComment(beforeCursor) {
+  let quote = '';
+  for (let i = 0; i < beforeCursor.length; i++) {
+    const ch = beforeCursor[i];
+    if (quote) {
+      if (ch === '\\') { i++; continue; }
+      if (ch === quote) quote = '';
+      continue;
+    }
+    if (ch === '#') return true;
+    if (ch === '"' || ch === "'") quote = ch;
+  }
+  return Boolean(quote);
+}
+
+/**
+ * リストの名前から、1つ分の名前を作る（scores → score、cities → city）。
+ * 複数形でない・使えない名前になるときは item にする。
+ * @param {string} name
+ * @param {Set<string>} [taken] すでに使っている名前
+ */
+export function singularName(name, taken = new Set()) {
+  let base = name;
+  const stripped = name.replace(/_?list$/i, '');
+  if (stripped !== name) {
+    // name_list → name。my_list のように残りが短い・意味のない名前なら item
+    base = stripped.length >= 3 && !/^(my|the|new|old|tmp)$/i.test(stripped) ? stripped : '';
+  } else if (/ies$/.test(name)) {
+    base = `${name.slice(0, -3)}y`;                 // cities → city
+  } else if (/(ss|x|ch|sh)es$/.test(name)) {
+    base = name.slice(0, -2);                        // classes → class, boxes → box
+  } else if (/(ss|us|is)$/.test(name)) {
+    base = '';                                       // status, class, axis は複数形ではない
+  } else if (/s$/.test(name)) {
+    base = name.slice(0, -1);                        // scores → score
+  } else {
+    base = '';
+  }
+  if (!base || base === name || base.length < 2 || taken.has(base) || RESERVED.has(base) || !/^[A-Za-z_]\w*$/.test(base)) return 'item';
+  return base;
+}
+
+/**
+ * for の数え役の名前を選ぶ。外側の for や、ほかの変数で使っていない i / j / k にする。
+ * @param {object} analysis analyzeCode の結果
+ * @param {number} lineIndex カーソルのある行
+ * @param {number} indent カーソルのある行の字下げの幅
+ */
+export function loopVarName(analysis, lineIndex, indent) {
+  const used = new Set([...analysis.assigned, ...analysis.loopNames]);
+  let limit = indent;
+  for (let i = Math.min(lineIndex, analysis.lines.length) - 1; i >= 0 && limit > 0; i--) {
+    const raw = analysis.lines[i];
+    if (!raw.trim()) continue;
+    const width = indentWidth(raw);
+    if (width >= limit) continue;
+    limit = width;
+    const head = raw.trim().match(/^for\s+([\w,\s]+?)\s+in\s/);
+    if (head) head[1].split(',').forEach(name => used.add(name.trim()));
+  }
+  return ['i', 'j', 'k'].find(name => !used.has(name)) || 'i';
+}
+
+/**
+ * 生徒が作った変数から、その場で使えそうな書き方を作る。
+ *   リスト scores → for score in scores: / scores.append() / len(scores)
+ *   数 n          → for i in range(n): / for i in range(1, n + 1): / if n % 2 == 0:
+ *   どの変数でも  → print(x)
+ * 行まるごとの候補（kind: 'line'）は、行のはじめのときだけ作る。
+ */
+function contextItems(analysis, { lineIndex, indent, lineStart }) {
+  const items = [];
+  const names = Object.keys(analysis.variables)
+    .sort((a, b) => (analysis.near[a] ?? 1e9) - (analysis.near[b] ?? 1e9));
+  const taken = new Set(names);
+  const loopVar = loopVarName(analysis, lineIndex, indent);
+  const body = `\n${BODY_MARK}${CURSOR_MARK}`;
+
+  for (const name of names) {
+    const type = analysis.variables[name];
+    const line = (label, insert, detail, aliases, extra = {}) =>
+      items.push(item(label, insert, detail, 'line', 0, { varName: name, aliases: [name, ...aliases], ...extra }));
+
+    if (type === 'list' || type === 'str') {
+      items.push(item(`len(${name})`, `len(${name})`, `${name} の${type === 'list' ? '要素数' : '文字数'}`, 'expr', 0,
+        { varName: name, aliases: [name, '長さ', '要素数'] }));
+    }
+    if (!lineStart) continue;
+
+    if (type === 'list') {
+      const one = singularName(name, taken);
+      line(`for ${one} in ${name}:`, `for ${one} in ${name}:${body}`, `${name} の要素を1つずつ取り出して繰り返す`, ['繰り返し', 'くりかえし']);
+      line(`${name}.append()`, `${name}.append(${CURSOR_MARK})`, `${name} の最後に1つ加える`, ['追加']);
+    }
+    const preferred = /^(n|num|count|cnt|times|size|kaisu)/i.test(name) ? { boost: 8 } : {};
+    if (analysis.counts.has(name) && !analysis.loopNames.has(name)) {
+      line(`for ${loopVar} in range(${name}):`, `for ${loopVar} in range(${name}):${body}`, `${name} 回繰り返す`, ['繰り返し', 'くりかえし', '範囲'], preferred);
+      line(`for ${loopVar} in range(1, ${name} + 1):`, `for ${loopVar} in range(1, ${name} + 1):${body}`,
+        `${loopVar} を 1 から ${name} まで変えて繰り返す`, ['繰り返し', 'くりかえし', '範囲'], preferred);
+    }
+    if (type === 'int' && !analysis.loopNames.has(name)) {
+      line(`if ${name} % 2 == 0:`, `if ${name} % 2 == 0:${body}`, `${name} が偶数のとき`, ['もし', '偶数']);
+    }
+    line(`print(${name})`, `print(${name})`, `${name} を表示する`, ['表示', '出力']);
+  }
+  return items;
+}
+
+/** 値を書くところで使ってよいキーワード */
+const VALUE_KEYWORDS = new Set(['True', 'False', 'None', 'not', 'lambda']);
+
+/** 「=」「(」「,」の直後に出す候補（値として使えるもの） */
+const VALUE_BUILTINS = new Set(['input', 'int', 'float', 'str', 'len']);
 
 /**
  * カーソル位置に合う補完候補を返す
@@ -347,9 +580,14 @@ const item = (label, insert, detail, kind, moveBack) =>
  * @param {string} options.beforeCursor カーソルより前の同じ行のテキスト
  * @param {object[]} [options.extraApi] そのモードだけの追加候補（描画モードの p5 など）
  * @param {number} [options.limit] 最大件数
- * @returns {{items: object[], replaceLength: number}}
+ * @param {boolean} [options.manual] Ctrl+Space などで呼ばれたか（何も打っていなくても全部出す）
+ * @returns {{items: object[], replaceLength: number, context: string}}
+ *   context: 'import' | 'member' | 'word'（単語を打っている）| 'expr'（= ( , の直後）| 'head'（for / if の直後）| 'empty' | 'none'
  */
-export function getCompletions({ code, lineIndex, beforeCursor, extraApi = [], limit = 12 }) {
+export function getCompletions({ code, lineIndex, beforeCursor, extraApi = [], limit = 12, manual = true }) {
+  // 文字列やコメントの中では補完しない
+  if (isInStringOrComment(beforeCursor)) return { items: [], replaceLength: 0, context: 'none' };
+
   const analysis = analyzeCode(code, lineIndex);
 
   // --- import 文の途中 ---
@@ -359,7 +597,7 @@ export function getCompletions({ code, lineIndex, beforeCursor, extraApi = [], l
     const items = KNOWN_MODULES
       .filter(name => name.startsWith(prefix))
       .map(name => item(name, name, 'モジュール', 'module'));
-    return { items: items.slice(0, limit), replaceLength: prefix.length };
+    return { items: items.slice(0, limit), replaceLength: prefix.length, context: 'import' };
   }
 
   // --- 「なにか . なにか」の形（メンバー補完） ---
@@ -368,22 +606,80 @@ export function getCompletions({ code, lineIndex, beforeCursor, extraApi = [], l
     const [, target, prefix] = memberMatch;
     const items = memberCompletions(target, analysis, extraApi)
       .filter(entry => entry.label.toLowerCase().startsWith(prefix.toLowerCase()));
-    return { items: items.slice(0, limit), replaceLength: prefix.length };
+    return { items: items.slice(0, limit), replaceLength: prefix.length, context: 'member' };
   }
 
-  // --- ふつうの単語 ---
-  const wordMatch = beforeCursor.match(/([A-Za-z_]\w*)$/);
-  const prefix = wordMatch ? wordMatch[1] : '';
-  const candidates = wordCompletions(analysis, extraApi);
+  // --- ふつうの位置 ---
+  const indent = beforeCursor.match(/^\s*/)[0];
+  const body = beforeCursor.slice(indent.length);
+  const wordMatch = beforeCursor.match(WORD_AT_END);
+  const prefix = wordMatch ? wordMatch[0] : '';
+  const headMatch = body.match(LINE_HEAD);
+  const lineStart = body === '' || ONE_WORD.test(body) || Boolean(headMatch);
 
-  const lower = prefix.toLowerCase();
+  let context = 'word';
+  if (!prefix) {
+    // def f( の引数名は新しく決める名前なので、自分からは出さない
+    // 自分から出すのは「代入の =」と「(」のあとだけ（== や += 、「,」のあとは Ctrl+Space で）
+    const autoValue = /(?:^|[^=!<>+\-*/%&|^:])=\s*$|\(\s*$/.test(body) && !/^(def|class)\s/.test(body);
+    if (autoValue || (manual && /[(=,]\s*$/.test(body))) context = 'expr';
+    // for / if を打った直後だけ。if x == のあとなどでは自分からは出さない
+    else if (headMatch && (manual || /^\w+\s+$/.test(body))) context = 'head';
+    else if (manual) context = 'empty';
+    else return { items: [], replaceLength: 0, context: 'none' };
+  }
+
+  const extras = contextItems(analysis, { lineIndex, indent: indentWidth(indent), lineStart: lineStart && context !== 'expr' });
+  let candidates;
+  if (context === 'expr') {
+    candidates = [
+      ...wordCompletions(analysis, extraApi).filter(entry =>
+        ['variable', 'function'].includes(entry.kind) || VALUE_BUILTINS.has(entry.label)),
+      ...extras,
+      item('int(input())', 'int(input())', 'キーボードから整数を受け取る', 'builtin', 2, { aliases: ['入力', '整数'] }),
+    ];
+  } else if (context === 'head') {
+    candidates = [
+      ...extras.filter(entry => entry.kind === 'line'),
+      ...wordCompletions(analysis, extraApi).filter(entry => entry.kind === 'variable'),
+    ];
+  } else {
+    candidates = [...wordCompletions(analysis, extraApi), ...extras];
+  }
+
+  const ctx = {
+    near: analysis.near,
+    head: headMatch ? headMatch[1] : '',
+    lineStart: lineStart && context !== 'expr',
+    // 値を書くところ（x = in のとき、キーワード in より int・input を上に）
+    valuePos: context === 'expr' || /(?:(?:^|[^=!<>])=|[(,])\s*[A-Za-z_]\w*$/.test(body),
+  };
+  const lowerPrefix = prefix.toLowerCase();
+  const lowerBody = body.toLowerCase();
+
   const scored = candidates
-    .map(entry => ({ entry, score: score(entry, lower) }))
+    .map(entry => {
+      // 行まるごとの候補は、行の字下げより後ろ全体を打ちかえる
+      const isLine = entry.kind === 'line';
+      const query = isLine ? lowerBody : lowerPrefix;
+      const target = isLine ? { ...entry, replaceLength: body.length } : entry;
+      return { entry: target, score: score(target, query, ctx) };
+    })
     .filter(row => row.score > 0)
-    .sort((a, b) => b.score - a.score || a.entry.label.localeCompare(b.entry.label))
-    .map(row => row.entry);
+    .sort((a, b) => b.score - a.score || a.entry.label.localeCompare(b.entry.label));
 
-  return { items: scored.slice(0, limit), replaceLength: prefix.length };
+  const seen = new Set();
+  let lineCount = 0;
+  const items = [];
+  for (const { entry } of scored) {
+    if (seen.has(entry.label)) continue;
+    if (entry.kind === 'line' && ++lineCount > MAX_LINE_ITEMS) continue;
+    seen.add(entry.label);
+    items.push(entry);
+    if (items.length >= limit) break;
+  }
+
+  return { items, replaceLength: prefix.length, context };
 }
 
 /** 「.」のあとに出す候補 */
@@ -427,8 +723,11 @@ function wordCompletions(analysis, extraApi) {
   const items = [];
 
   // 自分で作ったもの（いちばん役に立つので先に）
-  for (const [name, type] of Object.entries(analysis.variables)) {
-    items.push(item(name, name, type ? `変数（${type}）` : '変数', 'variable'));
+  const names = Object.keys(analysis.variables)
+    .sort((a, b) => (analysis.near[a] ?? 1e9) - (analysis.near[b] ?? 1e9));
+  for (const name of names) {
+    const type = analysis.variables[name];
+    items.push(item(name, name, type ? `変数（${type}）` : '変数', 'variable', 0, { varName: name }));
   }
   for (const fn of analysis.functions) {
     items.push(item(fn.name, `${fn.name}()`, `自分で作った関数(${fn.params})`, 'function', 1));
@@ -448,23 +747,125 @@ function wordCompletions(analysis, extraApi) {
     if (!entry.target) items.push(item(entry.label, entry.insert, entry.detail, 'api', entry.moveBack));
   }
 
+  // 乱数は import random を書いてから使う
+  if (analysis.modules.random) {
+    items.push(item('random.randint()', `random.randint(${CURSOR_MARK})`, '整数の乱数（両端を含む）', 'member', 0, { aliases: ['乱数'] }));
+  }
+
   items.push(...BUILTINS, ...KEYWORDS, ...SNIPPETS);
   return items;
 }
 
-/** 並び順を決める点数（0 なら候補から外す） */
-function score(entry, prefix) {
-  const label = entry.label.toLowerCase();
-  const trigger = (entry.trigger || '').toLowerCase();
+/** 単語の頭文字（total_score → ts、for score in scores: → fsis） */
+function initials(text) {
+  return text
+    .replace(/([a-z0-9])([A-Z])/g, '$1 $2')
+    .split(/[^A-Za-z0-9]+/)
+    .filter(Boolean)
+    .map(word => word[0])
+    .join('')
+    .toLowerCase();
+}
 
+/** query の字が、text の中に順番どおりに出てくるか（あいまい一致） */
+function inOrder(text, query) {
+  let at = 0;
+  for (const ch of text) {
+    if (ch === query[at]) at++;
+    if (at === query.length) return true;
+  }
+  return false;
+}
+
+/**
+ * どのくらいよく合うか。4: 完全一致 / 3: 前方一致 / 2: 頭文字・途中に含む / 1: 順番どおり / 0: 合わない
+ * @param {string} text 候補の名前（小文字）
+ * @param {string} query 打った字（小文字）
+ */
+export function matchTier(text, query) {
+  if (!text || !query) return 0;
+  if (text === query) return 4;
+  if (text.startsWith(query)) return 3;
+  if (HAS_JAPANESE.test(query)) return text.includes(query) ? 2 : 0;
+  if (query.length >= 2 && initials(text).startsWith(query)) return 2;
+  if (text.includes(query)) return 2;
+  if (query.length >= 2 && inOrder(text, query)) return 1;
+  return 0;
+}
+
+/** 並び順を決める点数（0 なら候補から外す） */
+function score(entry, query, ctx = {}) {
   const kindBonus = {
     variable: 60, function: 58, class: 56, module: 54, member: 52,
-    api: 50, builtin: 40, snippet: 30, keyword: 28, method: 20,
+    api: 50, expr: 48, builtin: 40, line: 32, snippet: 30, keyword: 28, method: 20,
   }[entry.kind] || 10;
+  // 行のはじめに len(scores) だけを書くことはまずないので、行まるごとの候補より下に
+  const bonus = entry.kind === 'expr' && ctx.lineStart ? 25 : kindBonus;
 
-  if (!prefix) return entry.kind === 'method' ? 0 : kindBonus;
-  if (label.startsWith(prefix)) return 1000 + kindBonus - label.length;
-  if (trigger && trigger.startsWith(prefix)) return 900 + kindBonus;
-  if (label.includes(prefix)) return 400 + kindBonus - label.length;
-  return 0;
+  let points;
+  if (!query.trim()) {
+    if (entry.kind === 'method') return 0;
+    points = bonus;
+  } else {
+    const fields = [entry.label, entry.trigger, ...(entry.aliases || [])]
+      .filter(Boolean)
+      .map(text => text.toLowerCase());
+    const tier = Math.max(0, ...fields.map(text => matchTier(text, query.trim())));
+    if (!tier) return 0;
+    points = tier * 1000 + bonus - Math.min(entry.label.length, 30) / 2;
+  }
+
+  // カーソルの近くで使った変数ほど上に。
+  // 行まるごとの候補は、同じ強さで合う組み込み関数（pr → print）を追い越さない程度にとどめる
+  const distance = entry.varName ? ctx.near?.[entry.varName] : undefined;
+  if (distance !== undefined) {
+    points += entry.kind === 'line' || entry.kind === 'expr' ? Math.max(0, 6 - distance) : Math.max(0, 30 - distance * 3);
+  }
+  if (entry.boost) points += entry.boost;
+
+  // 値を書くところでは、True / False / None / not / lambda 以外のキーワードは下に
+  if (ctx.valuePos && entry.kind === 'keyword' && !VALUE_KEYWORDS.has(entry.label)) points -= 2500;
+
+  // 「for 」「if 」と打った行では、その言葉で始まる書き方を上に
+  if (ctx.head && entry.label.toLowerCase().startsWith(`${ctx.head} `)) points += 200;
+
+  return points;
+}
+
+/**
+ * 候補を、エディタに入れる文字列とカーソルの位置に直す。
+ *   __CURSOR__ … 入れたあとのカーソルの位置
+ *   __BODY__   … ブロックの中身の字下げ（今の行の字下げ ＋ 4 文字）
+ * 2 行目からは、今の行の字下げをつける。
+ * @param {object} entry 候補
+ * @param {string} [indent] 今の行の字下げ
+ * @param {string} [unit] 1 段の字下げ（エディタの設定。既定は空白 4 つ、行がタブならタブ）
+ * @returns {{text: string, line: number, ch: number}} line はいくつ下の行か。
+ *   ch は、line が 0 なら入れはじめからの字数、1 以上ならその行の頭からの字数
+ */
+export function prepareInsert(entry, indent = '', unit = indent.includes('\t') ? '\t' : INDENT_UNIT) {
+  const raw = entry.insert
+    .split('\n')
+    // ひな形の中の 4 文字の字下げも、エディタの字下げ（タブ・空白）にそろえる
+    .map((line, index) => (index === 0 ? line : indent + line.replace(/^(?: {4})+/, m => unit.repeat(m.length / 4))))
+    .join('\n')
+    .split(BODY_MARK).join(unit);
+
+  const mark = raw.indexOf(CURSOR_MARK);
+  const text = raw.split(CURSOR_MARK).join('');
+  const before = mark >= 0 ? raw.slice(0, mark) : text.slice(0, text.length - (entry.moveBack || 0));
+  const lines = before.split('\n');
+  return { text, line: lines.length - 1, ch: lines[lines.length - 1].length };
+}
+
+/**
+ * 薄い文字で見せる「続き」。打った字で始まらない候補（日本語で探したときなど）は出さない。
+ * @param {object} entry 候補
+ * @param {string} typed すでに打ってある字（置きかえる部分）
+ */
+export function ghostText(entry, typed) {
+  if (!entry) return '';
+  const first = entry.insert.split('\n')[0].split(CURSOR_MARK).join('');
+  if (!first.toLowerCase().startsWith(typed.toLowerCase())) return '';
+  return first.slice(typed.length);
 }

@@ -46,8 +46,8 @@ export const COMPLETION_CONFIG = {
   // キャッシュサイズ
   CACHE_SIZE: 50,
 
-  // デフォルトの補完モード
-  DEFAULT_MODE: 'inline-only',
+  // デフォルトの補完モード（薄い文字＋候補一覧。Enter で入るのは ↑↓ で選んだときだけ）
+  DEFAULT_MODE: 'both',
 
   // 最小コンテキスト文字数
   MIN_CONTEXT_LENGTH: 2,

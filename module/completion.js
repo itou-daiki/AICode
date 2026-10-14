@@ -5,7 +5,7 @@
 // APIキーが無くても、書いているコードから変数・関数・メソッドを拾って候補を出せる。
 // APIキーがあるときだけ、行の続きを提案する「AIの一言先読み」が上乗せされる。
 
-import { getCompletions } from './pycomplete.js';
+import { getCompletions, prepareInsert, ghostText, isInStringOrComment } from './pycomplete.js';
 import { COMPLETION_CONFIG } from './config.js';
 import { callGemini, hasApiKey } from './ai.js';
 
@@ -18,8 +18,8 @@ let aiBlockedUntil = 0;
 /** モード名と説明（サイドバーの表示に使う） */
 const MODE_TEXT = {
   'inline-only': ['インライン補完のみ', '続きを薄い文字で表示（Tabで確定）'],
-  'popup-only': ['複数候補のみ', 'Ctrl+Space で候補一覧（↑↓で選んで Enter）'],
-  both: ['インライン + 複数候補', '薄い文字＋候補一覧（Ctrl+Space。↑↓で選んで Enter）'],
+  'popup-only': ['複数候補のみ', '2文字打つと候補一覧（Tabで確定。↑↓で選んで Enter）'],
+  both: ['インライン + 複数候補', '薄い文字＋候補一覧（Tabで確定。↑↓で選んで Enter）'],
   none: ['補完なし', '補完機能は無効'],
 };
 
@@ -89,12 +89,25 @@ export class CodeCompletionEngine {
   bindEditor() {
     this.editor.on('inputRead', (cm, change) => {
       if (this.completionMode === 'none') return;
+      // 日本語入力の変換中は出さない（変換が終わったら compositionend で探す）
+      if (change.origin === '*compose' || this.isComposing()) return;
       const typed = change.text && change.text[0];
-      if (!typed) return;
-      // 記号のうち「.」だけは補完のきっかけにする
-      if (!/[\w.]/.test(typed)) { this.dismiss(); return; }
+      if (!typed || change.text.length > 1) { this.dismiss(); return; }
+      // 英数字・日本語・「.」と、値を書きはじめる記号（( = , と空白）を補完のきっかけにする
+      if (!/[\w.(=, \u3040-\u30ff\u3400-\u9fff々ー]/.test(typed)) { this.dismiss(); return; }
       this.scheduleCompletion();
     });
+
+    // 日本語入力で「表示」などを確定したら、print() などを探す
+    const input = this.editor.getInputField && this.editor.getInputField();
+    if (input) {
+      input.addEventListener('compositionend', () => {
+        if (this.completionMode === 'none') return;
+        clearTimeout(this.debounceTimer);
+        // 確定した字がエディタに届くのを待つ（タブレットでは少し遅れる）
+        this.debounceTimer = setTimeout(() => this.requestCompletion(false), 160);
+      });
+    }
 
     this.editor.on('cursorActivity', () => {
       if (this.popup.style.display === 'block') this.hidePopup();
@@ -122,6 +135,11 @@ export class CodeCompletionEngine {
         // Enter で候補を入れるのは、矢印キーで候補を選んだときだけ。
         // 改行のつもりで押した Enter が、知らない名前を勝手に入れてしまわないように。
         if (event.key === 'Enter' && !this.navigated) { this.hidePopup(); return; }
+        // 何も打っていないところ（x = のあと など）に自分から出た一覧は、Tab でも ↑↓ で選んだときだけ入れる
+        if (event.key === 'Tab' && !this.navigated && this.context === 'expr' && this.replaceLength === 0) {
+          this.dismiss();
+          return;
+        }
         if ((event.key === 'Enter' || event.key === 'Tab') && !inIndent) {
           event.preventDefault();
           this.applyItem(this.items[this.selectedIndex]);
@@ -145,6 +163,22 @@ export class CodeCompletionEngine {
     return !before.trim();
   }
 
+  /** 日本語入力の変換中か */
+  isComposing() {
+    const input = this.editor.display && this.editor.display.input;
+    return Boolean(input && input.composing);
+  }
+
+  /** カーソルが文字列やコメントの中にあるか（3 重引用符の複数行の文字列も CodeMirror の色分けで分かる） */
+  inStringOrComment(cursor, beforeCursor) {
+    if (isInStringOrComment(beforeCursor)) return true;
+    const token = this.editor.getTokenAt ? this.editor.getTokenAt(cursor) : null;
+    const type = (token && token.type) || '';
+    if (/\bcomment\b/.test(type)) return true;
+    // 閉じた直後（"abc"| ）は文字列の外
+    return /\bstring\b/.test(type) && !/["']$/.test(beforeCursor);
+  }
+
   /* ---------------- 候補の取得 ---------------- */
 
   scheduleCompletion() {
@@ -163,20 +197,31 @@ export class CodeCompletionEngine {
     const line = this.editor.getLine(cursor.line) || '';
     const beforeCursor = line.slice(0, cursor.ch);
 
-    const { items, replaceLength } = getCompletions({
+    // 文字列・コメントの中や、日本語の変換中は出さない
+    if (this.isComposing() || this.inStringOrComment(cursor, beforeCursor)) {
+      this.hidePopup();
+      this.hideInline();
+      return;
+    }
+
+    const { items, replaceLength, context } = getCompletions({
       code: this.editor.getValue(),
       lineIndex: cursor.line,
       beforeCursor,
       extraApi: this.extraApi,
       limit: COMPLETION_CONFIG.MAX_SUGGESTIONS * 3,
+      manual: isManual,
     });
 
     this.items = items;
     this.replaceLength = replaceLength;
+    this.context = context;
     this.selectedIndex = 0;
 
-    const showPopup = isManual ||
-      (this.completionMode !== 'inline-only' && replaceLength >= COMPLETION_CONFIG.MIN_CONTEXT_LENGTH);
+    // 一覧を自分から出すのは、2 文字以上打ったとき・「.」のあと・( = , のあと・for / if のあと
+    const autoOpen = context === 'expr' || context === 'head' || context === 'member' ||
+      replaceLength >= COMPLETION_CONFIG.MIN_CONTEXT_LENGTH;
+    const showPopup = isManual || (this.completionMode !== 'inline-only' && autoOpen);
     const showInline = this.completionMode === 'inline-only' || this.completionMode === 'both';
 
     if (showPopup && items.length) {
@@ -185,8 +230,10 @@ export class CodeCompletionEngine {
       this.hidePopup();
     }
 
-    if (!showPopup && showInline && items.length) {
-      this.showInline(items[0], replaceLength, cursor);
+    // 薄い文字は、字を打ったとき（または「.」のあと）だけ。何も打っていないところには出さない
+    const typedSomething = replaceLength > 0 || context === 'member';
+    if (showInline && typedSomething && items.length) {
+      this.showInline(items[this.selectedIndex], cursor);
     } else {
       this.hideInline();
     }
@@ -197,7 +244,6 @@ export class CodeCompletionEngine {
   /* ---------------- 候補一覧（ポップアップ） ---------------- */
 
   showPopup(cursor) {
-    this.hideInline();
     this.navigated = false;
     this.popup.replaceChildren();
 
@@ -246,17 +292,33 @@ export class CodeCompletionEngine {
     this.selectedIndex = (this.selectedIndex + delta + rows.length) % rows.length;
     rows[this.selectedIndex].classList.add('selected');
     rows[this.selectedIndex].scrollIntoView({ block: 'nearest' });
+    // 薄い文字も、選んでいる候補に合わせる
+    if (this.completionMode === 'both' && (this.inlineText || this.replaceLength > 0)) {
+      this.showInline(this.items[this.selectedIndex], this.editor.getCursor());
+    }
   }
 
   /* ---------------- インライン（薄い文字） ---------------- */
 
-  showInline(entry, replaceLength, cursor) {
-    this.hideInline();
-    if (!entry || entry.insert.includes('\n')) return;
-    // 日本語入力の変換中は出さない（行を描きなおすと、変換が途切れることがある）
-    if (this.editor.display && this.editor.display.input && this.editor.display.input.composing) return;
+  /** 候補で置きかえる字数（行まるごとの候補は、行の字下げより後ろ全部） */
+  replaceLengthOf(entry) {
+    return entry && entry.replaceLength !== undefined ? entry.replaceLength : this.replaceLength;
+  }
 
-    const rest = entry.insert.slice(replaceLength);
+  /**
+   * 候補の続きを薄い文字で見せる
+   * @param {object} entry 候補
+   * @param {object} cursor カーソル位置
+   * @param {number} [replaceLength] 置きかえる字数（AI の提案のときだけ渡す）
+   */
+  showInline(entry, cursor, replaceLength = this.replaceLengthOf(entry)) {
+    this.hideInline();
+    if (!entry) return;
+    // 日本語入力の変換中は出さない（行を描きなおすと、変換が途切れることがある）
+    if (this.isComposing()) return;
+
+    const before = (this.editor.getLine(cursor.line) || '').slice(0, cursor.ch);
+    const rest = ghostText(entry, before.slice(before.length - replaceLength));
     if (!rest) return;
 
     const widget = document.createElement('span');
@@ -297,22 +359,17 @@ export class CodeCompletionEngine {
     this.hideInline();
 
     const cursor = this.editor.getCursor();
-    const from = { line: cursor.line, ch: Math.max(0, cursor.ch - this.replaceLength) };
+    const from = { line: cursor.line, ch: Math.max(0, cursor.ch - this.replaceLengthOf(entry)) };
 
-    // 複数行のひな形は、今の行の字下げに合わせる
+    // 複数行のひな形は、今の行の字下げに合わせる。「:」で終わる行なら、次の行の中身の位置へ
     const indent = (this.editor.getLine(cursor.line) || '').match(/^\s*/)[0];
-    const text = entry.insert.split('\n')
-      .map((line, index) => (index === 0 ? line : indent + line))
-      .join('\n');
+    const unit = this.editor.getOption('indentWithTabs') ? '\t' : ' '.repeat(this.editor.getOption('indentUnit') || 4);
+    const { text, line, ch } = prepareInsert(entry, indent, unit);
 
-    this.editor.replaceRange(text, from, cursor);
+    this.editor.replaceRange(text, from, cursor, '+complete');
 
-    // カーソルを括弧の中などへ移動する
-    const lines = text.split('\n');
-    const endLine = from.line + lines.length - 1;
-    const endCh = lines.length === 1 ? from.ch + text.length : lines[lines.length - 1].length;
-    const moveBack = entry.moveBack || 0;
-    this.editor.setCursor({ line: endLine, ch: Math.max(0, endCh - moveBack) });
+    // カーソルを括弧の中や、ブロックの中身の行へ移動する
+    this.editor.setCursor({ line: from.line + line, ch: line === 0 ? from.ch + ch : ch });
     this.editor.focus();
   }
 
@@ -361,7 +418,7 @@ ${beforeCursor}|`;
         const now = this.editor.getCursor();
         if (now.line !== cursor.line || now.ch !== cursor.ch) return;
 
-        this.showInline({ label: suggestion, insert: beforeCursor + suggestion }, beforeCursor.length, now);
+        this.showInline({ label: suggestion, insert: beforeCursor + suggestion, replaceLength: beforeCursor.length }, now);
       } catch (error) {
         // AI が使えなくてもローカル補完だけで動くので、候補は出さず、しばらく休む
         aiBlockedUntil = Date.now() + AI_BACKOFF_MS;

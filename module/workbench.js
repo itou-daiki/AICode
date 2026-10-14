@@ -9,7 +9,7 @@
 //   ・保存はまとめ書き（連続で呼ばれても一定間隔に1回）
 
 import { pythonToMermaid } from './flowchart.js';
-import { renderFlowchart as drawFlowchart, fitFlowchart as fitFlowSvg } from './flowview.js';
+import { renderFlowchart as drawFlowchart, fitFlowchart as fitFlowSvg, saveFlowchartPng } from './flowview.js';
 import { pythonToBlocks } from './py2blocks.js';
 import { defineBlocks, buildToolbox } from './blockdefs.js';
 import { autoIndent, formatCode } from './pyformat.js';
@@ -662,6 +662,7 @@ export function createWorkbench(options) {
     scheduleFlowchart,
     fitFlowchart,
     zoomFlowchart,
+    savePng: (filename) => saveFlowchartPng(document.getElementById(flowchartId), filename),
     isFlowFit: () => flowFit,
     /** 「全体が入る大きさ」と「実物大」を切り替える */
     setFlowFit(on) {

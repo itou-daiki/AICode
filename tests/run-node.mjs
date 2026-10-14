@@ -9,7 +9,9 @@
 import { autoIndent, formatCode } from '../module/pyformat.js';
 import { humanizeStatement, humanizeCondition, humanizeValue, humanizeDefHead, setSketchMode } from '../module/humanize.js';
 import { pythonToMermaid, parsePython } from '../module/flowchart.js';
-import { getCompletions, analyzeCode } from '../module/pycomplete.js';
+import {
+  getCompletions, analyzeCode, singularName, loopVarName, isInStringOrComment, matchTier, prepareInsert, ghostText,
+} from '../module/pycomplete.js';
 import { explainError } from '../module/pyrun.js';
 import { jsToPython, toHalfWidth, hasFullWidth, findFullWidth, pointOutFullWidth, suggestSyntaxFix, noticeSilentMistakes, noticeCommonMistakes, noticeSketchNames } from '../module/pyfix.js';
 import { sameOutput } from '../module/grade.js';
@@ -550,6 +552,163 @@ for (const before of ['', ' ', '.', '..', 'a.b.c.', '(', '"', 'x' .repeat(500)])
   if (ok) passed++;
 }
 
+/* ============================================================
+ * 5.1 入力の予測（自分の変数から作る行・並び順・日本語・カーソルの印）
+ * ========================================================== */
+
+section('入力の予測（行の候補・並び順・日本語）');
+{
+  const CODE = 'scores = [80, 92]\nn = int(input())\nname = "a"\n\n';
+  const ask = (beforeCursor, extra = {}) => getCompletions({
+    code: CODE, lineIndex: 4, beforeCursor, limit: 15, manual: false, ...extra,
+  });
+  const labelsOf = (beforeCursor, extra) => ask(beforeCursor, extra).items.map(entry => entry.label);
+
+  // 解析: 型と、カーソルからの近さ
+  const analysis = analyzeCode('total = 0\nfor x in data:\n    total += x\nbox = []\nbox.append(1)\n', 5);
+  equal('予測の解析: += した変数は数', analysis.variables.total, 'int');
+  equal('予測の解析: 近さは、最後に使った行までの行数', analysis.near.box, 1);
+  equal('予測の解析: 型の分からない変数でも、近さは分かる', analysis.near.total, 3);
+
+  // 自分の変数から作る行
+  const sc = labelsOf('sc');
+  check('行の候補: リスト scores → for score in scores:', sc.includes('for score in scores:'), `\n  実際: ${sc}`);
+  check('行の候補: リスト scores → scores.append()', sc.includes('scores.append()'));
+  check('行の候補: リスト scores → len(scores)', sc.includes('len(scores)'));
+  check('行の候補: どの変数でも print(x)', sc.includes('print(scores)'));
+  equal('行の候補: いちばん上は変数そのもの', sc[0], 'scores');
+  const fo = labelsOf('fo');
+  check('行の候補: 数 n → for i in range(n):', fo.includes('for i in range(n):'), `\n  実際: ${fo}`);
+  check('行の候補: 数 n → for i in range(1, n + 1):', fo.includes('for i in range(1, n + 1):'));
+  check('行の候補: 数 n → if n % 2 == 0:', labelsOf('if').includes('if n % 2 == 0:'));
+  check('行の候補: 行の途中では出さない', !labelsOf('x = sc').some(l => l.startsWith('for ')));
+  check('行の候補: 多くても 5 つまで',
+    ask('', { manual: true }).items.filter(entry => entry.kind === 'line').length <= 5);
+  equal('行の候補: 行の字下げより後ろ全部を置きかえる',
+    ask('    for sc').items.find(entry => entry.label === 'for score in scores:')?.replaceLength, 6);
+  equal('行の候補: for sc と打つと for score in scores: がいちばん上', labelsOf('for sc')[0], 'for score in scores:');
+  check('行の候補: for のあとに空白を打つと for の行を出す', ask('for ').items.every(entry => entry.kind !== 'line' || entry.label.startsWith('for ')));
+  {
+    const nested = getCompletions({
+      code: 'n = 3\nfor i in range(n):\n    \n', lineIndex: 2, beforeCursor: '    fo', manual: false,
+    }).items.map(entry => entry.label);
+    check('行の候補: 外側の for で i を使っていたら j にする', nested.includes('for j in range(n):'), `\n  実際: ${nested}`);
+  }
+
+  // 1 つ分の名前
+  equal('1つ分の名前: scores → score', singularName('scores'), 'score');
+  equal('1つ分の名前: cities → city', singularName('cities'), 'city');
+  equal('1つ分の名前: name_list → name', singularName('name_list'), 'name');
+  equal('1つ分の名前: data → item', singularName('data'), 'item');
+  equal('1つ分の名前: 使っている名前とぶつかるなら item', singularName('scores', new Set(['score'])), 'item');
+  equal('数え役の名前: 何も使っていなければ i',
+    loopVarName(analyzeCode('n = 3\n', 1), 1, 0), 'i');
+
+  // きっかけと、出さないところ
+  equal('きっかけ: print( のあとは値の候補', ask('print(').context, 'expr');
+  equal('きっかけ: = のあとは値の候補', ask('x = ').context, 'expr');
+  equal('きっかけ: , のあとは自分からは出さない（Ctrl+Space なら出す）',
+    [ask('print(n, ').context, ask('print(n, ', { manual: true }).context].join(','), 'none,expr');
+  for (const before of ['if x == ', 'if x <= ', 'if x != ', 'total += ', 'x -= ']) {
+    equal(`きっかけ: 「${before.trim()}」のあとは自分からは出さない`, ask(before).context, 'none');
+  }
+
+  // レビューで見つかったこと
+  {
+    const top = (code, before) => getCompletions({ code, lineIndex: code.split('\n').length - 1, beforeCursor: before, manual: false })
+      .items.map(entry => entry.label);
+    const T = 'total = 0\nscores = [1]\n';
+    equal('並び順: pr のいちばん上は print', top(T, 'pr')[0], 'print');
+    equal('並び順: p のいちばん上は print', top(T, 'p')[0], 'print');
+    equal('並び順: 表示 のいちばん上は print', top(T, '表示')[0], 'print');
+    const afterLoop = top('n = 5\nfor i in range(n):\n    pass\n', 'for ');
+    check('数え役: for の i を range() の回数にしない', !afterLoop.some(l => l.includes('range(i)')), `\n  実際: ${afterLoop}`);
+    equal('数え役: 前の for で使った i は避けて j', afterLoop[0], 'for j in range(n):');
+    for (const code of ['x = round(3.5, 1)\n', 'x = sum([0.5])\n', 'x = 0\nx += 0.5\n', 'x = 0\nfor s in [1]:\n    x += s\n']) {
+      check(`range の回数: ${JSON.stringify(code)} の x には range(x) を出さない`,
+        !top(code, 'fo').some(l => l.includes('range(x)')), `\n  実際: ${top(code, 'fo')}`);
+    }
+    check('range の回数: n = int(input()) の n には出す', top('n = int(input())\n', 'fo').includes('for i in range(n):'));
+    check('range の回数: k = len(a) の k には出す', top('a = [1]\nk = len(a)\n', 'fo').includes('for i in range(k):'));
+    const v = top('total = 0\n', 'x = in');
+    check('値のところ: x = in では int・input がキーワード in より上',
+      v.indexOf('int') < v.indexOf('in') && v.indexOf('input') < v.indexOf('in'), `\n  実際: ${v}`);
+  }
+  for (const [name, want] of [['status', 'item'], ['boxes', 'box'], ['classes', 'item'], ['glasses', 'glass'],
+    ['my_list', 'item'], ['matches', 'match'], ['axis', 'item']]) {
+    // classes → class はキーワードなので item
+    equal(`1つ分の名前: ${name} → ${want}`, singularName(name), want);
+  }
+  {
+    const tab = prepareInsert({ insert: 'for x in xs:\n__BODY____CURSOR__' }, '\t');
+    equal('挿入: タブで字下げした行では、中身もタブ', tab.text, 'for x in xs:\n\t\t');
+    equal('挿入: エディタの字下げ（2 文字）にそろえる', prepareInsert({ insert: 'if a:\n    pass' }, '', '  ').text, 'if a:\n  pass');
+  }
+  check('きっかけ: = のあとに自分の変数が出る', labelsOf('x = ').includes('scores'));
+  check('きっかけ: = のあとに if などのキーワードは出さない', !labelsOf('x = ').includes('if'));
+  equal('きっかけ: def f( の引数名には出さない', ask('def f(').items.length, 0);
+  equal('きっかけ: 数字を打っただけでは出さない', ask('x = 5').items.length, 0);
+  equal('出さない: 文字列の中', ask('print("sc').items.length, 0);
+  equal('出さない: コメントの中', ask('# sc').items.length, 0);
+  check('文字列の判定: 閉じたあとは外', !isInStringOrComment('print("a") + sc'));
+  check('文字列の判定: \\" は文字列の終わりではない', isInStringOrComment('x = "a\\"b'));
+  check('文字列の判定: # が文字列の中ならコメントではない', !isInStringOrComment('x = "#" + y'));
+
+  // 並び順: 完全一致 > 前方一致 > 頭文字・途中に含む > 順番どおり
+  equal('一致の強さ: 完全一致', matchTier('print', 'print'), 4);
+  equal('一致の強さ: 前方一致', matchTier('print', 'pr'), 3);
+  equal('一致の強さ: 頭文字', matchTier('total_score', 'ts'), 2);
+  equal('一致の強さ: 途中に含む', matchTier('total_score', 'score'), 2);
+  equal('一致の強さ: 順番どおり', matchTier('total_score', 'tlsc'), 1);
+  equal('一致の強さ: 合わない', matchTier('print', 'xyz'), 0);
+  {
+    const ranked = getCompletions({
+      code: 'total_score = 0\nscore_max = 1\nmy_score = 2\n', lineIndex: 3, beforeCursor: 'x = score', manual: false,
+    }).items.map(entry => entry.label);
+    check('並び順: 前方一致が途中に含むより上',
+      ranked.indexOf('score_max') < ranked.indexOf('total_score'), `\n  実際: ${ranked}`);
+    const near = getCompletions({
+      code: 'value_a = 1\n\n\n\n\n\n\nvalue_b = 2\n', lineIndex: 8, beforeCursor: 'x = val', manual: false,
+    }).items.map(entry => entry.label);
+    equal('並び順: カーソルの近くで使った変数が上', near[0], 'value_b');
+  }
+
+  // 日本語で探す
+  const ja = (word) => labelsOf(word);
+  check('日本語: 表示 → print', ja('表示').includes('print'), `\n  実際: ${ja('表示')}`);
+  check('日本語: 出力 → print', ja('出力').includes('print'));
+  check('日本語: 入力 → input', ja('入力').includes('input'));
+  check('日本語: もし → if', ja('もし').includes('if'));
+  check('日本語: 繰り返し → for と while', ja('繰り返し').includes('for') && ja('繰り返し').includes('while'));
+  check('日本語: くりかえし → for', ja('くりかえし').includes('for'));
+  check('日本語: 長さ → len', ja('長さ').includes('len'));
+  check('日本語: 要素数 → len', ja('要素数').includes('len'));
+  check('日本語: 範囲 → range', ja('範囲').includes('range'));
+  check('日本語: 関数 → def', ja('関数').includes('def'));
+  check('日本語: 戻り値 → return', ja('戻り値').includes('return'));
+  check('日本語: 返す → return', ja('返す').includes('return'));
+  check('日本語: 乱数 → random', ja('乱数').some(l => l.includes('random')));
+  equal('日本語: 表示 は打った 2 文字を置きかえる', ask('表示').replaceLength, 2);
+  check('日本語: 候補の説明は日本語', ask('表示').items.find(entry => entry.label === 'print')?.detail === '画面に表示する');
+
+  // カーソルの印と、ブロックの中身の字下げ
+  {
+    const head = prepareInsert({ insert: 'for score in scores:\n__BODY____CURSOR__' }, '    ');
+    equal('挿入: : で終わる行は、次の行を字下げ＋4文字にする', head.text, 'for score in scores:\n        ');
+    equal('挿入: カーソルは中身の行へ', [head.line, head.ch].join(','), '1,8');
+    const call = prepareInsert({ insert: 'scores.append(__CURSOR__)' });
+    equal('挿入: カーソルの印は消える', call.text, 'scores.append()');
+    equal('挿入: カーソルは ( の中', [call.line, call.ch].join(','), '0,14');
+    const old = prepareInsert({ insert: 'print()', moveBack: 1 });
+    equal('挿入: 印のない候補は、これまでどおり moveBack で戻す', old.ch, 6);
+  }
+
+  // 薄い文字
+  equal('薄い文字: 打った字の続きだけ', ghostText({ insert: 'print()' }, 'pri'), 'nt()');
+  equal('薄い文字: 複数行の候補は 1 行目だけ', ghostText({ insert: 'for x in xs:\n__BODY____CURSOR__' }, 'for '), 'x in xs:');
+  equal('薄い文字: 日本語で探した候補には出さない', ghostText({ insert: 'print()' }, '表示'), '');
+}
+
 
 /* ============================================================
  * 5.5 エラーの言いかえ
@@ -802,6 +961,25 @@ section('ktph（共通テスト用プログラム表記）');
       `\n  実際: ${JSON.stringify(result.warnings)}`);
   }
 
+  // f文字列
+  equal('ktph: f文字列 print', ktph('print(f"合計は{total}円")'), '表示する("合計は", total, "円")');
+  equal('ktph: f文字列 代入', ktph('s = f"合計は{total}円"'), 's = ("合計は" + 文字列(total) + "円")');
+  equal('ktph: f文字列 {{ }}', ktph('print(f"{{x}}は{x}")'), '表示する("{x}は", x)');
+  equal('ktph: f文字列 入れ子の引用符', ktph("print(f\"名前: {d['a']}\")"), "表示する(\"名前: \", d[\"a\"])");
+  equal('ktph: f文字列 式と演算', ktph('print(f"{a // 2}と{n % 3}")'), '表示する(a ÷ 2, "と", n ％ 3)');
+  equal('ktph: f文字列 式だけ', ktph('s = f"{n}"'), 's = 文字列(n)');
+  {
+    const result = toKtph('print(f"平均は{avg:.2f}点")');
+    equal('ktph: f文字列 書式指定は省く', result.text, '表示する("平均は", avg, "点")');
+    check('ktph: f文字列 書式指定は警告', result.warnings.length === 1, `\n  実際: ${JSON.stringify(result.warnings)}`);
+  }
+
+  equal('ktph: f文字列 end= つき', ktph('print(f"合計{t}円", end="")'), '改行なしで表示する("合計", t, "円")');
+  equal('ktph: f文字列 {x=}', ktph('print(f"{x=}")'), '表示する("x=", x)');
+  equal('ktph: f文字列 閉じていない（途中）', ktph('print(f"abc'), '表示する(f"abc');
+  equal('ktph: f文字列 閉じていない {', ktph('print(f"{x'), '表示する(f"{x');
+  equal('ktph: f文字列 複数行は変えない', ktph('print(f"""a\n{x}""")').split('\n')[0], '表示する(f"""a');
+  check('ktph: f文字列 !r は警告', toKtph('print(f"{x!r}")').warnings.length === 1);
   // コメントと空行はそのまま
   equal('ktph: コメント', ktph('x = 1  # ここはコメント'), 'x = 1 # ここはコメント');
   equal('ktph: 空行', ktph('x = 1\n\ny = 2'), 'x = 1\n\ny = 2');

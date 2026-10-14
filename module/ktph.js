@@ -240,9 +240,11 @@ function capitalizeArrays(body, arrays) {
 /**
  * @returns {{ converted: string, warning: string|null }}
  */
-function convertBody(part, arrays, sketch = false) {
+function convertBody(original, arrays, sketch = false) {
+  const expanded = expandFStrings(original);
+  const part = expanded.part;
   let body = capitalizeArrays(part.body, arrays);
-  let warning = null;
+  let warning = expanded.warning;
 
   if (!body) return { converted: '', warning };
 
@@ -314,6 +316,130 @@ function convertBody(part, arrays, sketch = false) {
   else body = body.replace(/\s*;\s*/g, ' , ');
 
   return { converted: unmask(body, part.strings), warning };
+}
+
+/* ============================================================
+ * f文字列（f"合計は{total}円"）
+ * ========================================================== */
+
+const F_STRING = new RegExp(`(?<![\\w.])[fF]${MASK_OPEN}(\\d+)${MASK_CLOSE}`, 'g');
+
+/**
+ * f"…{式}…" を表記の形にする。
+ *   print(f"合計は{total}円")  →  表示する("合計は", total, "円")
+ *   s = f"合計は{total}円"     →  s = "合計は" + 文字列(total) + "円"
+ * 書式指定（{x:.2f}）は表記に無いので省き、warning で知らせる。
+ * @returns {{ part: object, warning: string|null }}
+ */
+function expandFStrings(part) {
+  const found = [...part.body.matchAll(F_STRING)];
+  if (!found.length) return { part, warning: null };
+  // 閉じていない f文字列（入力の途中・複数行）は、変えずに残す
+  const closed = (raw) => {
+    const closer = raw.startsWith(raw[0].repeat(3)) && raw.length >= 6 ? raw[0].repeat(3) : raw[0];
+    if (raw.length < closer.length * 2 || !raw.endsWith(closer)) return false;
+    return !(/\\+$/.test(raw.slice(closer.length, raw.length - closer.length)) && (raw.slice(closer.length, -closer.length).match(/\\+$/)[0].length % 2));
+  };
+  if (!found.every(m => closed(part.strings[Number(m[1])]))) return { part, warning: null };
+
+  const strings = [...part.strings];
+  let warning = null;
+  const mask = (text) => { strings.push(text); return `${MASK_OPEN}${strings.length - 1}${MASK_CLOSE}`; };
+
+  const toParts = (index) => {
+    const parsed = parseFString(strings[Number(index)]);
+    if (parsed.dropped) warning = '書式指定（{x:.2f} や {x!r} など）は、表記に無いので省きました。桁数をそろえる処理は、試験では問題文の中で説明されます。';
+    return parsed.parts.map(item => (item.expr === undefined ? mask(item.text) : maskStrings(item.expr, mask)));
+  };
+
+  let body = part.body;
+  const sole = new RegExp(`^print\\(\\s*[fF]${MASK_OPEN}(\\d+)${MASK_CLOSE}\\s*((?:,.*)?)\\)$`).exec(body);
+  if (sole) body = `print(${toParts(sole[1]).join(', ')}${sole[2]})`;
+  {
+    body = body.replace(F_STRING, (_, index) => {
+      const pieces = toParts(index).map(piece => (piece.startsWith(MASK_OPEN) ? piece : `str(${piece})`));
+      return pieces.length > 1 ? `(${pieces.join(' + ')})` : pieces[0];
+    });
+  }
+  return { part: { ...part, body, strings }, warning };
+}
+
+/** 式の中の文字列を退避する（あとの言いかえで中身を変えないため） */
+function maskStrings(expr, mask) {
+  let out = '';
+  for (let i = 0; i < expr.length; i++) {
+    if (expr[i] === '"' || expr[i] === "'") {
+      const end = findStringEnd(expr, i);
+      out += mask(expr.slice(i, end + 1));
+      i = end;
+    } else {
+      out += expr[i];
+    }
+  }
+  return out;
+}
+
+/**
+ * f文字列のもとの形から、文字の部分と式の部分に分ける
+ * @param {string} raw 引用符つき（'…' や "…"）
+ * @returns {{ parts: ({text: string}|{expr: string})[], dropped: boolean }}
+ */
+function parseFString(raw) {
+  const quote = raw[0];
+  const q = raw.startsWith(quote.repeat(3)) && raw.length >= 6 ? 3 : 1;
+  const content = raw.slice(q, raw.length - q);
+  const parts = [];
+  let dropped = false;
+  let text = '';
+  const flush = () => { if (text) parts.push({ text: `"${text}"` }); text = ''; };
+
+  for (let i = 0; i < content.length; i++) {
+    const ch = content[i];
+    if (ch === '\\') { text += ch + (content[i + 1] ?? ''); i++; continue; }
+    if (ch === '{' && content[i + 1] === '{') { text += '{'; i++; continue; }
+    if (ch === '}' && content[i + 1] === '}') { text += '}'; i++; continue; }
+    if (ch === '{') {
+      let depth = 0;
+      let j = i + 1;
+      let end = -1;
+      for (; j < content.length; j++) {
+        const c = content[j];
+        if (c === '"' || c === "'") { j = findStringEnd(content, j); continue; }
+        if ('([{'.includes(c)) depth++;
+        else if (')]'.includes(c)) depth--;
+        else if (c === '}') { if (depth === 0) { end = j; break; } depth--; }
+      }
+      if (end < 0) { text += content.slice(i); break; }
+      // 式 [!r] [:書式] に分ける（かっこや文字列の中の : は見ない）
+      const inner = content.slice(i + 1, end);
+      let cut = inner.length;
+      let d = 0;
+      for (let k = 0; k < inner.length; k++) {
+        const c = inner[k];
+        if (c === '"' || c === "'") { k = findStringEnd(inner, k); continue; }
+        if ('([{'.includes(c)) d++;
+        else if (')]}'.includes(c)) d--;
+        else if (d === 0 && (c === ':' || (c === '!' && inner[k + 1] !== '='))) { cut = k; break; }
+      }
+      if (cut < inner.length) dropped = true;
+      flush();
+      let expr = inner.slice(0, cut).trim();
+      // {x=} は「x=」という文字と値
+      const debug = /^(.*[^=!<>\s])\s*=$/.exec(expr);
+      if (debug) {
+        expr = debug[1].trim();
+        parts.push({ text: `"${debug[1].trim().replace(/"/g, '\\"')}="` });
+      }
+      parts.push({ expr });
+      i = end;
+      continue;
+    }
+    // ' で囲んだ f文字列の中の " は、" で囲み直すのでエスケープする
+    text += ch === '"' && quote === "'" ? '\\"' : ch;
+  }
+  flush();
+  if (!parts.length) parts.push({ text: '""' });
+  return { parts, dropped };
 }
 
 /** Python にしか無い書き方と、その呼び名 */
