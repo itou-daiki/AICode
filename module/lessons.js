@@ -126,7 +126,9 @@ function toSafeHtml(text) {
 
     if (isList) return `<ul>${lines.map(l => `<li>${inline(l.replace(/^\s*[-・]\s+/, ''))}</li>`).join('')}</ul>`;
     return `<p>${lines.map(inline).join('<br>')}</p>`;
-  }).join('');
+  }).join('')
+    // 共通テスト用プログラム表記の【外部からの入力】は、エディタと同じく赤字にする
+    .replaceAll('【外部からの入力】', '<span class="ktph-external-input">【外部からの入力】</span>');
 }
 
 /** 結果の知らせを出す */
@@ -591,7 +593,15 @@ function renderAnswerArea(problem) {
         radio.value = String(index);
         radio.addEventListener('change', () => { picks.choice = index; });
         const code = document.createElement('code');
-        code.textContent = choice;
+        // 【外部からの入力】は本文やエディタと同じく赤字にする
+        String(choice).split(/(【外部からの入力】)/).forEach((part) => {
+          if (!part) return;
+          if (part !== '【外部からの入力】') { code.append(part); return; }
+          const mark = document.createElement('span');
+          mark.className = 'ktph-external-input';
+          mark.textContent = part;
+          code.append(mark);
+        });
         label.append(radio, code);
         list.appendChild(label);
       });

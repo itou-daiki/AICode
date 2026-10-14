@@ -12,7 +12,7 @@ const CONTROL = [
 
 /** はじめから使える関数 */
 const BUILTIN = [
-  '【外部からの入力】', '改行なしで表示する', '改行する', '表示する', '要素数', '整数', '実数', '文字列', '乱数',
+  '改行なしで表示する', '改行する', '表示する', '要素数', '整数', '実数', '文字列', '乱数',
 ];
 
 /**
@@ -43,6 +43,9 @@ export function defineKtphMode(CodeMirror) {
         }
         return 'string';
       }
+
+      // 外部からの入力は、プログラムの外から値が入る場所なので赤字で目立たせる
+      if (stream.match('【外部からの入力】')) return 'external-input';
 
       // 穴埋めの空欄（【ア】など）と、はじめから使える関数
       for (const word of BUILTIN) {

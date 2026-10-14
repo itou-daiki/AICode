@@ -916,6 +916,14 @@ input[type='range'] { accent-color: var(--c-accent); }
 .cm-s-default .cm-comment  { color: var(--c-code-comment); font-style: italic; }
 
 /* 共通テスト表記のブロックを示す縦線。飾りではなく構造なので、読める濃さで引く */
+/* 共通テスト用プログラム表記の【外部からの入力】：外から値が入る場所を赤字で示す */
+.cm-s-default .cm-external-input,
+.ktph-external-input {
+  color: var(--c-mark);
+  font-weight: 700;
+  background: color-mix(in srgb, var(--c-mark) 10%, transparent);
+  border-radius: 3px;
+}
 .cm-s-default .cm-comment.cm-ktph-rule,
 .CodeMirror .cm-comment { font-style: normal; }
 .cm-s-default .cm-builtin,
