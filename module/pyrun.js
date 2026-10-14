@@ -103,7 +103,11 @@ class _EasycodeOut:
             over = self.shown - _EASYCODE_DISPLAY_LIMIT
             text = text[:max(0, len(text) - over)] + _EASYCODE_OMITTED_NOTE
             self.shown = _EASYCODE_DISPLAY_LIMIT + 1  # もう書かない
-        self.element.textContent += text
+        # 本物の画面部品なら字を足す（入力した値の赤字の印を消さないため）。テスト用の入れ物は textContent だけ持つ
+        if hasattr(self.element, 'append'):
+            self.element.append(text)
+        else:
+            self.element.textContent += text
         self.last_flush = _ec_time.time()
 
 

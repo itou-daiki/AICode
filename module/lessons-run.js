@@ -35,12 +35,25 @@ export function createInteractiveInput(parts, state) {
     state.resolve = resolve;
 
     const question = String(prompt ?? '');
-    if (question && parts.outputEl) parts.outputEl.textContent += question;
+    if (question && parts.outputEl) parts.outputEl.append(question);
     if (parts.labelEl) parts.labelEl.textContent = question || '値を入力';
 
     if (parts.containerEl) parts.containerEl.style.display = 'flex';
     if (parts.inputEl) parts.inputEl.focus();
   });
+}
+
+/**
+ * input() に打った値を、実行結果に赤字で書き足す（プログラムが出した文字と見分けられるように）
+ * @param {HTMLElement} outputEl 実行結果の欄
+ * @param {string} value 打った値
+ */
+export function appendTypedInput(outputEl, value) {
+  if (!outputEl) return;
+  const mark = document.createElement('span');
+  mark.className = 'console-input';
+  mark.textContent = value;
+  outputEl.append(mark, '\n');
 }
 
 /**

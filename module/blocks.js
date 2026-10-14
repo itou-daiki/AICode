@@ -15,6 +15,7 @@ import {
   takeCodeFromUrl, makeShareUrl, showShareDialog, showFix, safeStorage, bootPython,
   makeEditorFriendly, bindRunShortcut, addTextSizeControl, addCodeZoom, addBlocksZoom, addOutputZoom,
 } from './ui.js';
+import { appendTypedInput } from './lessons-run.js';
 import { addHalfWidthControl } from './halfwidth.js';
 import { addTipsLinks } from './tipslinks.js';
 import { runUserCode, explainError, suggestFix } from './pyrun.js';
@@ -72,7 +73,7 @@ function setupRuntimeInput() {
     typedInputs.push(value);
     updateStepInputs();
     isWaitingForInput = false;
-    $('output').textContent += value + '\n';
+    appendTypedInput($('output'), value);
 
     const callback = inputCallback;
     inputCallback = null;
@@ -92,7 +93,7 @@ function createCustomInput() {
     inputCallback = resolve;
 
     const question = String(prompt ?? '');
-    if (question) $('output').textContent += question;
+    if (question) $('output').append(question);
     $('runtime-input-label').textContent = question || '値を入力';
 
     const container = $('runtime-input-container');
@@ -144,8 +145,8 @@ async function runCode() {
 
     const result = await runUserCode(pyodide, source, { element: output });
     if (result.error) {
-      if (output.textContent) output.textContent += '\n';
-      output.textContent += explainError(result.error, code);
+      if (output.textContent) output.append('\n');
+      output.append(explainError(result.error, code));
       showFix(suggestFix(code, result.error), applyFix, result.error);
     } else {
       if (!output.textContent) output.textContent = '(出力なし)';
@@ -154,7 +155,7 @@ async function runCode() {
     }
   } catch (error) {
     console.error('実行エラー:', error);
-    output.textContent += '\nエラー: ' + error;
+    output.append('\nエラー: ' + error);
   } finally {
     button.disabled = false;
     $('runtime-input-container').style.display = 'none';

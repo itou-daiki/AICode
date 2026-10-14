@@ -1039,6 +1039,8 @@ input[type='range'] { accent-color: var(--c-accent); }
   white-space: pre-wrap;
   word-break: break-word;
 }
+/* input() に打った値。プログラムが出した文字と見分けられるように赤字にする */
+.console .console-input { color: var(--c-mark); font-weight: 700; }
 .console .is-error { color: var(--c-mark); }
 
 /* ------------------------------------------------------------

@@ -373,7 +373,7 @@ function stopAnimation(message = '停止しました') {
   animationId = null;
   animating = false;
   setCanvasState('停止中', false);
-  if (message) $('output').textContent += `\n${message}\n`;
+  if (message) $('output').append(`\n${message}\n`);
 }
 
 /**
@@ -413,7 +413,7 @@ p5.start_time = _ec_time.time()
  */
 function appendNotes(code) {
   const notes = [...noticeSilentMistakes(code), ...noticeSketchNames(code), ...noticeCommonMistakes(code)];
-  for (const note of notes) $('output').textContent += `\n→ ${note}\n`;
+  for (const note of notes) $('output').append(`\n→ ${note}\n`);
 }
 
 /** コードを実行する */
@@ -503,7 +503,7 @@ p5._looping = True
   const hasDraw = await pyodide.runPythonAsync(`'draw' in globals()`);
   if (isStale()) return;
   if (!hasDraw) {
-    output.textContent += 'setup() だけ実行しました。\n';
+    output.append('setup() だけ実行しました。\n');
     appendNotes(code);
     setCanvasState('描画ずみ', false);
     return;
@@ -512,7 +512,7 @@ p5._looping = True
   animating = true;
   events.length = 0;
   setCanvasState('アニメーション中', true);
-  output.textContent += 'アニメーション実行中…（停止 で止まります）\n';
+  output.append('アニメーション実行中…（停止 で止まります）\n');
   appendNotes(code);
 
   // p5.js と同じく、1 秒あたりのコマ数をそろえる。
@@ -593,7 +593,7 @@ f"{p5._target_fps},{1 if p5._looping else 0}"
         // 関数の中の print() も見えるようにする（次のコマの表示で消えないよう、とっておく）
         if (handled.output) {
           eventLog = (eventLog + handled.output).slice(-2000);
-          output.textContent += handled.output;
+          output.append(handled.output);
         }
         if (handled.error) {
           output.textContent = 'マウスやキーの関数でエラーが起きました\n' + explainError(handled.error, code);

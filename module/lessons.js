@@ -24,6 +24,7 @@ import { renderFlowchart, fitFlowchart, highlightFlowLine } from './flowview.js'
 import { explainError, suggestFix } from './pyrun.js';
 import {
   runProgram, runTests, traceGroundTruth, createInteractiveInput, createScriptedInput, inputLines,
+  appendTypedInput,
 } from './lessons-run.js';
 import { gradeTrace, gradeBlanks, gradeTests, scoreMock, sameOutput } from './grade.js';
 import {
@@ -760,15 +761,15 @@ async function runCurrent() {
     });
 
     if (result.error) {
-      if ($('output').textContent) $('output').textContent += '\n';
-      $('output').textContent += explainError(result.error, code);
+      if ($('output').textContent) $('output').append('\n');
+      $('output').append(explainError(result.error, code));
       showFix(suggestFix(code, result.error), applyFix, result.error);
     } else if (!$('output').textContent) {
       $('output').textContent = '(出力なし)';
     }
 
     if (capture && result.variables[capture[0]] !== undefined) {
-      $('output').textContent += `\n\n実行のあと ${capture[0]} = ${result.variables[capture[0]]}`;
+      $('output').append(`\n\n実行のあと ${capture[0]} = ${result.variables[capture[0]]}`);
     }
 
     // 読むだけの課は、動かしたら終わり
@@ -782,7 +783,7 @@ async function runCurrent() {
     }
   } catch (e) {
     console.error('実行エラー:', e);
-    $('output').textContent += '\nエラー: ' + e.message;
+    $('output').append('\nエラー: ' + e.message);
   } finally {
     running = false;
     $('runtime-input-container').style.display = 'none';
@@ -1314,7 +1315,7 @@ function setupRuntimeInput() {
     input.value = '';
     $('runtime-input-container').style.display = 'none';
     inputState.waiting = false;
-    $('output').textContent += value + '\n';
+    appendTypedInput($('output'), value);
     const resolve = inputState.resolve;
     inputState.resolve = null;
     resolve(value);
