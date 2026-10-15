@@ -79,7 +79,11 @@ let flowLines = {};
 let mock = null;
 
 /** 入力欄の受けわたし */
-const inputState = { waiting: false, resolve: null };
+const inputState = { waiting: false, resolve: null, reject: null };
+/** 入力待ちのまま止めたか（止めたときは、エラーの説明を出さない） */
+let runCancelled = false;
+/** 今動いている実行（止めたあと、終わるのを待ってから次のことをする） */
+let currentRun = null;
 /** 実行中か（入力待ちの間も true） */
 let running = false;
 /** 問題を開くときの書き換え中か（この間は書きかけを保存しない） */
@@ -397,6 +401,8 @@ async function quitMock() {
  */
 async function openProblem(ref, options = {}) {
   const problem = problemByRef(ref);
+  // 入力待ちのまま別の問題を開くときは、その実行を止めてから開く
+  await stopWaitingRun();
   if (!problem || busyNotice()) return;
   // 模試の途中で一覧の問題を押したら、黙って模試に混ぜずに、やめるか確かめる
   if (mock && !(await quitMock())) return;
@@ -683,10 +689,26 @@ function updateRunAvailability() {
     : (locked ? (mock ? '模試の間、この問題は実行できません' : 'まず答えを書いてから実行できます') : '');
   for (const id of ['run-btn', 'step-btn']) {
     const button = $(id);
-    button.disabled = running || locked || !pyodide;
+    button.disabled = (running && !inputState.waiting) || locked || !pyodide;
     button.title = title || button.dataset.hint || '';
   }
   $('check-btn').disabled = running;
+}
+
+/**
+ * 入力待ちの実行を止め、終わるのを待つ（入力欄が出たまま残り、ほかの操作ができなくなるのを防ぐ）
+ * 入力待ちでなければ何もしない
+ */
+async function stopWaitingRun() {
+  if (!inputState.waiting) return;
+  runCancelled = true;
+  const reject = inputState.reject;
+  inputState.waiting = false;
+  inputState.resolve = null;
+  inputState.reject = null;
+  $('runtime-input-container').style.display = 'none';
+  if (reject) reject(new Error('入力を待たずに止めました'));
+  if (currentRun) await currentRun.catch(() => {});
 }
 
 /** 実行中（入力待ちを含む）なら知らせて true を返す。途中で問題を替えると、入力が迷子になる */
@@ -716,7 +738,14 @@ function codeToRun() {
 }
 
 async function runCurrent() {
+  // 入力待ちのときに押されたら、前の実行を止めてから始め直す
+  await stopWaitingRun();
   if (!pyodide || !current || busyNotice()) return;
+  currentRun = runCurrentOnce();
+  await currentRun;
+}
+
+async function runCurrentOnce() {
 
   if (current.type === 'blank') {
     const missing = (current.blanks || []).filter(b => picks[b.key] === undefined).map(b => b.key);
@@ -735,19 +764,22 @@ async function runCurrent() {
   // 実行の間に問題が替わっても、動かした問題で判定する
   const problem = current;
   running = true;
+  runCancelled = false;
   updateRunAvailability();
   $('output').textContent = '';
   showFix(null);
 
   try {
+    const ask = createInteractiveInput({
+      outputEl: $('output'),
+      containerEl: $('runtime-input-container'),
+      inputEl: $('runtime-input'),
+      labelEl: $('runtime-input-label'),
+    }, inputState);
+    // 入力を待つあいだは「実行」「ステップ実行」を押せるようにする（答えずにやり直したいこともある）
     const handler = current.input
       ? createScriptedInput(inputLines(current.input))
-      : createInteractiveInput({
-        outputEl: $('output'),
-        containerEl: $('runtime-input-container'),
-        inputEl: $('runtime-input'),
-        labelEl: $('runtime-input-label'),
-      }, inputState);
+      : (prompt) => { const answer = ask(prompt); updateRunAvailability(); return answer; };
 
     const capture = current.check && current.check.kind === 'variable' && current.check.name
       ? [current.check.name] : null;
@@ -760,6 +792,10 @@ async function runCurrent() {
       capture,
     });
 
+    if (runCancelled) {
+      $('output').append('\n（入力を待たずに、実行を止めました）');
+      return;
+    }
     if (result.error) {
       if ($('output').textContent) $('output').append('\n');
       $('output').append(explainError(result.error, code));
@@ -782,13 +818,18 @@ async function runCurrent() {
       }
     }
   } catch (e) {
-    console.error('実行エラー:', e);
-    $('output').append('\nエラー: ' + e.message);
+    if (runCancelled) {
+      $('output').append('\n（入力を待たずに、実行を止めました）');
+    } else {
+      console.error('実行エラー:', e);
+      $('output').append('\nエラー: ' + e.message);
+    }
   } finally {
     running = false;
     $('runtime-input-container').style.display = 'none';
     inputState.waiting = false;
     inputState.resolve = null;
+    inputState.reject = null;
     updateRunAvailability();
   }
 }
@@ -996,6 +1037,7 @@ function applyFix(code, line) {
  * ========================================================== */
 
 async function startStepMode() {
+  await stopWaitingRun();
   if (busyNotice()) return;
   if (!pyodide || !current) return;
   const code = codeToRun();
@@ -1319,7 +1361,9 @@ function setupRuntimeInput() {
     appendTypedInput($('output'), value);
     const resolve = inputState.resolve;
     inputState.resolve = null;
+    inputState.reject = null;
     resolve(value);
+    updateRunAvailability();
   };
   $('runtime-input-submit').addEventListener('click', send);
   $('runtime-input').addEventListener('keypress', (e) => { if (e.key === 'Enter') send(); });
@@ -1448,6 +1492,8 @@ async function init() {
     editorPy.on('change', () => {
       // コードを書き換えたら、記録と合わなくなるのでステップ実行を終える
       if (step.active) exitStepMode();
+      // 入力待ちのままコードを書き換えたら、古いコードの実行は止める（入力欄が出たまま残らないように）
+      if (inputState.waiting) stopWaitingRun().then(() => toast('コードが変わったので、実行を止めました', 3000));
       syncViews();
       if (current && !mock && !loadingProblem) saveDraft(problemRef(current), editorPy.getValue(), originalCode(current));
     });
@@ -1630,7 +1676,7 @@ async function init() {
       if (current && problemRef(current) === ref) return;
       if (!problemByRef(ref)) return;
       // 実行中で開けなかったら、URL を今の問題に戻す（読み直したときに食いちがわないように）
-      if (running && current) { busyNotice(); history.replaceState(null, '', `#${problemRef(current)}`); return; }
+      if (running && current && !inputState.waiting) { busyNotice(); history.replaceState(null, '', `#${problemRef(current)}`); return; }
       openProblem(ref);
     });
 

@@ -45,6 +45,12 @@ let stageTabs = null;
 
 let isWaitingForInput = false;
 let inputCallback = null;
+/** 入力待ちをやめるときに、待っている input() を止めるための関数 */
+let inputReject = null;
+/** 入力待ちのまま止めたか（止めたときは、エラーの説明を出さない） */
+let runCancelled = false;
+/** 今動いている実行（止めたあと、終わるのを待ってから次を始める） */
+let currentRun = null;
 /** 「下の欄に答えを打って」の通知を、このページを開いてから出したか */
 let inputHintShown = false;
 
@@ -77,6 +83,8 @@ function setupRuntimeInput() {
 
     const callback = inputCallback;
     inputCallback = null;
+    inputReject = null;
+    $('run-btn').disabled = true;
     callback(value);
   };
 
@@ -88,9 +96,12 @@ function setupRuntimeInput() {
 function createCustomInput() {
   // input("名前は？") の「名前は？」を、出力と入力欄の両方に出す。
   // これが無いと、何を聞かれているのか分からないまま入力することになる。
-  return (prompt = '') => new Promise((resolve) => {
+  return (prompt = '') => new Promise((resolve, reject) => {
     isWaitingForInput = true;
     inputCallback = resolve;
+    inputReject = reject;
+    // 答えずに、コードを直して実行し直したいこともある。入力待ちのあいだは「実行」を押せるようにする
+    $('run-btn').disabled = false;
 
     const question = String(prompt ?? '');
     if (question) $('output').append(question);
@@ -112,8 +123,31 @@ function createCustomInput() {
   });
 }
 
-/** コードをふつうに実行する */
+/**
+ * 入力待ちをやめて、実行を止める（入力欄が出たまま残らないように）
+ * @returns {boolean} 入力待ちだったか
+ */
+function cancelInputWait() {
+  if (!isWaitingForInput) return false;
+  runCancelled = true;
+  const reject = inputReject;
+  isWaitingForInput = false;
+  inputCallback = null;
+  inputReject = null;
+  $('runtime-input-container').style.display = 'none';
+  $('runtime-input-container').classList.remove('is-asking', 'is-flash');
+  if (reject) reject(new Error('入力を待たずに止めました'));
+  return true;
+}
+
+/** コードをふつうに実行する（入力待ちのときに押されたら、前の実行を止めてから始め直す） */
 async function runCode() {
+  if (cancelInputWait() && currentRun) await currentRun.catch(() => {});
+  currentRun = runCodeOnce();
+  await currentRun;
+}
+
+async function runCodeOnce() {
   exitStepMode();
 
   const output = $('output');
@@ -132,6 +166,7 @@ async function runCode() {
   $('runtime-input-container').style.display = 'none';
   isWaitingForInput = false;
   inputCallback = null;
+  runCancelled = false;
   typedInputs.length = 0;
   button.disabled = true;
 
@@ -144,7 +179,9 @@ async function runCode() {
     const source = code.replace(/\binput\(/g, 'await custom_input(');
 
     const result = await runUserCode(pyodide, source, { element: output });
-    if (result.error) {
+    if (runCancelled) {
+      output.append('\n（入力を待たずに、実行を止めました）');
+    } else if (result.error) {
       if (output.textContent) output.append('\n');
       output.append(explainError(result.error, code));
       showFix(suggestFix(code, result.error), applyFix, result.error);
@@ -154,8 +191,12 @@ async function runCode() {
       showCommonNotes(noticeCommonMistakes(code));
     }
   } catch (error) {
-    console.error('実行エラー:', error);
-    output.append('\nエラー: ' + error);
+    if (runCancelled) {
+      output.append('\n（入力を待たずに、実行を止めました）');
+    } else {
+      console.error('実行エラー:', error);
+      output.append('\nエラー: ' + error);
+    }
   } finally {
     button.disabled = false;
     $('runtime-input-container').style.display = 'none';
@@ -223,6 +264,7 @@ function updateStepInputs() {
 
 /** ステップ実行を始める */
 async function startStepMode() {
+  cancelInputWait();
   const code = bench.getCode();
   const output = $('output');
   const button = $('step-btn');
@@ -421,6 +463,7 @@ function setupControls() {
       okLabel: '全消去する',
     });
     if (!ok) return;
+    cancelInputWait();
     exitStepMode();
     // 消す前のコードを控えておき、通知の「元に戻す」で戻せるようにする
     const before = bench.getCode();
@@ -630,6 +673,10 @@ async function init() {
       bench.loadShared(late);
     });
     bench.editor.on('change', updateStepInputs);
+    // 入力待ちのままコードを書き換えたら、古いコードの実行は止める（入力欄が出たまま残らないように）
+    bench.editor.on('change', () => {
+      if (cancelInputWait()) toast('コードが変わったので、実行を止めました', 3000);
+    });
 
     addTextSizeControl($('display-settings'));
     addHalfWidthControl($('display-settings'));

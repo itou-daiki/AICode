@@ -30,9 +30,10 @@ export function createScriptedInput(values) {
  * @returns {(prompt?: string) => Promise<string>}
  */
 export function createInteractiveInput(parts, state) {
-  return (prompt = '') => new Promise((resolve) => {
+  return (prompt = '') => new Promise((resolve, reject) => {
     state.waiting = true;
     state.resolve = resolve;
+    state.reject = reject;
 
     const question = String(prompt ?? '');
     if (question && parts.outputEl) parts.outputEl.append(question);
