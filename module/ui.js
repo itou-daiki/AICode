@@ -1,5 +1,6 @@
 import { iconHtml, setIconLabel } from './icons.js';
 import { PYODIDE_CONFIG } from './config.js';
+import { scanLine } from './pyfix.js';
 // module/ui.js
 // 画面周りの共通部品。全モードで同じ操作感になるようにまとめている。
 //
@@ -690,6 +691,59 @@ export async function bootPython({ prepare, statusEl } = {}) {
  * ========================================================== */
 
 /**
+ * 「:」が要る行（if・for・def など）で「:」を忘れていたら、行の終わりに足す
+ * 例：「for i in range(3)」→「for i in range(3):」、「else」→「else:」
+ * 括弧が閉じていない行（次の行に続く式）や、文字列・コメントの中は触らない
+ * @param {string} line
+ * @returns {string|null} 足したあとの行。足さなくてよければ null
+ */
+export function withMissingColon(line) {
+  const kinds = scanLine(line);
+  let end = line.length;
+  const comment = kinds.indexOf('comment');
+  if (comment >= 0) end = comment;
+  const code = line.slice(0, end).replace(/\s+$/, '');
+  if (!code.trim() || code.endsWith(':')) return null;
+  // 括弧が閉じていなければ、式の途中（次の行に続く）
+  let depth = 0;
+  for (let i = 0; i < code.length; i++) {
+    if (kinds[i] !== 'code') continue;
+    if ('([{'.includes(code[i])) depth++;
+    if (')]}'.includes(code[i])) depth--;
+  }
+  if (depth !== 0 || kinds[code.length - 1] !== 'code' || code.endsWith('\\') || code.endsWith(',')) return null;
+  const head = code.trim();
+  const ok = /^(else|try|finally)$/.test(head)
+    || /^except(\s+\S.*)?$/.test(head)
+    || /^(if|elif|while|for|def|class|with)\s+\S/.test(head);
+  // else if（ほかの言語の書き方）は、「:」を足しても動かないので触らない
+  if (!ok || /^else\s+if\b/.test(head)) return null;
+  return code + ':' + line.slice(code.length);
+}
+
+/**
+ * Enter（改行）の前に、忘れた「:」を足す。足したら true
+ * @param {object} editor CodeMirror
+ */
+export function addMissingColon(editor) {
+  if (editor.getOption('readOnly') || editor.somethingSelected() || editor.listSelections().length > 1) return false;
+  const cursor = editor.getCursor();
+  const line = editor.getLine(cursor.line);
+  // 行の終わり（後ろが空白かコメントだけ）で Enter を押したときだけ
+  const rest = line.slice(cursor.ch);
+  if (rest.trim() && !rest.trim().startsWith('#')) return false;
+  const fixed = withMissingColon(line);
+  if (!fixed) return false;
+  // 足した「:」の位置（元の行と食いちがう最初の字）
+  let at = 0;
+  while (at < line.length && fixed[at] === line[at]) at++;
+  editor.replaceRange(':', { line: cursor.line, ch: at }, { line: cursor.line, ch: at }, '+input');
+  // カーソルは「:」の後ろへ。後ろにコメントがあるときは、コメントを切らないよう行の終わりへ
+  editor.setCursor({ line: cursor.line, ch: rest.trim() ? fixed.length : at + 1 });
+  return true;
+}
+
+/**
  * コードエディタを、キーボードと読み上げでも使いやすくする
  *
  * Tab は字下げに使うので、そのままではエディタから出られない。
@@ -702,6 +756,11 @@ export function makeEditorFriendly(cm, label) {
   // 行のはじめの空白の中で Backspace を押したら、1 字ではなく 1 段（4 文字）戻す。
   // 1 字ずつだと、中身から出るつもりで 1 回押したとき空白が 3 つ残り、エラーになる
   cm.addKeyMap({
+    // if・for・def などの行で「:」を忘れて Enter を押したら、「:」を足してから改行する（次の行は自動で 1 段下がる）
+    Enter: (editor) => {
+      addMissingColon(editor);
+      return CodeMirror.Pass;
+    },
     Backspace: (editor) => {
       if (editor.getOption('readOnly') || editor.somethingSelected() || editor.listSelections().length > 1) return CodeMirror.Pass;
       const cursor = editor.getCursor();

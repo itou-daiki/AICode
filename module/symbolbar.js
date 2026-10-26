@@ -9,6 +9,8 @@
 //   import { attachSymbolBar } from './symbolbar.js';
 //   attachSymbolBar(editor, document.getElementById('code-symbols'));
 
+import { addMissingColon } from './ui.js';
+
 /**
  * 記号ボタンの表
  * [見た目, 入れる字, 説明, 組の閉じ側（あれば、間にカーソルを置く）]
@@ -140,7 +142,11 @@ export function attachSymbolBar(cm, container) {
   }
   for (const [text, command, title] of ACTIONS) {
     const button = makeKey(text, title, 'symbol-key is-wide');
-    button.addEventListener('click', () => run(() => cm.execCommand(command)));
+    button.addEventListener('click', () => run(() => {
+      // 「改行」でも、Enter と同じく忘れた「:」を足してから改行する
+      if (command === 'newlineAndIndent') addMissingColon(cm);
+      cm.execCommand(command);
+    }));
     keys.appendChild(button);
   }
 

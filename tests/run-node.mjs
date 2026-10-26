@@ -18,7 +18,7 @@ import { sameOutput } from '../module/grade.js';
 import { toKtph } from '../module/ktph.js';
 import { describeStep, explainLine, variableHistory } from '../module/stepview.js';
 import { findBlock } from '../module/blockscope.js';
-import { tipForError } from '../module/ui.js';
+import { tipForError, withMissingColon } from '../module/ui.js';
 import { findNameMistakes, suggestName, registerNames } from '../module/namefix.js';
 import { suggestFix } from '../module/pyrun.js';
 import { moveLines, blockRange } from '../module/linedrag.js';
@@ -1795,6 +1795,18 @@ section('中途半端なインデント（4 の倍数でない）を知らせる
   equal('半端: 入れ子は、直したあとの深さ + 4 に', JSON.stringify(marks('for i in range(3):\n  for j in range(2):\n     print(j)\n  print(i)\n')), '[[1,2,4],[2,5,8],[3,2,4]]');
   equal('半端: 「:」の次でなければ、上の行より深くしない', JSON.stringify(marks('x = 1\n   y = 2\n')), '[[1,3,0]]');
   equal('半端: 4 の倍数のインデントには出さない', JSON.stringify(marks('if x:\n    a = 1\n        \n    b = 2\n')), '[]');
+}
+
+section('「:」の付け忘れを、改行のときに足す');
+{
+  equal('コロン: for の行', withMissingColon('for i in range(3)'), 'for i in range(3):');
+  equal('コロン: else だけの行', withMissingColon('    else'), '    else:');
+  equal('コロン: コメントの前に足す', withMissingColon('while True  # ずっと'), 'while True:  # ずっと');
+  equal('コロン: もう付いていれば何もしない', withMissingColon('if x == 1:'), null);
+  equal('コロン: 括弧が閉じていない行は続きの行なので触らない', withMissingColon('if (a and'), null);
+  equal('コロン: 文字列の中の if は触らない', withMissingColon('x = "if a"'), null);
+  equal('コロン: else if（ほかの言語の書き方）は触らない', withMissingColon('else if x'), null);
+  equal('コロン: ふつうの行は触らない', withMissingColon('print(1)'), null);
 }
 
 /* ============================================================
