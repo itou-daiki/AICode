@@ -1599,7 +1599,40 @@ button.indent-demo-line:focus-visible { outline: 2px solid var(--c-mark); outlin
 .CodeMirror-code > .cm-drag-current .cm-drag-handle { opacity: 1; color: var(--c-mark); }
 .is-line-dragging, .is-line-dragging .cm-drag-handle { cursor: grabbing; }
 /* つかんでいる行と、入れる場所の朱の線 */
-.CodeMirror-linebackground.cm-drag-source { background: rgba(31, 78, 121, 0.14); }
+.CodeMirror-linebackground.cm-drag-source { background: rgba(31, 78, 121, 0.08); }
+.cm-drag-source-text .CodeMirror-line { opacity: 0.35; }
+/* つかんだ行の写し。少し浮かせて影を付け、マウスについてくる */
+.cm-drag-ghost {
+  position: fixed;
+  z-index: 70;
+  padding: 2px 6px;
+  white-space: pre;
+  color: var(--c-ink);
+  background: var(--c-paper);
+  border: 2px solid var(--c-mark);
+  border-radius: 4px;
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.22);
+  transform: rotate(-0.6deg) scale(1.02);
+  pointer-events: none;
+  opacity: 0.96;
+}
+/* 長い行は右を切る（右上の「○ 行まとめて」は切らない） */
+.cm-drag-ghost > div { overflow: hidden; text-overflow: ellipsis; }
+.cm-drag-ghost.is-noop { border-color: var(--c-rule); box-shadow: 0 4px 10px rgba(0, 0, 0, 0.12); }
+.cm-drag-ghost-badge {
+  position: absolute;
+  top: -11px;
+  right: 6px;
+  padding: 0 8px;
+  font-family: var(--font-sans, sans-serif);
+  font-size: 11px;
+  line-height: 18px;
+  color: #fff;
+  background: var(--c-mark);
+  border-radius: 9px;
+}
+.cm-drag-ghost.is-noop .cm-drag-ghost-badge { background: var(--c-ink-2); }
+@media (prefers-reduced-motion: reduce) { .cm-drag-ghost { transform: none; } }
 /* 行の塗り（いまの行・まとまり）に隠れないよう、行の上に重ねて描く */
 .cm-drop-before::before, .cm-drop-after::after {
   content: '';

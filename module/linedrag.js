@@ -192,12 +192,59 @@ export function attachLineDrag(cm) {
   };
   const showDrag = () => {
     clearMarks();
-    for (let i = drag.from; i <= drag.to; i++) mark(i, 'background', 'cm-drag-source');
+    for (let i = drag.from; i <= drag.to; i++) {
+      mark(i, 'background', 'cm-drag-source');
+      // 元の場所の字は薄くして、浮いている方を目立たせる
+      mark(i, 'wrap', 'cm-drag-source-text');
+    }
     // 入れる場所に朱の線（その行の上か、最後の行の下）
     if (drag.before !== null && !(drag.before >= drag.from && drag.before <= drag.to + 1)) {
       if (drag.before < cm.lineCount()) mark(drag.before, 'wrap', 'cm-drop-before');
       else mark(cm.lineCount() - 1, 'wrap', 'cm-drop-after');
     }
+  };
+
+  /* ---------- 浮いてついてくる行 ---------- */
+
+  /** つかんだ行（見出しなら中身ごと）の写しを作り、マウスについてこさせる */
+  const makeGhost = () => {
+    const ghost = document.createElement('div');
+    ghost.className = 'cm-drag-ghost';
+    ghost.setAttribute('aria-hidden', 'true');
+    const sample = wrapper.querySelector('.CodeMirror-line');
+    const style = sample ? getComputedStyle(sample) : null;
+    if (style) {
+      ghost.style.fontFamily = style.fontFamily;
+      ghost.style.fontSize = style.fontSize;
+      ghost.style.lineHeight = style.lineHeight;
+    }
+    for (let i = drag.from; i <= drag.to; i++) {
+      const row = document.createElement('div');
+      row.textContent = cm.getLine(i) || ' ';
+      ghost.appendChild(row);
+    }
+    const count = drag.to - drag.from + 1;
+    if (count > 1) {
+      const badge = document.createElement('span');
+      badge.className = 'cm-drag-ghost-badge';
+      badge.textContent = `${count} 行まとめて`;
+      ghost.appendChild(badge);
+    }
+    const left = cm.charCoords({ line: drag.from, ch: 0 }, 'window').left;
+    const box = cm.getScrollerElement().getBoundingClientRect();
+    ghost.style.left = `${left - 6}px`;
+    ghost.style.maxWidth = `${Math.max(120, box.right - left)}px`;
+    document.body.appendChild(ghost);
+    // つかんだところと、行の上の端との差（行がマウスから離れて見えないように）
+    drag.grabOffset = drag.startY - cm.heightAtLine(drag.from, 'window');
+    drag.ghost = ghost;
+  };
+  const moveGhost = (clientY) => {
+    if (!drag.ghost) return;
+    drag.ghost.style.top = `${clientY - drag.grabOffset}px`;
+    // 元の場所に戻すだけ（動かない）ときは、灰色にして知らせる
+    const noop = drag.before === null || (drag.before >= drag.from && drag.before <= drag.to + 1);
+    drag.ghost.classList.toggle('is-noop', noop);
   };
 
   /** マウスの高さから、どの行の前に入れるかを決める */
@@ -228,6 +275,7 @@ export function attachLineDrag(cm) {
     try { wrapper.releasePointerCapture(drag.pointerId); } catch { /* もう離れている */ }
     clearInterval(scrollTimer);
     clearMarks();
+    if (drag.ghost) drag.ghost.remove();
     drag = null;
     wrapper.classList.remove('is-line-dragging');
     window.removeEventListener('pointermove', onMove, true);
@@ -293,10 +341,12 @@ export function attachLineDrag(cm) {
       if (Math.abs(e.clientY - drag.startY) < START_DISTANCE) return;
       drag.started = true;
       wrapper.classList.add('is-line-dragging');
+      makeGhost();
     }
     drag.before = boundaryAt(e.clientY);
     autoScroll(e.clientY);
     showDrag();
+    moveGhost(e.clientY);
   }
 
   /* ---------- キーボード（Alt + ↑ / ↓） ---------- */
