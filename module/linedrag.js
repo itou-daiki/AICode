@@ -5,7 +5,7 @@
 //   moveLines(lines, from, to, before) … 行の並べかえ（画面に関係なく確かめられる形）
 //
 // if・for などの見出しの行をつかんだときは、その中身もいっしょに動かす（見出しだけ動くとこわれるため）。
-// 行の字下げは変えない。動かした先でまとまりに入れたいときは、字下げで決める。
+// 動かした先に合わせて、インデントもずらす（「:」の行のすぐ下なら 1 段深く、など）。
 
 import { findBlock } from './blockscope.js';
 
@@ -69,6 +69,46 @@ export function blockRange(lines, line) {
   return { from, to };
 }
 
+/**
+ * 動かした行のインデントを、動かした先に合わせる（中の行どうしの深さの差はそのまま、まとめてずらす）
+ *
+ * ・すぐ上が「:」の行 … その中身の深さ（上の行 + 4）
+ * ・それ以外 … 上の行と下の行の深さの間に収める（間にあれば、今の深さのまま）
+ * @param {string[]} lines 動かしたあとのすべての行
+ * @param {number} start 動かした最初の行（0 から）
+ * @param {number} count 動かした行の数
+ * @returns {string[]} インデントを合わせた行
+ */
+export function reindentMoved(lines, start, count) {
+  const moving = lines.slice(start, start + count);
+  const first = moving.find(text => !isBlank(text));
+  // タブで字下げしている行は、ずらし方が決められないので触らない
+  if (first === undefined || moving.some(text => /^\s*\t/.test(text))) return lines;
+  const codeOf = (text) => String(text).replace(/\s+#.*$/, '').replace(/\s+$/, '');
+  let prev = null;
+  for (let i = start - 1; i >= 0; i--) { if (!isBlank(lines[i])) { prev = lines[i]; break; } }
+  let next = null;
+  for (let i = start + count; i < lines.length; i++) { if (!isBlank(lines[i])) { next = lines[i]; break; } }
+  const current = indentOf(first);
+  let target;
+  if (prev === null) target = 0;
+  else if (codeOf(prev).endsWith(':')) target = indentOf(prev) + 4;
+  else {
+    const high = indentOf(prev);
+    const low = next === null ? 0 : Math.min(indentOf(next), high);
+    target = Math.min(Math.max(current, low), high);
+    target -= target % 4;
+  }
+  const delta = target - current;
+  if (!delta) return lines;
+  const shifted = moving.map((text) => {
+    if (isBlank(text)) return text;
+    const width = Math.max(0, indentOf(text) + delta);
+    return ' '.repeat(width) + text.replace(/^[ \t]*/, '');
+  });
+  return [...lines.slice(0, start), ...shifted, ...lines.slice(start + count)];
+}
+
 function rangeFor(cm, line) {
   return blockRange(cm.getValue().split('\n'), line);
 }
@@ -81,6 +121,7 @@ function applyMove(cm, from, to, before) {
   const lines = cm.getValue().split('\n');
   const moved = moveLines(lines, from, to, before);
   if (!moved) return false;
+  moved.lines = reindentMoved(moved.lines, moved.start, to - from + 1);
   const start = Math.min(from, before);
   const end = Math.max(to, before - 1);
   const text = moved.lines.slice(start, end + 1).join('\n');

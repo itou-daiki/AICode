@@ -21,7 +21,7 @@ import { findBlock } from '../module/blockscope.js';
 import { tipForError, withMissingColon } from '../module/ui.js';
 import { findNameMistakes, suggestName, registerNames } from '../module/namefix.js';
 import { suggestFix } from '../module/pyrun.js';
-import { moveLines, blockRange } from '../module/linedrag.js';
+import { moveLines, blockRange, reindentMoved } from '../module/linedrag.js';
 import { findIndentOutliers } from '../module/indentcheck.js';
 import {
   indentTrace, indentIfSteps, indentNestedSteps, indentDefSteps, swapSteps, inputSteps, resetSteps, returnSteps, loopSteps, equalSteps,
@@ -1807,6 +1807,26 @@ section('「:」の付け忘れを、改行のときに足す');
   equal('コロン: 文字列の中の if は触らない', withMissingColon('x = "if a"'), null);
   equal('コロン: else if（ほかの言語の書き方）は触らない', withMissingColon('else if x'), null);
   equal('コロン: ふつうの行は触らない', withMissingColon('print(1)'), null);
+}
+
+section('行を動かしたら、動かした先に合わせてインデントをずらす');
+{
+  const drop = (code, from, to, before) => {
+    const moved = moveLines(code.split('\n'), from, to, before);
+    return reindentMoved(moved.lines, moved.start, to - from + 1).join('\n');
+  };
+  equal('移動: 「:」の行のすぐ下へ動かすと、その中身の深さに',
+    drop('for x in range(5):\n    if x % 2 == 0:\n        t = t + x\n    print(x)', 3, 3, 2),
+    'for x in range(5):\n    if x % 2 == 0:\n        print(x)\n        t = t + x');
+  equal('移動: まとまりの上へ出すと、インデントを戻す',
+    drop('a = 1\nfor i in range(3):\n    print(i)\n    x = 1\nb = 2', 3, 3, 1),
+    'a = 1\nx = 1\nfor i in range(3):\n    print(i)\nb = 2');
+  equal('移動: 同じまとまりの中なら、深さは変えない',
+    drop('for i in range(3):\n    a = 1\n    b = 2', 2, 2, 1),
+    'for i in range(3):\n    b = 2\n    a = 1');
+  equal('移動: 見出しごと動かすときは、中身もいっしょにずらす',
+    drop('if a:\n    for i in r:\n        print(i)\nx = 1', 1, 2, 4),
+    'if a:\nx = 1\nfor i in r:\n    print(i)');
 }
 
 /* ============================================================
